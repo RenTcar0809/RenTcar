@@ -29,8 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Verificar si ya existe el NIT o el correo 
-        // Nota: Se usan comillas dobles en "IdUsuario" para compatibilidad con mayúsculas en PostgreSQL
+        // Verificar si ya existe el NIT o el correo (con comillas dobles en "IdUsuario")
         $stmtCheck = $pdo->prepare('SELECT "IdUsuario" FROM usuario WHERE nit = :nit OR correo = :correo');
         $stmtCheck->execute([':nit' => $nit, ':correo' => $correo]);
 
@@ -42,8 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Cifrar contraseña de forma segura
         $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
 
-        // Insertar usuario tipo empresa
-        $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, numTelefono, correo, contraseña, direccion) 
+        // Insertar usuario tipo empresa (con comillas dobles en "numTelefono" para PostgreSQL)
+        $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, \"numTelefono\", correo, contraseña, direccion) 
                 VALUES (1, :empresa, :nit, :representante_legal, :telefono, :correo, :contrasena, :direccion)";
         
         $stmt = $pdo->prepare($sql);
@@ -73,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (PDOException $e) {
-        // json_encode previene errores de sintaxis en el navegador si el mensaje tiene saltos de línea
+        // Manejo seguro de errores con json_encode para evitar fallos de sintaxis en el navegador
         $mensajeError = json_encode('Error: ' . $e->getMessage());
         echo "<script>
                 alert($mensajeError);
