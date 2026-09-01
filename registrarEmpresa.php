@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contrasena = $_POST['contrasena'] ?? '';
     $confirmContrasena = $_POST['confirm_contrasena'] ?? '';
 
-    // Validaciones de campos
+    // Validaciones de campos obligatorios
     if (empty($empresa) || empty($nit) || empty($representanteLegal) || 
         empty($telefono) || empty($direccion) || empty($correo) || empty($contrasena)) {
         echo "<script>alert('Complete todos los campos obligatorios.'); window.history.back();</script>";
@@ -29,8 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Verificar si ya existe el NIT o el correo
-        $stmtCheck = $pdo->prepare("SELECT IdUsuario FROM usuario WHERE nit = :nit OR correo = :correo");
+        // Verificar si ya existe el NIT o el correo 
+        // Nota: Se usan comillas dobles en "IdUsuario" para compatibilidad con mayúsculas en PostgreSQL
+        $stmtCheck = $pdo->prepare('SELECT "IdUsuario" FROM usuario WHERE nit = :nit OR correo = :correo');
         $stmtCheck->execute([':nit' => $nit, ':correo' => $correo]);
 
         if ($stmtCheck->rowCount() > 0) {
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Cifrar contraseña
+        // Cifrar contraseña de forma segura
         $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
 
         // Insertar usuario tipo empresa
@@ -58,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $id_usuario = $pdo->lastInsertId();
 
-        // Crear sesión
+        // Crear sesión automática
         $_SESSION['IdUsuario'] = $id_usuario;
         $_SESSION['id_proveedor'] = $id_usuario;
         $_SESSION['nombre_empresa'] = $empresa;
@@ -71,8 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               </script>";
         exit;
 
- } catch (PDOException $e) {
-        // json_encode asegura que cualquier carácter o salto de línea no rompa el código JS
+    } catch (PDOException $e) {
+        // json_encode previene errores de sintaxis en el navegador si el mensaje tiene saltos de línea
         $mensajeError = json_encode('Error: ' . $e->getMessage());
         echo "<script>
                 alert($mensajeError);
