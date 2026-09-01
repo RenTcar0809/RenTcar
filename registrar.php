@@ -2,12 +2,12 @@
 ob_start(); 
 session_start();
 
-// 1. Incluimos la conexión unificada basada en PDO (detecta local o Render)
+// Incluimos la conexión unificada basada en PDO
 require_once 'conexion.php'; 
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
-    // 2. Recibir datos del formulario (con PDO ya no se necesita mysqli_real_escape_string)
+    // Recibir y limpiar datos del formulario
     $nombre     = trim($_POST['nombre'] ?? '');
     $apellido   = trim($_POST['apellido'] ?? '');
     $fecha      = trim($_POST['fechaDeNacimiento'] ?? '');
@@ -16,6 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $correo     = trim($_POST['correo'] ?? '');
     $password   = $_POST['password'] ?? '';
 
+    // Validar campos obligatorios
     if (empty($nombre) || empty($apellido) || empty($correo) || empty($password)) {
         echo "<script>
                 alert('Por favor complete los campos obligatorios.');
@@ -25,11 +26,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     try {
-        // 3. VERIFICAR si el correo o documento ya existen usando Consultas Preparadas ($pdo)
+        // Verificar si el correo o documento ya existen
         $sql_revisar = "SELECT * FROM usuario WHERE correo = :correo OR documento = :documento LIMIT 1";
         $stmt_revisar = $pdo->prepare($sql_revisar);
         $stmt_revisar->execute([
-            ':correo' => $correo,
+            ':correo'    => $correo,
             ':documento' => $documento
         ]);
         
@@ -44,8 +45,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Encriptar la contraseña de forma segura
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-        // 4. INSERTAR los datos de forma segura
-        $sql_insertar = "INSERT INTO usuario (nombre, apellido, fechaDeNacimiento, numTelefono, documento, correo, contraseña)
+        // Insertar datos (con comillas dobles en columnas con mayúsculas para PostgreSQL)
+        $sql_insertar = "INSERT INTO usuario (nombre, apellido, \"fechaDeNacimiento\", \"numTelefono\", documento, correo, contraseña)
                          VALUES (:nombre, :apellido, :fecha, :telefono, :documento, :correo, :password)";
         
         $stmt_insertar = $pdo->prepare($sql_insertar);
@@ -67,12 +68,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
 
     } catch (PDOException $e) {
+        // Manejo seguro del error con json_encode
+        $mensajeError = json_encode('Error en el sistema: ' . $e->getMessage());
         echo "<script>
-                alert('Error en el sistema: " . addslashes($e->getMessage()) . "');
+                alert($mensajeError);
                 window.history.back();
               </script>";
         exit();
     }
+} else {
+    header('Location: registrar.php');
+    exit();
 }
 
 ob_end_flush();
