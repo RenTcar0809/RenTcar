@@ -2,63 +2,78 @@
 ob_start(); 
 session_start();
 
-// 1. Conexión
-$conexion = mysqli_connect("localhost", "root", "", "rentcar");
-
-if (!$conexion) {
-    die("Error de conexión: " . mysqli_connect_error());
-}
-
-// Forzar que PHP nos diga los errores de SQL manualmente
-mysqli_report(MYSQLI_REPORT_OFF);
+// 1. Incluimos la conexión unificada basada en PDO (detecta local o Render)
+require_once 'conexion.php'; 
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
-    // 2. Recibir datos y limpiar
-    $nombre     = mysqli_real_escape_string($conexion, $_POST['nombre']);
-    $apellido   = mysqli_real_escape_string($conexion, $_POST['apellido']);
-    $fecha      = mysqli_real_escape_string($conexion, $_POST['fechaDeNacimiento']);
-    $telefono   = mysqli_real_escape_string($conexion, $_POST['numTelefono']);
-    $documento  = mysqli_real_escape_string($conexion, $_POST['documento']);
-    $correo     = mysqli_real_escape_string($conexion, $_POST['correo']);
-    $password   = mysqli_real_escape_string($conexion, $_POST['contraseña']);
+    // 2. Recibir datos del formulario (con PDO ya no se necesita mysqli_real_escape_string)
+    $nombre     = trim($_POST['nombre'] ?? '');
+    $apellido   = trim($_POST['apellido'] ?? '');
+    $fecha      = trim($_POST['fechaDeNacimiento'] ?? '');
+    $telefono   = trim($_POST['numTelefono'] ?? '');
+    $documento  = trim($_POST['documento'] ?? '');
+    $correo     = trim($_POST['correo'] ?? '');
+    $password   = $_POST['password'] ?? '';
 
-    // 3. VERIFICAR si el correo o documento ya existen
-    // Importante: Revisa si en tu DB la columna se llama 'contraseña' o 'contrasena'
-    $consulta_revisar = "SELECT * FROM usuario WHERE correo = '$correo' OR documento = '$documento'";
-    $resultado_revisar = mysqli_query($conexion, $consulta_revisar);
-
-    if (!$resultado_revisar) {
-        // Si la consulta falla, esto nos dirá POR QUÉ (ej: nombre de columna mal escrito)
-        die("Error en la base de datos al validar: " . mysqli_error($conexion));
-    }
-
-    if (mysqli_num_rows($resultado_revisar) > 0) {
-        // Datos duplicados encontrados
+    if (empty($nombre) || empty($apellido) || empty($correo) || empty($password)) {
         echo "<script>
-                alert('El correo o documento ya están registrados. Intenta con otros.');
+                alert('Por favor complete los campos obligatorios.');
                 window.history.back();
               </script>";
         exit();
     }
 
-    // 4. INSERTAR si todo está bien
-    $sql_insertar = "INSERT INTO usuario (nombre, apellido, fechaDeNacimiento, numTelefono, documento, correo, contraseña)
-                     VALUES ('$nombre', '$apellido', '$fecha', '$telefono', '$documento', '$correo', '$password')";
+    try {
+        // 3. VERIFICAR si el correo o documento ya existen usando Consultas Preparadas ($pdo)
+        $sql_revisar = "SELECT * FROM usuario WHERE correo = :correo OR documento = :documento LIMIT 1";
+        $stmt_revisar = $pdo->prepare($sql_revisar);
+        $stmt_revisar->execute([
+            ':correo' => $correo,
+            ':documento' => $documento
+        ]);
+        
+        if ($stmt_revisar->rowCount() > 0) {
+            echo "<script>
+                    alert('El correo o documento ya están registrados. Intenta con otros.');
+                    window.history.back();
+                  </script>";
+            exit();
+        }
 
-    if (mysqli_query($conexion, $sql_insertar)) {
+        // Encriptar la contraseña de forma segura
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+        // 4. INSERTAR los datos de forma segura
+        $sql_insertar = "INSERT INTO usuario (nombre, apellido, fechaDeNacimiento, numTelefono, documento, correo, contraseña)
+                         VALUES (:nombre, :apellido, :fecha, :telefono, :documento, :correo, :password)";
+        
+        $stmt_insertar = $pdo->prepare($sql_insertar);
+        $stmt_insertar->execute([
+            ':nombre'    => $nombre,
+            ':apellido'  => $apellido,
+            ':fecha'     => $fecha,
+            ':telefono'  => $telefono,
+            ':documento' => $documento,
+            ':correo'    => $correo,
+            ':password'  => $passwordHash
+        ]);
+
         $_SESSION['usuario_nombre'] = $nombre;
         echo "<script>
                 alert('¡Registro exitoso!');
                 window.location.href='dashboardf.php';
               </script>";
         exit();
-    } else {
-        // Esto nos dirá el error exacto si el INSERT falla
-        echo "Error al registrar: " . mysqli_error($conexion);
+
+    } catch (PDOException $e) {
+        echo "<script>
+                alert('Error en el sistema: " . addslashes($e->getMessage()) . "');
+                window.history.back();
+              </script>";
+        exit();
     }
 }
 
-mysqli_close($conexion);
 ob_end_flush();
 ?>
