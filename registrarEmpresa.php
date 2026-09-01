@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Verificar si ya existe el NIT o el correo (con comillas dobles en "IdUsuario")
+        // Verificar si ya existe el NIT o el correo
         $stmtCheck = $pdo->prepare('SELECT "IdUsuario" FROM usuario WHERE nit = :nit OR correo = :correo');
         $stmtCheck->execute([':nit' => $nit, ':correo' => $correo]);
 
@@ -38,12 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Cifrar contraseña de forma segura
+        // Cifrar contraseña
         $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
 
-        // Insertar usuario tipo empresa (con comillas dobles y fecha de nacimiento por defecto)
-        $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, \"numTelefono\", correo, contraseña, direccion, \"fechaDeNacimiento\") 
-                VALUES (1, :empresa, :nit, :representante_legal, :telefono, :correo, :contrasena, :direccion, '2000-01-01')";
+        // Insertar usuario tipo empresa rellenando los campos obligatorios de personas normales
+        $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, \"numTelefono\", correo, contraseña, direccion, \"fechaDeNacimiento\", nombre, apellido, documento) 
+                VALUES (1, :empresa, :nit, :representante_legal, :telefono, :correo, :contrasena, :direccion, '2000-01-01', 'N/A', 'N/A', '0')";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -72,7 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (PDOException $e) {
-        // Manejo seguro de errores con json_encode para evitar fallos de sintaxis en el navegador
         $mensajeError = json_encode('Error: ' . $e->getMessage());
         echo "<script>
                 alert($mensajeError);
