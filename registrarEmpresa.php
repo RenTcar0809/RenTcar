@@ -41,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Cifrar contraseña de forma segura
         $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
 
-        // Insertar usuario tipo empresa (con comillas dobles en "numTelefono" para PostgreSQL)
-        $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, \"numTelefono\", correo, contraseña, direccion) 
-                VALUES (1, :empresa, :nit, :representante_legal, :telefono, :correo, :contrasena, :direccion)";
+        // Insertar usuario tipo empresa (con comillas dobles y fecha de nacimiento por defecto)
+        $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, \"numTelefono\", correo, contraseña, direccion, \"fechaDeNacimiento\") 
+                VALUES (1, :empresa, :nit, :representante_legal, :telefono, :correo, :contrasena, :direccion, '2000-01-01')";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
