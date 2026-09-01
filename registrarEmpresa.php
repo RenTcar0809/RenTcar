@@ -1,10 +1,10 @@
 <?php
-session_start(); // Iniciar sesión al principio del archivo
+session_start();
 require_once 'conexion.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Captura de datos (se mantienen tus variables originales del formulario)
+    // Captura de datos
     $empresa = trim($_POST['razonSocial'] ?? '');
     $nit = trim($_POST['nit'] ?? '');
     $confirmNit = trim($_POST['confirm_nit'] ?? '');
@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contrasena = $_POST['contrasena'] ?? '';
     $confirmContrasena = $_POST['confirm_contrasena'] ?? '';
 
-    // Validaciones de campos...
+    // Validaciones de campos
     if (empty($empresa) || empty($nit) || empty($representanteLegal) || 
         empty($telefono) || empty($direccion) || empty($correo) || empty($contrasena)) {
         echo "<script>alert('Complete todos los campos obligatorios.'); window.history.back();</script>";
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Verificar si ya existe el NIT (en empresa) o el correo en la tabla unificada `usuario`
+        // Verificar si ya existe el NIT o el correo
         $stmtCheck = $pdo->prepare("SELECT IdUsuario FROM usuario WHERE nit = :nit OR correo = :correo");
         $stmtCheck->execute([':nit' => $nit, ':correo' => $correo]);
 
@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Cifrar contraseña
         $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
 
-        // Insertar en la tabla unificada `usuario` con tipo = 1 (Empresa)
+        // Insertar usuario tipo empresa
         $sql = "INSERT INTO usuario (tipo, empresa, nit, representante_legal, numTelefono, correo, contraseña, direccion) 
                 VALUES (1, :empresa, :nit, :representante_legal, :telefono, :correo, :contrasena, :direccion)";
         
@@ -56,17 +56,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':direccion'           => $direccion
         ]);
 
-        // Obtener el ID del nuevo usuario/empresa registrado
         $id_usuario = $pdo->lastInsertId();
 
-        // CREAR LA SESIÓN AUTOMÁTICAMENTE (actualizado a IdUsuario para compatibilidad)
+        // Crear sesión
         $_SESSION['IdUsuario'] = $id_usuario;
-        $_SESSION['id_proveedor'] = $id_usuario; // Mantenemos esto por si otra parte de tu código lo lee
+        $_SESSION['id_proveedor'] = $id_usuario;
         $_SESSION['nombre_empresa'] = $empresa;
         $_SESSION['correo_empresa'] = $correo;
         $_SESSION['rol'] = 'proveedor';
 
-        // Redirigir directamente al panel de la empresa
         echo "<script>
                 alert('¡Empresa registrada con éxito! Bienvenido.');
                 window.location.href = 'dashboardE.php';
