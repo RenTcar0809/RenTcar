@@ -1,7 +1,8 @@
 <?php
 session_start();
-// Cambia esto por tu archivo de conexión real si usas PDO, aquí seguimos con mysqli por tu ejemplo
-$conexion = mysqli_connect("localhost", "root", "", "rentcar");
+
+// 1. Incluimos la conexión unificada basada en PDO (detecta local o Render)
+require_once 'conexion.php'; 
 
 if (!isset($_SESSION['IdUsuario'])) {
     header("Location: login.php");
@@ -10,8 +11,15 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 $id_usuario = $_SESSION['IdUsuario'];
 
-// Consulta mejorada para traer los vehículos
-$query = mysqli_query($conexion, "SELECT * FROM vehiculo WHERE id_proveedor = '$id_usuario' ORDER BY id_v DESC");
+try {
+    // 2. Consulta mejorada para traer los vehículos usando PDO y comillas dobles si hay mayúsculas
+    $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
+    $stmt->execute([':id_usuario' => $id_usuario]);
+    $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $error_msg = "Error al cargar los vehículos: " . $e->getMessage();
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -24,7 +32,6 @@ $query = mysqli_query($conexion, "SELECT * FROM vehiculo WHERE id_proveedor = '$
     <!-- Iconos para mejor accesibilidad -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Estilos rápidos para complementar tu historialV.css */
         :root { --rojo: #e50914; --oscuro: #111; --card: #1a1a1a; }
         body { background-color: #0b0b0b; color: white; font-family: 'Inter', sans-serif; }
         
@@ -79,7 +86,11 @@ $query = mysqli_query($conexion, "SELECT * FROM vehiculo WHERE id_proveedor = '$
             </a>
         </div>
 
-        <?php if (mysqli_num_rows($query) == 0): ?>
+        <?php if (isset($error_msg)): ?>
+            <div style="background: rgba(229,9,20,0.2); border: 1px solid var(--rojo); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p><?php echo htmlspecialchars($error_msg); ?></p>
+            </div>
+        <?php elseif (empty($vehiculos)): ?>
             <div class="empty-state-container" style="text-align: center; padding: 80px 20px;">
                 <i class="fas fa-car-side" style="font-size: 4rem; color: #333; margin-bottom: 20px;"></i>
                 <h2>No tienes vehículos activos</h2>
@@ -87,28 +98,34 @@ $query = mysqli_query($conexion, "SELECT * FROM vehiculo WHERE id_proveedor = '$
             </div>
         <?php else: ?>
             <div class="vehiculos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px;">
-                <?php while($row = mysqli_fetch_assoc($query)): 
+                <?php foreach($vehiculos as $row): 
                     $id_v = $row['id_v'];
                     
-                    // 1. Obtener fotos (limitadas a 4 para el diseño de rejilla)
-                    $fotos_query = mysqli_query($conexion, "SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = '$id_v' LIMIT 4");
+                    // 3. Obtener fotos usando PDO (limitadas a 4)
+                    $stmt_fotos = $pdo->prepare('SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = :id_v LIMIT 4');
+                    $stmt_fotos->execute([':id_v' => $id_v]);
+                    $fotos = $stmt_fotos->fetchAll(PDO::FETCH_ASSOC);
                     
-                    // 2. Contar comentarios para este vehículo
-                    $count_comentarios_query = mysqli_query($conexion, "SELECT COUNT(*) as total FROM comentarios_vehiculos WHERE id_vehiculo = '$id_v'");
-                    $total_comentarios = mysqli_fetch_assoc($count_comentarios_query)['total'];
+                    // 4. Contar comentarios usando PDO
+                    $stmt_comentarios = $pdo->prepare('SELECT COUNT(*) as total FROM comentarios_vehiculos WHERE id_vehiculo = :id_v');
+                    $stmt_comentarios->execute([':id_v' => $id_v]);
+                    $total_comentarios = $stmt_comentarios->fetch(PDO::FETCH_ASSOC)['total'];
                 ?>
                 <div class="vehiculo-card">
                     <div class="galeria-grid">
                         <?php 
                         $cont = 0;
-                        while($foto = mysqli_fetch_assoc($fotos_query)): $cont++; ?>
+                        foreach($fotos as $foto): $cont++; ?>
                             <div class="img-box">
                                 <img src="<?php echo htmlspecialchars($foto['ruta_imagen']); ?>" 
                                      onerror="this.src='imagenes/nissan.png';">
                             </div>
-                        <?php endwhile; 
+                        <?php endforeach; 
+                        
                         // Rellenar espacios vacíos si el vehículo tiene menos de 4 fotos
-                        for($i = $cont; $i < 4; $i++) echo '<div class="img-box" style="background:#222; display:flex; align-items:center; justify-content:center; color:#444;"><i class="fas fa-image"></i></div>';
+                        for($i = $cont; $i < 4; $i++) {
+                            echo '<div class="img-box" style="background:#222; display:flex; align-items:center; justify-content:center; color:#444;"><i class="fas fa-image"></i></div>';
+                        }
                         ?>
                     </div>
 
@@ -128,7 +145,7 @@ $query = mysqli_query($conexion, "SELECT * FROM vehiculo WHERE id_proveedor = '$
 
                         <p style="font-size: 0.9rem; color: #888; margin: 15px 0;">
                             <strong>Placa:</strong> <?php echo htmlspecialchars($row['placa']); ?> | 
-                            <strong>Estado:</strong> <span style="color: #2ecc71;"><?php echo $row['estado']; ?></span>
+                            <strong>Estado:</strong> <span style="color: #2ecc71;"><?php echo htmlspecialchars($row['estado']); ?></span>
                         </p>
                         
                         <div class="btn-grid-actions">
@@ -157,7 +174,7 @@ $query = mysqli_query($conexion, "SELECT * FROM vehiculo WHERE id_proveedor = '$
                         </div>
                     </div>
                 </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </div>
