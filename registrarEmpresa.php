@@ -71,8 +71,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               </script>";
         exit;
 
-    } catch (PDOException $e) {
-        echo "<script>alert('Error: " . addslashes($e->getMessage()) . "'); window.history.back();</script>";
+ } catch (PDOException $e) {
+        // json_encode asegura que cualquier carácter o salto de línea no rompa el código JS
+        $mensajeError = json_encode('Error: ' . $e->getMessage());
+        echo "<script>
+                alert($mensajeError);
+                window.history.back();
+              </script>";
         exit;
     }
 
