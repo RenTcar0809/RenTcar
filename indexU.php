@@ -37,29 +37,29 @@
                    
                     <div class="input-group">
                         <label for="nombre"><span class="required">*</span>NOMBRE</label>
-                        <input type="text" id="nombre" name="nombre" placeholder="Escriba su nombre" required>
+                        <input type="text" id="nombre" name="nombre" placeholder="..." required>
                     </div>
 
                     <div class="input-group">
                         <label for="apellido"><span class="required">*</span>APELLIDO</label>
-                        <input type="text" id="apellido" name="apellido" placeholder="Escriba su apellido" required>
+                        <input type="text" id="apellido" name="apellido" placeholder="..." required>
                     </div>
 
                     <div class="input-group">
                         <label for="fechaDeNacimiento"><span class="required">*</span>FECHA DE NACIMIENTO</label>
-                        <input type="text" id="fechaDeNacimiento" name="fechaDeNacimiento" placeholder="DD/MM/YY" onfocus="(this.type='date')" onblur="(this.placeholder='DD/MM/YY')" required>
+                        <input type="text" id="fechaDeNacimiento" name="fechaDeNacimiento" placeholder="DD/MM/AAAA" onfocus="(this.type='date')" onblur="(this.placeholder='DD/MM/YY')" required>
                     </div>
 
                     <div class="input-group">
-                        <label for="numTelefono"><span class="required">*</span>NÚMERO DE CONTACTO</label>
+                        <label for="numTelefono"><span class="required">*</span>NÚMERO DE TELEFONO</label>
                         <div class="phone-input-container">
-                            <input type="tel" id="numTelefono" name="numTelefono" placeholder="Número de teléfono" required>
+                            <input type="tel" id="numTelefono" name="numTelefono" placeholder="..." required>
                         </div>
                     </div>
 
                     <div class="input-group">
                         <label for="documento"><span class="required">*</span>DOCUMENTO DE IDENTIDAD</label>
-                        <input type="text" id="documento" name="documento" placeholder="Número de documento" required>
+                        <input type="text" id="documento" name="documento" placeholder="..." required>
                     </div>
                 </div>
 
@@ -74,7 +74,7 @@
 
                     <div class="input-group">
                         <label for="confirm-email"><span class="required">*</span>CONFIRME SU CORREO ELECTRÓNICO</label>
-                        <input type="email" id="confirm-email" name="confirm_correo" placeholder="Repita su correo electrónico" required>
+                        <input type="email" id="confirm-email" name="confirm_correo" placeholder="..." required>
                     </div>
 
                     <div class="input-group">
@@ -84,12 +84,12 @@
 
                     <div class="input-group">
                         <label for="confirm-password"><span class="required">*</span>CONFIRME SU CONTRASEÑA</label>
-                        <input type="password" id="confirm-password" name="confirm_password" placeholder="Repita su contraseña" required>
+                        <input type="password" id="confirm-password" name="confirm_password" placeholder="..." required>
                     </div>
 
                     <div class="input-group">
                         <label for="confirm-documento"><span class="required">*</span>CONFIRMAR DOCUMENTO</label>
-                        <input type="text" id="confirm-documento" name="confirm_documento" placeholder="Repita el documento" required>
+                        <input type="text" id="confirm-documento" name="confirm_documento" placeholder="..." required>
                     </div>
                 </div>
 

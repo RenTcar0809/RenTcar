@@ -310,4 +310,15 @@ body {
         flex-direction: column;
         gap: 15px;
     }
+
+    /* Limpia y estandariza el texto que el usuario escribe dentro de los inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="date"] {
+    text-transform: none !important; /* Evita que fuercen mayúsculas automáticas si las hubiera */
+    font-family: Arial, sans-serif, -apple-system; /* Tipografía limpia y sumamente legible */
+    font-size: 15px;
+}
 }

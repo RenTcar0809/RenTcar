@@ -13,7 +13,7 @@
         }
 
         body {
-            background-color: #ffffff; /* Mismo fondo gris que tu formulario */
+            background-color: #ffffff;
             height: 100vh;
             display: flex;
             justify-content: center;
@@ -21,8 +21,8 @@
             overflow: hidden;
         }
 
-        /* Enlace gigante que cubre el 100% de la pantalla */
-        .splash-link {
+        /* Contenedor central (ya no necesita ser un enlace obligatorio, pero mantiene el diseño) */
+        .splash-container {
             text-decoration: none;
             width: 100%;
             height: 100%;
@@ -35,28 +35,28 @@
         /* Texto central con la marca RentCar */
         .brand-text {
             font-family: 'Bangers', cursive;
-            font-size: 100px; /* Tamaño grande e imponente en el centro */
-            color: #df0000; /* Rojo exacto solicitado */
+            font-size: 100px;
+            color: #df0000;
             font-style: italic;
             letter-spacing: 2px;
             text-transform: uppercase;
             user-select: none;
-            transition: transform 0.2s ease-in-out;
-            
-            /* Sombra sutil para darle volumen */
+            animation: pulse 1.5s infinite ease-in-out;
             text-shadow: 3px 3px 0px #000000;
         }
 
         /* Modificador específico para la letra T en negro */
         .t-black {
             color: #000000;
-            text-shadow: 3px 3px 0px #ffffff; /* Sombra blanca para resaltar sobre el fondo gris */
+            text-shadow: 3px 3px 0px #ffffff;
             border-color: #ffffff;
         }
 
-        /* Efecto visual al pasar el mouse por cualquier lado de la pantalla */
-        .splash-link:hover .brand-text {
-            transform: scale(1.05); /* El texto crece un poco indicando interactividad */
+        /* Animación sutil de pulso opcional para darle dinamismo */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         /* Responsivo para pantallas de celulares */
@@ -69,11 +69,18 @@
 </head>
 <body>
 
-    <a href="antesdellogin.html" class="splash-link">
+    <div class="splash-container">
         <h1 class="brand-text">
             REN<span class="t-black">T</span>CAR
         </h1>
-    </a>
+    </div>
+
+    <script>
+        // Redirige automáticamente a antesdellogin.html después de 3 segundos (3000 milisegundos)
+        setTimeout(function() {
+            window.location.href = 'antesdellogin.html';
+        }, 3000);
+    </script>
 
 </body>
 </html>
