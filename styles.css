@@ -1,0 +1,313 @@
+/* CONFIGURACIÓN GENERAL Y FUENTES */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #1c1c1c;
+    font-family: 'Graduate', serif;
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* BARRA SUPERIOR (HEADER) */
+.top-bar {
+    background-color: #ffffff;
+    border-bottom: 4px solid #000000;
+    padding: 8px 40px; 
+    display: flex;
+    align-items: center;
+    height: 58px; 
+}
+
+.carro {
+    width: 110px; 
+    height: auto;
+    margin-left: 1px;
+    position: relative;
+    top: 16px; 
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rent-text {
+    font-family: 'Bangers', cursive;
+    font-size: 34px; 
+    color: #e60000;
+    font-style: italic;
+    letter-spacing: 0px;
+}
+
+.t-black {
+    color: #000000;
+    text-shadow: 0px 0px 1px #fff;
+}
+
+.car-icon {
+    margin-left: -2px;
+}
+
+/* CONTENEDOR CENTRAL DEL FORMULARIO */
+.main-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px; 
+   
+}
+
+.register-form {
+    width: 100%;
+    max-width: 980px;
+    background-color: #1a1a1a;
+    border: 3px solid #333;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+
+    box-shadow:
+        0 0 30px rgba(230, 0, 0, 0.5),
+        0 0 50px rgba(230, 0, 0, 0.4),
+        0 0 65px rgba(230, 0, 0, 0.3);
+}
+
+/* TÍTULO DEL FORMULARIO (Graduate) */
+.main-title {
+    font-size: 24px; 
+    text-align: center;
+    background-color: #ffffff;
+    color: #df0000;
+    padding: 8px 0; 
+    margin-bottom: 15px; 
+    letter-spacing: 2px;
+}
+
+.underline-red {
+    border-bottom: 3px solid #e60000;
+}
+
+/* SECCIÓN DIVIDIDA CON DIAGONAL */
+.form-split {
+    display: flex;
+    background: linear-gradient(103deg, #e60000 0%, #e60000 50%, #ffffff 50%, #ffffff 52%, #111111 52%, #111111 100%);
+    padding: 28px 18px; /* Altura del bloque diagonal calibrada */
+}
+
+.form-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px; /* Separación intermedia ideal entre campos */
+    padding: 0 32px; 
+}
+
+.left-column {
+    padding-right: 55px; 
+}
+
+.right-column {
+    padding-left: 55px;
+}
+
+/* ENCABEZADOS DE SECCIÓN Y COLORES */
+.form-column h2 {
+    font-size: 17px; 
+    margin-bottom: 14px; 
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+.text-white { color: #ffffff; }
+.text-black { color: #000000; }
+.text-custom-red { color: #df0000; }
+
+.underline-white { border-bottom: 2px solid #ffffff; }
+.underline-red { border-bottom: 2px solid #df0000; }
+
+/* INPUTS Y ETIQUETAS */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px; 
+}
+
+.input-group label {
+    font-size: 11px; 
+    letter-spacing: 0.6px;
+}
+
+.left-column label { color: #ffffff; }
+.right-column label { color: #ffffff; }
+
+.required {
+    color: #e60000;
+    margin-right: 3px;
+}
+.left-column .required {
+    color: #111111;
+}
+
+.input-group input {
+    width: 100%;
+    height: 35px; /* PUNTO MEDIO: Cajas estilizadas de 35px (ni 31px ni 42px) */
+    background-color: #f2f2f2;
+    border-radius: 5px;
+    padding: 0 12px;
+    font-family: 'Graduate', serif;
+    font-size: 13px; 
+    color: #333333;
+}
+
+.left-column .input-group input {
+    border: 2px solid #000000;
+}
+
+.right-column .input-group input {
+    border: 2px solid #e60000;
+}
+
+.input-group input:focus {
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 102, 204, 0.5);
+}
+
+/* INPUT TELÉFONO */
+.phone-input-container {
+    display: flex;
+    background-color: #f2f2f2;
+    border-radius: 5px;
+    height: 35px; /* Sincronizado a 35px */
+    overflow: hidden;
+    align-items: center;
+    padding-left: 10px;
+}
+
+.left-column .phone-input-container {
+    border: 2px solid #000000;
+}
+
+.phone-input-container input {
+    border: none;
+    background: transparent;
+    flex: 1;
+    height: 100%;
+    padding: 0;
+}
+
+.flag-dropdown {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-right: 10px;
+    border-right: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.flag-co {
+    width: 22px; 
+    height: 14px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 1px rgba(0,0,0,0.5);
+}
+.flag-co .yellow { flex: 2; background-color: #FCD116; }
+.flag-co .blue { flex: 1; background-color: #003893; }
+.flag-co .red { flex: 1; background-color: #CE1126; }
+
+.arrow-down {
+    font-size: 8px;
+    color: #333;
+}
+
+/* PIE DE PÁGINA (BOTONES Y ENLACES CON FUENTE BANGERS) */
+.form-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #0d0d0d;
+    padding: 18px 15px 8px 15px; 
+    margin-top: 10px;
+}
+
+.btn {
+    font-family: 'Bangers', cursive;
+    font-size: 20px; 
+    font-weight: bold;
+    padding: 5px 40px; 
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #ffffff;
+    min-width: 155px; 
+    letter-spacing: 1px;
+    text-shadow:
+        -1px -1px 0 #000,  
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+}
+
+.btn-cancel {
+    background-color: #000000;
+    border: 1px solid #333;
+}
+
+.btn-cancel:hover {
+    background-color: #222;
+}
+
+.btn-accept {
+    background-color: #cc0000;
+}
+
+.btn-accept:hover {
+    background-color: #aa0000;
+}
+
+/* LINKS CENTRALES (Se mantienen en Bangers) */
+.footer-links {
+    font-family: 'Bangers', cursive;
+    text-align: center;
+    font-size: 15px; 
+    letter-spacing: 0.8px;
+}
+
+.footer-links a {
+    color: #cc0000;
+    text-decoration: underline;
+}
+
+.terms-link {
+    margin-top: 5px;
+}
+
+/* RESPONSIVO BÁSICO */
+@media (max-width: 768px) {
+    .form-split {
+        flex-direction: column;
+        background: #111111;
+        gap: 25px;
+    }
+    .left-column {
+        background-color: #e60000;
+        padding: 20px;
+        border-radius: 4px;
+    }
+    .right-column {
+        padding: 0 20px;
+    }
+    .form-footer {
+        flex-direction: column;
+        gap: 15px;
+    }
+}

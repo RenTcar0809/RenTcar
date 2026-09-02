@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentCar - Registro de Empresa</title>
+    <!-- Fuentes originales -->
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Graduate&display=swap" rel="stylesheet">
+    <!-- Tu archivo CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header class="top-bar">
+        <div class="logo-container">
+            <span class="rent-text">REN<span class="t-black">T</span>CAR</span>
+            <!-- Imagen del carro -->
+            <img src="unnamed.png" alt="RentCar Logo" class="carro">
+            
+            <svg class="car-icon" viewBox="0 0 100 35" width="60">
+                <path d="M15,25 Q30,5 65,10 Q85,12 95,20 L95,25 Z" fill="none" stroke="white" stroke-width="2"/>
+            </svg>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- El action apunta al procesador registrarEmpresa.php -->
+        <form class="register-form" action="registrarEmpresa.php" method="POST">
+            
+            <h1 class="main-title"><span class="underline-red">REGISTRA</span><span class="underline-red"> TU EMPRESA</span></h1>
+
+            <div class="form-split">
+                
+                <!-- COLUMNA IZQUIERDA: DATOS EMPRESARIALES -->
+                <div class="form-column left-column">
+                    <h2><span class="text-white underline-white">DATOS</span> <span class="text-black underline-white"> CORPORATIVOS</span></h2>
+                    
+                    <div class="input-group">
+                        <label for="razonSocial"><span class="required">*</span>RAZÓN SOCIAL / NOMBRE EMPRESA</label>
+                        <input type="text" id="razonSocial" name="razonSocial" placeholder="Ej: AutoRentas S.A.S" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="nit"><span class="required">*</span>NIT / IDENTIFICACIÓN TRIBUTARIA</label>
+                        <input type="text" id="nit" name="nit" placeholder="Ej: 123456789" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="representanteLegal"><span class="required">*</span>REPRESENTANTE LEGAL</label>
+                        <input type="text" id="representanteLegal" name="representanteLegal" placeholder="Nombre completo del representante" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="telefonoEmpresa"><span class="required">*</span>TELÉFONO DE CONTACTO</label>
+                        <div class="phone-input-container">
+                            <input type="tel" id="telefonoEmpresa" name="telefonoEmpresa" placeholder="Número PBX o móvil corporativo" required>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="direccionEmpresa"><span class="required">*</span>DIRECCIÓN PRINCIPAL</label>
+                        <input type="text" id="direccionEmpresa" name="direccionEmpresa" placeholder="Dirección de la sede u oficina" required>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: DATOS DE ACCESO DE LA EMPRESA -->
+                <div class="form-column right-column">
+                    <h2><span class="text-custom-red underline-red">DATOS DE</span> <span class="text-white underline-red">ACCESO Y CONTROL</span></h2>
+                    
+                    <div class="input-group">
+                        <label for="correoEmpresa"><span class="required">*</span>CORREO ELECTRÓNICO CORPORATIVO</label>
+                        <input type="email" id="correoEmpresa" name="correoEmpresa" placeholder="contacto@empresa.com" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="confirm-correoEmpresa"><span class="required">*</span>CONFIRME CORREO CORPORATIVO</label>
+                        <input type="email" id="confirm-correoEmpresa" name="confirm_correoEmpresa" placeholder="Repita el correo corporativo" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="contrasena"><span class="required">*</span>CONTRASEÑA</label>
+                        <input type="password" id="contrasena" name="contrasena" placeholder="Cree una contraseña segura" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="confirm-contrasena"><span class="required">*</span>CONFIRME CONTRASEÑA</label>
+                        <input type="password" id="confirm-contrasena" name="confirm_contrasena" placeholder="Repita la contraseña" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="confirm-nit"><span class="required">*</span>CONFIRMAR NIT</label>
+                        <input type="text" id="confirm-nit" name="confirm_nit" placeholder="Repita el número de NIT" required>
+                    </div>
+                </div>
+
+            </div>
+
+            <footer class="form-footer">
+                <!-- Botón Cancelar -->
+                <a href="antesdellogin.html" class="btn btn-cancel" style="text-decoration: none; text-align: center; display: inline-block; line-height: 40px;">Cancelar</a>
+                            
+                <!-- ENLACES DE POLÍTICAS Y TÉRMINOS -->
+                <div class="footer-links">
+                    <a href="privacidad.html">Política de privacidad</a> — <a href="privacidad.html">Acerca de nosotros</a>
+                    <div class="terms-link">
+                        <a href="terminosYcondiciones.html">Términos y condiciones para proveedores</a>
+                    </div>
+                </div>
+
+                <!-- Botón Aceptar -->
+                <button type="submit" class="btn btn-accept">Registrar Empresa</button>
+            </footer>
+
+        </form>
+    </main>
+
+    <!-- Script de validación -->
+    <script src="scriptEm.js"></script>
+</body>
+</html>

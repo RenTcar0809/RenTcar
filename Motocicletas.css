@@ -1,0 +1,93 @@
+:root {
+    --primary-red: #E50914;
+    --black-bg: #0d0d0d;
+    --dark-grey: #1a1a1a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background-color: var(--black-bg); font-family: 'Roboto', sans-serif; }
+
+/* Header */
+.catalog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 50px;
+    background: var(--black-bg);
+    border-bottom: 2px solid var(--primary-red);
+}
+
+.logo-link { text-decoration: none; }
+
+.logo { 
+    font-size: 2rem; 
+    cursor: pointer; 
+}
+
+/* Aplicamos la fuente directamente a los spans para forzar el estilo */
+.logo .ren, .logo .t, .logo .car { 
+    font-family: 'Bangers', cursive; 
+}
+
+.logo .ren, .logo .car { 
+    color: var(--primary-red); 
+    text-shadow: 2px 2px 0px #000; 
+}
+
+.logo .t { 
+    color: #fff; 
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; 
+}
+
+.page-title { font-family: 'Bangers', sans-serif; font-size: 3rem; }
+.auto { color: #fff; }
+.movil { color: var(--primary-red); }
+
+.filter-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 15px; background: transparent;
+    border: 2px solid var(--primary-red); color: #fff;
+    font-family: 'Bangers', sans-serif; font-size: 1rem;
+    border-radius: 5px; cursor: pointer; transition: 0.3s;
+}
+.filter-btn:hover { background: var(--primary-red); }
+
+/* Lista de Productos Vertical */
+.list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 40px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.product-card-vertical {
+    display: flex;
+    align-items: center;
+    background: var(--dark-grey);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid #333;
+    transition: 0.3s;
+}
+.product-card-vertical:hover { border-color: var(--primary-red); }
+
+.image-wrapper {
+    width: 250px; height: 160px;
+    overflow: hidden; border-radius: 10px;
+    flex-shrink: 0;
+}
+.product-card-vertical img { width: 100%; height: 100%; object-fit: cover; }
+
+.info-wrapper { padding-left: 30px; flex-grow: 1; }
+.info-wrapper h3 { color: #fff; font-size: 1.4rem; margin-bottom: 10px; }
+.price { color: var(--primary-red); font-family: 'Bangers', sans-serif; font-size: 1.5rem; margin-bottom: 15px; }
+
+.view-btn {
+    display: inline-block; background: #fff; color: #000;
+    padding: 10px 25px; text-decoration: none;
+    font-family: 'Bangers', sans-serif; border-radius: 5px;
+    transition: 0.3s;
+}
+.view-btn:hover { background: var(--primary-red); color: #fff; }
