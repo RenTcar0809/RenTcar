@@ -312,18 +312,14 @@ body {
     }
 
     /* Limpia y estandariza el texto que el usuario escribe dentro de los inputs */
+/* Forzar tipografía limpia en todos los campos de texto del sitio */
 input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="tel"],
-input[type="date"] {
-    text-transform: none !important; /* Evita que fuercen mayúsculas automáticas si las hubiera */
-    font-family: Arial, sans-serif, -apple-system; /* Tipografía limpia y sumamente legible */
-    font-size: 15px;
-}
-
-/* Fuerza a que los campos de texto no hereden la fuente Graduate u otras fuentes decorativas */
-input, select, textarea {
+input[type="date"],
+select,
+textarea {
     font-family: Arial, sans-serif !important;
     font-weight: normal !important;
     text-transform: none !important;
