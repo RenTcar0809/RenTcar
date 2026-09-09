@@ -1,11 +1,10 @@
 <?php
-// Diagnóstico de emergencia para la sesión
 session_start();
-echo "ID de Sesión recibido: " . session_id() . "<br>";
-echo "Contenido de $_SESSION: <pre>";
-print_r($_SESSION);
-echo "</pre>";
-exit(); // Detiene la ejecución para ver qué tiene la sesión exactamente
+
+// 1. Verificación de sesión
+if (!isset($_SESSION['IdUsuario'])) {
+    die("Acceso denegado.");
+}
 
 // 2. Conexión a la base de datos usando PDO (unificado con el resto del proyecto)
 require_once 'conexion.php';
