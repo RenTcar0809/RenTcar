@@ -104,13 +104,7 @@ session_start();
                         <div class="input-field"><label for="precio">Precio Día</label><input type="number" step="0.01" name="precio" id="precio" required></div>
                     </div>
                 </section>
-                <section class="form-section">
-                    <h2 class="section-title"><span>03</span> Administración</h2>
-                    <div class="grid-row">
-                        <div class="input-field"><label for="asientos">Asientos</label><input type="number" name="asientos" id="asientos" required></div>
-                        <div class="input-field"><label for="precio">Precio Día</label><input type="number" step="0.01" name="precio" id="precio" required></div>
-                    </div>
-                </section>
+               
 
                 <div class="form-footer">
                     <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
