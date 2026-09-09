@@ -17,8 +17,8 @@ if (!isset($_FILES['fotos']) || count($_FILES['fotos']['name']) !== 4) {
 }
 
 // CONFIGURACIÓN DE CLOUDINARY (Asegúrate de poner tus datos reales aquí)
-$cloudName = "TU_CLOUD_NAME";       
-$uploadPreset = "TU_UPLOAD_PRESET"; 
+$cloudName = "bsd1wma1";       
+$uploadPreset = "xkzfwqa0"; 
 
 try {
     // Iniciamos la transacción para asegurar que el vehículo y las fotos se guarden juntos
