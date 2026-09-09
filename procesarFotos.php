@@ -17,8 +17,8 @@ if (!isset($_FILES['fotos']) || count($_FILES['fotos']['name']) !== 4) {
 }
 
 // CONFIGURACIÓN DE CLOUDINARY (Reemplaza con tus datos reales)
-$cloudName = "TU_CLOUD_NAME";       // <--- Pon aquí tu Cloud Name
-$uploadPreset = "TU_UPLOAD_PRESET"; // <--- Pon aquí el nombre de tu preset sin firmar
+$cloudName = "bsd1wma1";       // <--- Pon aquí tu Cloud Name
+$uploadPreset = "xkzfwqa0"; // <--- Pon aquí el nombre de tu preset sin firmar
 
 try {
     $pdo->beginTransaction();
