@@ -9,8 +9,7 @@ if (!isset($_SESSION['usuario_nombre'])) {
 }
 
 try {
-    // Consulta mejorada: Intenta traer la primera foto de la tabla 'fotos_vehiculos' 
-    // y si no hay, usaremos la de la tabla 'vehiculo'.
+    // Consulta: Trae los vehículos que no sean motocicletas y su primera foto asociada
     $sql = "SELECT v.*, 
                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
             FROM vehiculo v 
@@ -58,23 +57,25 @@ try {
         <?php if (!empty($vehiculos)): ?>
             <?php foreach ($vehiculos as $carro): ?>
                 <?php 
-                    // --- LÓGICA DE DETECCIÓN DE IMAGEN ---
-                    
-                    // 1. Prioridad: Foto de la galería, si no, foto de la tabla vehículo
+                    // --- LÓGICA DE DETECCIÓN DE IMAGEN (Cloudinary y Local) ---
                     $nombreImagen = !empty($carro['foto_galeria']) ? $carro['foto_galeria'] : (!empty($carro['imagen']) ? $carro['imagen'] : '');
-                    
-                    // 2. Limpiar la ruta (quitar espacios y corregir barras de Windows)
-                    $nombreImagen = str_replace('\\', '/', trim($nombreImagen));
                     
                     $srcFinal = "nissan.png"; // Imagen por defecto
 
                     if (!empty($nombreImagen)) {
-                        // Caso A: La ruta ya viene con carpeta (ej: "uploads/carro.jpg" o "imagenes/carro.jpg")
-                        if (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
+                        $nombreImagen = trim($nombreImagen);
+
+                        // Caso 1: Es una URL externa de Cloudinary (comienza con http:// o https://)
+                        if (strpos($nombreImagen, 'http://') === 0 || strpos($nombreImagen, 'https://') === 0) {
                             $srcFinal = $nombreImagen;
                         } 
-                        // Caso B: Es solo el nombre del archivo, buscamos en qué carpeta existe
+                        // Caso 2: Ruta local con carpeta específica
+                        elseif (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
+                            $srcFinal = $nombreImagen;
+                        } 
+                        // Caso 3: Es solo el nombre del archivo local antiguo
                         else {
+                            $nombreImagen = str_replace('\\', '/', $nombreImagen);
                             if (file_exists('uploads/' . $nombreImagen)) {
                                 $srcFinal = 'uploads/' . $nombreImagen;
                             } else {
@@ -85,7 +86,7 @@ try {
                 ?>
                 <article class="product-card-vertical">
                     <div class="image-wrapper">
-                        <!-- Usamos srcFinal que ya tiene la ruta corregida -->
+                        <!-- Carga la URL segura de Cloudinary o la imagen local -->
                         <img src="<?php echo htmlspecialchars($srcFinal); ?>" 
                              alt="<?php echo htmlspecialchars($carro['marca']); ?>"
                              onerror="this.src='nissan.png';">
