@@ -5,6 +5,12 @@ ini_set('display_errors', 1);
 
 $pagina_formulario = "indexV.php"; 
 
+// Código de diagnóstico temporal
+echo "ID de Sesión actual: " . session_id() . "<br>";
+echo "Contenido de la sesión: ";
+var_dump($_SESSION);
+exit(); // Detiene la ejecución para que puedas leerlo en pantalla
+
 if (!isset($_SESSION['IdUsuario'])) {
     die("❌ ERROR: No hay una sesión activa.");
 }
