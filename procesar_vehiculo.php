@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     ];
 
     // Redirigimos a la carga de fotos SIN haber guardado nada todavía en la BD
-    header("Location: subirfotos.php");
+    header("Location: subirfoto.php");
     exit();
 
 } else {
