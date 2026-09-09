@@ -9,12 +9,13 @@ if (!isset($_SESSION['usuario_nombre'])) {
 }
 
 try {
-    // Consulta: Trae los vehículos que no sean motocicletas y su primera foto asociada
+    // Consulta optimizada: Trae TODOS los vehículos que no sean motocicletas 
+    // y busca su primera foto si existe, sin descartar autos si no tienen fotos.
     $sql = "SELECT v.*, 
                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
             FROM vehiculo v 
-            WHERE tipo != 'Motocicleta' 
-            ORDER BY id_v DESC";
+            WHERE LOWER(v.tipo) NOT LIKE '%moto%' 
+            ORDER BY v.id_v DESC";
             
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
@@ -57,7 +58,7 @@ try {
         <?php if (!empty($vehiculos)): ?>
             <?php foreach ($vehiculos as $carro): ?>
                 <?php 
-                    // --- LÓGICA DE DETECCIÓN DE IMAGEN (Cloudinary y Local) ---
+                    // --- LÓGICA DE DETECCIÓN DE IMAGEN ---
                     $nombreImagen = !empty($carro['foto_galeria']) ? $carro['foto_galeria'] : (!empty($carro['imagen']) ? $carro['imagen'] : '');
                     
                     $srcFinal = "nissan.png"; // Imagen por defecto
@@ -65,15 +66,15 @@ try {
                     if (!empty($nombreImagen)) {
                         $nombreImagen = trim($nombreImagen);
 
-                        // Caso 1: Es una URL externa de Cloudinary (comienza con http:// o https://)
+                        // Caso 1: Es una URL externa de Cloudinary
                         if (strpos($nombreImagen, 'http://') === 0 || strpos($nombreImagen, 'https://') === 0) {
                             $srcFinal = $nombreImagen;
                         } 
-                        // Caso 2: Ruta local con carpeta específica
+                        // Caso 2: Ruta local con carpeta
                         elseif (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
                             $srcFinal = $nombreImagen;
                         } 
-                        // Caso 3: Es solo el nombre del archivo local antiguo
+                        // Caso 3: Archivo local antiguo
                         else {
                             $nombreImagen = str_replace('\\', '/', $nombreImagen);
                             if (file_exists('uploads/' . $nombreImagen)) {
@@ -86,9 +87,8 @@ try {
                 ?>
                 <article class="product-card-vertical">
                     <div class="image-wrapper">
-                        <!-- Carga la URL segura de Cloudinary o la imagen local -->
                         <img src="<?php echo htmlspecialchars($srcFinal); ?>" 
-                             alt="<?php echo htmlspecialchars($carro['marca']); ?>"
+                             alt="<?php echo htmlspecialchars($carro['marca'] ?? 'Vehículo'); ?>"
                              onerror="this.src='nissan.png';">
                     </div>
                     <div class="info-wrapper">
