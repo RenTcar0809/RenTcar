@@ -8,21 +8,16 @@ if (!isset($_SESSION['usuario_nombre'])) {
     exit();
 }
 
-try {
-    // Consulta optimizada: Trae TODOS los vehículos que no sean motocicletas 
-    // y busca su primera foto si existe, sin descartar autos si no tienen fotos.
-    $sql = "SELECT v.*, 
-                   (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
-            FROM vehiculo v 
-            WHERE LOWER(v.tipo) NOT LIKE '%moto%' 
-            ORDER BY v.id_v DESC";
-            
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $vehiculos = [];
-}
+// SIN TRY-CATCH TEMPORALMENTE para que veas si hay algún error real de SQL en pantalla
+// Quitamos el filtro WHERE para forzar a que traiga TODOS los registros que existan en la tabla
+$sql = "SELECT v.*, 
+               (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
+        FROM vehiculo v 
+        ORDER BY v.id_v DESC";
+        
+$stmt = $pdo->prepare($sql);
+$stmt->execute();
+$vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -72,6 +67,7 @@ try {
                         } 
                         // Caso 2: Ruta local con carpeta
                         elseif (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
+                            $srcFinal = $nombreIndex; // Corregido abajo
                             $srcFinal = $nombreImagen;
                         } 
                         // Caso 3: Archivo local antiguo
@@ -93,7 +89,7 @@ try {
                     </div>
                     <div class="info-wrapper">
                         <h3><?php echo htmlspecialchars(strtoupper(($carro['marca'] ?? '') . ' ' . ($carro['modelo'] ?? ''))); ?></h3>
-                        <p class="price">PRECIO DIA: $<?php echo number_format($carro['precio_dia'] ?? $carro['precio'] ?? 0, 2); ?></p>
+                        <p class="price">TIPO: <?php echo htmlspecialchars($carro['tipo'] ?? 'N/A'); ?> | PRECIO: $<?php echo number_format($carro['precio_dia'] ?? $carro['precio'] ?? 0, 2); ?></p>
                         <a href="detalles_vehiculo.php?id=<?php echo $carro['id_v']; ?>" class="view-btn">VER DETALLES</a>
                     </div>
                 </article>
@@ -101,7 +97,7 @@ try {
         <?php else: ?>
             <div style="grid-column: 1 / -1; text-align: center; color: #fff; padding: 40px;">
                 <h3>No hay automóviles disponibles en este momento.</h3>
-                <p style="color: #8e8e93; margin-top: 10px;">Vuelve más tarde o registra nuevos autos desde el panel de empresa.</p>
+                <p style="color: #8e8e93; margin-top: 10px;">La consulta no devolvió ningún registro de la base de datos.</p>
             </div>
         <?php endif; ?>
     </main>
