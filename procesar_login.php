@@ -14,30 +14,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // BÚSQUEDA ESPECÍFICA: 
-        // - Si es usuario normal, buscamos por correo.
-        // - Si es empresa, buscamos por NIT (o correo de la empresa).
+        // Búsqueda por correo o NIT
         $sql = "SELECT * FROM usuario WHERE correo = :login OR nit = :login LIMIT 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':login' => $identificador]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($usuario) {
-            // Lee la contraseña (independientemente de cómo se llame la columna en la BD)
-            $hashGuardado = $usuario['contraseña'] ?? $usuario['contrasena'] ?? '';
+            // Obtenemos la contraseña y limpiamos espacios con trim
+            $hashGuardado = trim($usuario['contraseña'] ?? $usuario['contrasena'] ?? '');
+            $passwordIngresada = trim($password);
             
-            // Compara contraseña encriptada o en texto plano
-            if (password_verify($password, $hashGuardado) || $password === $hashGuardado) {
+            // Comparamos la contraseña en texto plano de forma segura
+            if ($passwordIngresada === $hashGuardado) {
                 session_regenerate_id(true);
 
-                // Asignamos las variables de sesión unificadas
+                // Asignamos las variables de sesión unificadas (respetando 'IdUsuario')
                 $_SESSION['IdUsuario']      = $usuario['IdUsuario'];
                 $_SESSION['id_proveedor']   = $usuario['IdUsuario']; // Para compatibilidad antigua
                 $_SESSION['tipo']           = $usuario['tipo'];      // 1 = Empresa, 2 = Usuario
 
                 // Validamos según el tipo guardado en la tabla unificada
                 if ($usuario['tipo'] == 1) {
-                    // Es Empresa -> Validamos que se haya logueado por NIT o correo de empresa
                     $_SESSION['nombre_empresa'] = $usuario['empresa'];
                     $_SESSION['usuario_nombre'] = $usuario['empresa'];
                     $_SESSION['rol']            = 'proveedor';
@@ -45,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header("Location: dashboardE.php");
                     exit();
                 } else {
-                    // Es Usuario normal -> Validamos por correo
                     $_SESSION['usuario_nombre'] = $usuario['nombre'];
                     $_SESSION['rol']            = 'cliente';
 
