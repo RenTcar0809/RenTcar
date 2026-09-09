@@ -21,12 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($usuario) {
-            // Obtenemos la contraseña y limpiamos espacios con trim
-            $hashGuardado = trim($usuario['contraseña'] ?? $usuario['contrasena'] ?? '');
-            $passwordIngresada = trim($password);
+            // Obtenemos el hash guardado en la base de datos
+            $hashGuardado = $usuario['contraseña'] ?? $usuario['contrasena'] ?? '';
             
-            // Comparamos la contraseña en texto plano de forma segura
-            if ($passwordIngresada === $hashGuardado) {
+            // Verificamos la contraseña encriptada de forma segura
+            if (password_verify($password, $hashGuardado)) {
                 session_regenerate_id(true);
 
                 // Asignamos las variables de sesión unificadas (respetando 'IdUsuario')
