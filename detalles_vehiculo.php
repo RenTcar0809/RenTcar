@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
     }
 }
 
-// 3.1. Procesar ACTUALIZACIÓN de comentario (Edición en la misma página)
+// 3.1. Procesar ACTUALIZACIÓN de comentario
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
     $id_com = intval($_POST['id_comentario']);
     $comentario_edit_bruto = trim($_POST['comentario_edit']);
@@ -79,7 +79,6 @@ try {
 
     if (!$vehiculo) { header("Location: automoviles.php"); exit(); }
 
-    // Obtener fotos secundarias desde la base de datos (con soporte Cloudinary)
     $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
     $stmtFotos->execute([$id_vehiculo]);
     $fotosBD = $stmtFotos->fetchAll(PDO::FETCH_COLUMN);
@@ -87,26 +86,14 @@ try {
     $fotosFinales = [];
     function normalizarRuta($ruta) {
         $ruta = str_replace('\\', '/', trim($ruta));
-        
-        // Reconoce URLs web completas de Cloudinary u otros servicios externos
-        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
-            return $ruta;
-        }
-        
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
         if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
         if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
         return 'imagenes/' . $ruta;
     }
     
-    foreach ($fotosBD as $f) { 
-        $fotosFinales[] = normalizarRuta($f); 
-    }
-    
-    // Respaldo por si no hay registros en fotos_vehiculos pero sí imagen principal en el vehículo
-    if (empty($fotosFinales) && !empty($vehiculo['imagen'])) { 
-        $fotosFinales[] = normalizarRuta($vehiculo['imagen']); 
-    }
-    
+    foreach ($fotosBD as $f) { $fotosFinales[] = normalizarRuta($f); }
+    if (empty($fotosFinales) && !empty($vehiculo['imagen'])) { $fotosFinales[] = normalizarRuta($vehiculo['imagen']); }
     $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
 
     $stmtCom = $pdo->prepare("SELECT * FROM comentarios_vehiculos WHERE id_vehiculo = ? ORDER BY fecha DESC");
@@ -130,7 +117,6 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="detalles_vehiculo.css">
-    <!-- Enlace al archivo CSS externo del Chatbot -->
     <link rel="stylesheet" href="chatbot.css">
 </head>
 <body>
@@ -162,36 +148,19 @@ try {
             <h1 class="v-title"><?php echo strtoupper(htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo'])); ?></h1>
             <div class="v-price">$<?php echo number_format($vehiculo['precio'], 2); ?> <span>/ día</span></div>
             
-            <!-- VISTA DE ESPECIFICACIONES (Se oculta al hacer clic en reservar) -->
-            <div id="specs-view">
-                <div class="specs-box">
-                    <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo $vehiculo['transmision'] ?: 'N/A'; ?></strong></div></div>
-                    <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo $vehiculo['motor'] ?: 'N/A'; ?></strong></div></div>
-                    <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo $vehiculo['placa'] ?: 'S/N'; ?></strong></div></div>
-                    <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo $vehiculo['color'] ?: 'N/A'; ?></strong></div></div>
-                    <div class="s-item"><i class="fas fa-chair"></i> <div><span>Asientos</span><strong><?php echo $vehiculo['asientos'] ?: '0'; ?></strong></div></div>
-                    <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper($vehiculo['traccion'] ?: 'N/A'); ?></strong></div></div>
-                </div>
-
-                <button class="main-btn" onclick="abrirChatEnSeccion()">
-                    RESERVAR AHORA <i class="fas fa-key"></i>
-                </button>
+            <div class="specs-box">
+                <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo $vehiculo['transmision'] ?: 'N/A'; ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo $vehiculo['motor'] ?: 'N/A'; ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo $vehiculo['placa'] ?: 'S/N'; ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo $vehiculo['color'] ?: 'N/A'; ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-chair"></i> <div><span>Asientos</span><strong><?php echo $vehiculo['asientos'] ?: '0'; ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper($vehiculo['traccion'] ?: 'N/A'); ?></strong></div></div>
             </div>
 
-            <!-- CHATBOT INTEGRADO EN EL PANEL DERECHO (Oculto inicialmente) -->
-            <div id="chat-inline-container">
-                <div class="chat-inline-header">
-                    <h3><i class="fas fa-robot"></i> Asistente RentCar</h3>
-                    <button class="btn-volver-info" onclick="cerrarChatEnSeccion()"><i class="fas fa-arrow-left"></i> Volver</button>
-                </div>
-                <div id="chat-messages" class="chat-messages">
-                    <div class="message bot">¡Hola! Has seleccionado reservar el <b><?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?></b>. ¿Qué dudas tienes sobre los requisitos o el proceso?</div>
-                </div>
-                <div class="chat-input-area">
-                    <input type="text" id="chat-input" placeholder="Escribe tu duda..." onkeypress="handleKeyPress(event)">
-                    <button onclick="enviarMensajeBot()">Enviar</button>
-                </div>
-            </div>
+            <!-- Botón estilo Marketplace que abre el chat flotante con el nombre del auto -->
+            <button class="main-btn" onclick="iniciarChatReserva('<?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?>')">
+                RESERVAR AHORA <i class="fas fa-comments"></i>
+            </button>
         </div>
     </section>
 
@@ -243,8 +212,6 @@ try {
                     <div class="review-card">
                         <div class="r-avatar"><?php echo strtoupper(substr($c['usuario_nombre'], 0, 1)); ?></div>
                         <div class="r-body">
-                            
-                            <!-- VISTA NORMAL DEL COMENTARIO -->
                             <div id="view-mode-<?php echo $c['id_comentario']; ?>">
                                 <div class="r-meta">
                                     <strong><?php echo htmlspecialchars($c['usuario_nombre']); ?></strong>
@@ -257,45 +224,32 @@ try {
                                 
                                 <div class="r-footer-card">
                                     <span style="font-size: 0.8rem; color: var(--texto-gris);">RentCar Review</span>
-                                    
                                     <?php if(isset($_SESSION['usuario_nombre']) && $_SESSION['usuario_nombre'] === $c['usuario_nombre']): ?>
                                         <div class="r-actions">
-                                            <button type="button" class="btn-action edit" onclick="mostrarEditor(<?php echo $c['id_comentario']; ?>)">
-                                                <i class="fas fa-pen"></i> Editar
-                                            </button>
-                                            <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo $id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');">
-                                                <i class="fas fa-trash"></i> Borrar
-                                            </a>
+                                            <button type="button" class="btn-action edit" onclick="mostrarEditor(<?php echo $c['id_comentario']; ?>)"><i class="fas fa-pen"></i> Editar</button>
+                                            <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo $id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');"><i class="fas fa-trash"></i> Borrar</a>
                                         </div>
                                     <?php endif; ?>
                                 </div>
                             </div>
 
-                            <!-- FORMULARIO DE EDICIÓN (OCULTO POR DEFECTO) -->
                             <div id="edit-mode-<?php echo $c['id_comentario']; ?>" style="display: none;">
-                                <div class="r-meta">
-                                    <strong>Editando tu opinión</strong>
-                                    <span><?php echo date('d M, Y', strtotime($c['fecha'])); ?></span>
-                                </div>
+                                <div class="r-meta"><strong>Editando tu opinión</strong><span><?php echo date('d M, Y', strtotime($c['fecha'])); ?></span></div>
                                 <form method="POST" class="edit-form-box">
                                     <input type="hidden" name="id_comentario" value="<?php echo $c['id_comentario']; ?>">
-                                    
                                     <div class="rating-selector-edit">
                                         <?php for($i=5; $i>=1; $i--): ?>
                                             <input type="radio" id="edit_r<?php echo $c['id_comentario'] . '_' . $i; ?>" name="rating_edit" value="<?php echo $i; ?>" <?php echo ($i == ($c['puntuacion'] ?? 5)) ? 'checked' : ''; ?>>
                                             <label for="edit_r<?php echo $c['id_comentario'] . '_' . $i; ?>"><i class="fas fa-star"></i></label>
                                         <?php endfor; ?>
                                     </div>
-
                                     <textarea name="comentario_edit" required><?php echo htmlspecialchars($c['comentario']); ?></textarea>
-                                    
                                     <div class="edit-actions">
                                         <button type="submit" name="actualizar_comentario" class="btn-save">Guardar Cambios</button>
                                         <button type="button" class="btn-cancel" onclick="ocultarEditor(<?php echo $c['id_comentario']; ?>)">Cancelar</button>
                                     </div>
                                 </form>
                             </div>
-
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -303,6 +257,25 @@ try {
         </div>
     </section>
 </main>
+
+<!-- BOTÓN Y VENTANA FLOTANTE DEL CHATBOT -->
+<button class="chat-float-btn" onclick="toggleChatFlotante()">
+    <i class="fas fa-comment-dots"></i> Asistente RentCar
+</button>
+
+<div id="chat-float-container">
+    <div class="chat-float-header">
+        <h3><i class="fas fa-robot"></i> Chat RentCar</h3>
+        <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+        <div class="message bot">¡Hola! ¿En qué puedo ayudarte hoy con tu alquiler de vehículos?</div>
+    </div>
+    <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
+        <button onclick="enviarMensajeBot()">Enviar</button>
+    </div>
+</div>
 
 <script>
 function cambiarImagen(el, ruta) {
@@ -320,9 +293,59 @@ function ocultarEditor(id) {
     document.getElementById('view-mode-' + id).style.display = 'block';
     document.getElementById('edit-mode-' + id).style.display = 'none';
 }
-</script>
 
-<!-- Enlace al archivo JavaScript externo del Chatbot -->
-<script src="chatbot.js"></script>
+// Funciones del Chatbot Flotante / Marketplace
+function toggleChatFlotante() {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+    chatContainer.style.display = (chatContainer.style.display === 'flex') ? 'none' : 'flex';
+    if (chatContainer.style.display === 'flex') document.getElementById('chat-input')?.focus();
+}
+
+function iniciarChatReserva(nombreVehiculo) {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (chatContainer) chatContainer.style.display = 'flex';
+
+    setTimeout(() => {
+        agregarMensaje(`Hola, estoy interesado/a en reservar: <b>${nombreVehiculo}</b>. ¿Está disponible y cuáles son los pasos a seguir?`, 'user');
+        setTimeout(() => {
+            agregarMensaje(`¡Hola! Claro que sí, el modelo <b>${nombreVehiculo}</b> está disponible para reserva. Para proceder, asegúrate de tener a la mano tu documento de identidad y licencia vigente. ¿Para qué fecha deseas programar la recogida?`, 'bot');
+        }, 800);
+    }, 200);
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter') enviarMensajeBot();
+}
+
+function enviarMensajeBot() {
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    agregarMensaje(texto, 'user');
+    input.value = '';
+
+    fetch('chatbot_backend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'mensaje=' + encodeURIComponent(texto)
+    })
+    .then(res => res.json())
+    .then(data => agregarMensaje(data.respuesta, 'bot'))
+    .catch(() => agregarMensaje('Lo siento, ocurrió un error de conexión con el asistente.', 'bot'));
+}
+
+function agregarMensaje(texto, remitente) {
+    const mensajesContainer = document.getElementById('chat-messages');
+    if (!mensajesContainer) return;
+    const div = document.createElement('div');
+    div.className = 'message ' + remitente;
+    div.innerHTML = texto;
+    mensajesContainer.appendChild(div);
+    mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
+}
+</script>
 </body>
 </html>

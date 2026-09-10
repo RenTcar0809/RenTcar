@@ -1,20 +1,33 @@
-// Funciones para alternar entre especificaciones y el chat en el panel derecho
-function abrirChatEnSeccion() {
-    const specsView = document.getElementById('specs-view');
-    const chatContainer = document.getElementById('chat-inline-container');
-    const chatInput = document.getElementById('chat-input');
-
-    if (specsView) specsView.style.display = 'none';
-    if (chatContainer) chatContainer.style.display = 'flex';
-    if (chatInput) chatInput.focus();
+// Funciones para el Chatbot Flotante de la esquina
+function toggleChatFlotante() {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+    
+    if (chatContainer.style.display === 'flex') {
+        chatContainer.style.display = 'none';
+    } else {
+        chatContainer.style.display = 'flex';
+        document.getElementById('chat-input')?.focus();
+    }
 }
 
-function cerrarChatEnSeccion() {
-    const specsView = document.getElementById('specs-view');
-    const chatContainer = document.getElementById('chat-inline-container');
+// Función ejecutada al hacer clic en "Reservar ahora" (Estilo Marketplace)
+function iniciarChatReserva(nombreVehiculo) {
+    // Abre el contenedor flotante si está cerrado
+    const chatContainer = document.getElementById('chat-float-container');
+    if (chatContainer) {
+        chatContainer.style.display = 'flex';
+    }
 
-    if (chatContainer) chatContainer.style.display = 'none';
-    if (specsView) specsView.style.display = 'block';
+    // Inyecta un mensaje inicial automático simulando el inicio de negociación estilo Marketplace
+    setTimeout(() => {
+        agregarMensaje(`Hola, estoy interesado/a en reservar: <b>${nombreVehiculo}</b>. ¿Está disponible y cuáles son los pasos a seguir?`, 'user');
+        
+        // Simular respuesta del asistente o vendedor tras un breve instante
+        setTimeout(() => {
+            agregarMensaje(`¡Hola! Claro que sí, el modelo <b>${nombreVehiculo}</b> está disponible para reserva. Para proceder, asegúrate de tener a la mano tu documento de identidad y licencia vigente. ¿Para qué fecha deseas programar la recogida?`, 'bot');
+        }, 800);
+    }, 200);
 }
 
 function handleKeyPress(e) {
