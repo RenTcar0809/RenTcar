@@ -70,7 +70,7 @@ try {
 // 6. Consultar mensajes de los clientes vinculados a los vehículos de la empresa
     $sqlMensajes = "SELECT m.mensaje, m.fecha, m.remitente AS cliente, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
-                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
+                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
     
