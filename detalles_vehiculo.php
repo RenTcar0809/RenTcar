@@ -130,7 +130,7 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="detalles_vehiculo.css">
-    <!-- Enlace al CSS del Chatbot -->
+    <!-- Enlace al archivo CSS externo del Chatbot -->
     <link rel="stylesheet" href="chatbot.css">
 </head>
 <body>
@@ -143,8 +143,8 @@ try {
 </nav>
 
 <main class="main-wrapper">
-    <!-- SECCIÓN 1: FICHA TÉCNICA -->
-    <section class="hero-section">
+    <!-- SECCIÓN 1: FICHA TÉCNICA (Se oculta al hacer clic en reservar) -->
+    <section class="hero-section" id="ficha-tecnica-section">
         <div class="gallery-side">
             <div class="main-img-wrap">
                 <img id="mainImage" src="<?php echo htmlspecialchars($imagenPrincipal); ?>" onerror="this.src='unnamed.png'">
@@ -171,11 +171,27 @@ try {
                 <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper($vehiculo['traccion'] ?: 'N/A'); ?></strong></div></div>
             </div>
 
-            <button class="main-btn" onclick="location.href='reservar.php?id=<?php echo $id_vehiculo; ?>'">
+            <!-- Botón que activa la función en JS para ocultar la ficha y mostrar el chat -->
+            <button class="main-btn" onclick="abrirChatEnSeccion()">
                 RESERVAR AHORA <i class="fas fa-key"></i>
             </button>
         </div>
     </section>
+
+    <!-- CONTENEDOR DEL CHATBOT INTEGRADO (Oculto por defecto) -->
+    <div id="chat-inline-container">
+        <div class="chat-inline-header">
+            <h3><i class="fas fa-robot"></i> Asistente de Reservas RentCar</h3>
+            <button class="btn-volver-info" onclick="cerrarChatEnSeccion()"><i class="fas fa-arrow-left"></i> Volver a ficha técnica</button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <div class="message bot">¡Hola! Has seleccionado reservar este vehículo (<b><?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?></b>). ¿En qué te puedo ayudar para completar tu proceso o qué dudas tienes sobre los requisitos y pagos?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." onkeypress="handleKeyPress(event)">
+            <button onclick="enviarMensajeBot()">Enviar</button>
+        </div>
+    </div>
 
     <!-- SECCIÓN 2: BANNER DE RECOGIDA -->
     <section class="pickup-banner">
@@ -286,27 +302,6 @@ try {
     </section>
 </main>
 
-<!-- WIDGET DE CHATBOT DE ASISTENCIA PARA PRÉSTAMOS -->
-<div id="chat-widget-container">
-    <button id="chat-toggle-btn" onclick="toggleChat()">
-        <i class="fas fa-comment-dots"></i> ¿Ayuda con tu préstamo?
-    </button>
-
-    <div id="chat-box">
-        <div class="chat-header">
-            <h4>Asistente RentCar 🚗</h4>
-            <button class="chat-close" onclick="toggleChat()">&times;</button>
-        </div>
-        <div id="chat-messages" class="chat-messages">
-            <div class="message bot">¡Hola! Soy tu asistente virtual de RentCar. ¿En qué te puedo ayudar hoy con el alquiler de tu vehículo? (Puedes preguntar por: <b>requisitos</b>, <b>precios</b>, <b>pagos</b> o <b>cómo reservar</b>).</div>
-        </div>
-        <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Escribe tu duda aquí..." onkeypress="handleKeyPress(event)">
-            <button onclick="enviarMensajeBot()">Enviar</button>
-        </div>
-    </div>
-</div>
-
 <script>
 function cambiarImagen(el, ruta) {
     document.getElementById('mainImage').src = ruta;
@@ -323,52 +318,9 @@ function ocultarEditor(id) {
     document.getElementById('view-mode-' + id).style.display = 'block';
     document.getElementById('edit-mode-' + id).style.display = 'none';
 }
-
-// Funciones del Chatbot
-function toggleChat() {
-    const box = document.getElementById('chat-box');
-    box.style.display = box.style.display === 'flex' ? 'none' : 'flex';
-    if(box.style.display === 'flex') {
-        document.getElementById('chat-input').focus();
-    }
-}
-
-function handleKeyPress(e) {
-    if (e.key === 'Enter') {
-        enviarMensajeBot();
-    }
-}
-
-function enviarMensajeBot() {
-    const input = document.getElementById('chat-input');
-    const texto = input.value.trim();
-    if (!texto) return;
-
-    agregarMensaje(texto, 'user');
-    input.value = '';
-
-    fetch('chatbot_backend.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'mensaje=' + encodeURIComponent(texto)
-    })
-    .then(res => res.json())
-    .then(data => {
-        agregarMensaje(data.respuesta, 'bot');
-    })
-    .catch(() => {
-        agregarMensaje('Lo siento, ocurrió un error de conexión con el asistente.', 'bot');
-    });
-}
-
-function agregarMensaje(texto, remitente) {
-    const mensajesContainer = document.getElementById('chat-messages');
-    const div = document.createElement('div');
-    div.className = 'message ' + remitente;
-    div.innerHTML = texto;
-    mensajesContainer.appendChild(div);
-    mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
-}
 </script>
+
+<!-- Enlace al archivo JavaScript externo del Chatbot -->
+<script src="chatbot.js"></script>
 </body>
 </html>
