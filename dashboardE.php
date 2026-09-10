@@ -67,10 +67,9 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes o consultas de clientes vinculados a los vehículos de la empresa
-    // (Nota: Asegúrate de que tu tabla de mensajes se llame 'mensajes' o ajústala según tu base de datos)
+// 6. Consultar mensajes o consultas de clientes vinculados a los vehículos de la empresa
     $sqlMensajes = "SELECT m.mensaje, m.fecha, u.nombre AS cliente, u.correo, v.marca, v.modelo, v.placa 
-                    FROM mensajes m
+                    FROM mensajes_chat m
                     INNER JOIN usuario u ON m.id_usuario = u.IdUsuario
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
                     WHERE v.id_proveedor = :id
