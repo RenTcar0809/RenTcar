@@ -4,7 +4,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once 'conexion.php';
 
-// 1. Verificar sesión activa (Usando IdUsuario que es el que usas en tu historial)
+// Si usas Cloudinary mediante SDK, asegúrate de incluirlo aquí (por ejemplo, composer autoload)
+// require 'vendor/autoload.php';
+
+// 1. Verificar sesión activa
 if (!isset($_SESSION['IdUsuario'])) {
     header("Location: inicioSesion.php");
     exit();
@@ -32,14 +35,23 @@ if (isset($_GET['borrar'])) {
     $foto = $stmtCheck->fetch(PDO::FETCH_ASSOC);
     
     if ($foto) {
-        // Limpiamos el nombre para buscarlo en la carpeta 'imagenes'
-        $nombreArchivo = basename($foto['ruta_imagen']);
-        $rutaFisica = 'imagenes/' . $nombreArchivo;
+        $urlImagen = $foto['ruta_imagen'];
         
-        if (file_exists($rutaFisica)) {
-            unlink($rutaFisica);
-        }
-        
+        // OPCIONAL: Si deseas borrar la imagen directamente de Cloudinary usando su API oficial,
+        // necesitarás extraer el public_id de la URL y usar la librería de Cloudinary:
+        /*
+        \Cloudinary\Configuration\Configuration::instance([
+            'cloud' => [
+                'cloud_name' => 'tu_cloud_name',
+                'api_key'    => 'tu_api_key',
+                'api_secret' => 'tu_api_secret'
+            ]
+        ]);
+        // Extraer public_id y borrar:
+        // \Cloudinary\Api\Upload\UploadApi::destroy($publicId);
+        */
+
+        // Borrar el registro de la base de datos
         $del = $pdo->prepare("DELETE FROM fotos_vehiculos WHERE id_foto = ?");
         $del->execute([$idFotoBorrar]);
     }
@@ -61,42 +73,70 @@ if (!$v) {
 // --- PROCESAR GUARDADO DE CAMBIOS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Contar fotos actuales
     $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM fotos_vehiculos WHERE id_vehiculo = ?");
     $stmtCount->execute([$idVehiculo]);
     $cantidadActualEnBD = (int) $stmtCount->fetchColumn();
 
-    // Contar fotos nuevas
     $fotosNuevasCount = 0;
     if (isset($_FILES['imagenes']) && !empty($_FILES['imagenes']['name'][0])) {
         foreach ($_FILES['imagenes']['error'] as $err) {
-            if ($err === UPLOAD_ERR_OK) $fotosNuevasCount++;
+            if ($err === UPLOAD_ERR_OK) {
+                $fotosNuevasCount++;
+            }
         }
     }
 
     $totalFotosFinales = $cantidadActualEnBD + $fotosNuevasCount;
 
     if ($totalFotosFinales != 4) {
-        $error = "Error: El vehículo debe tener exactamente 4 fotografías. Actualmente tienes $cantidadActualEnBD y seleccionaste $fotosNuevasCount nuevas.";
+        $error = "Error: El vehículo debe tener exactamente 4 fotografías en total. Tienes $cantidadActualEnBD y vas a agregar $fotosNuevasCount.";
     } else {
-        // Actualizar datos de texto
         $nuevoPrecio = $_POST['precio'];
         $nuevoEstado = $_POST['estado'];
 
         $stmtUp = $pdo->prepare("UPDATE vehiculo SET precio = ?, estado = ? WHERE id_v = ? AND id_proveedor = ?");
         $stmtUp->execute([$nuevoPrecio, $nuevoEstado, $idVehiculo, $idProveedor]);
 
-        // Subir nuevas fotos
+        // Subir nuevas fotos a Cloudinary
         if ($fotosNuevasCount > 0) {
             $archivos = $_FILES['imagenes'];
+            
             foreach ($archivos['name'] as $i => $name) {
                 if ($archivos['error'][$i] === UPLOAD_ERR_OK) {
-                    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                    $nuevoNombre = "IDV_".$idVehiculo."_".time()."_$i.".$ext;
-                    
-                    if (move_uploaded_file($archivos['tmp_name'][$i], "imagenes/" . $nuevoNombre)) {
+                    $tmpFilePath = $archivos['tmp_name'][$i];
+
+                    // Opción A: Si usas la SDK oficial de Cloudinary en PHP:
+                    /*
+                    $resultadoCloudinary = \Cloudinary\Api\Upload\UploadApi::upload($tmpFilePath, [
+                        'folder' => 'rentcar/vehiculos'
+                    ]);
+                    $urlSegura = $resultadoCloudinary['secure_url'];
+                    */
+
+                    // Opción B: Subida mediante API Upload por cURL (si no usas el SDK de Composer)
+                    // (Asegúrate de configurar tus credenciales reales abajo si usas cURL)
+                    $cloudName = "tu_cloud_name";
+                    $uploadPreset = "tu_upload_preset"; // O usa autenticación firmada con API Secret
+
+                    $cfile = new CURLFile($tmpFilePath, $_FILES['imagenes']['type'][$i], $name);
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, "https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, [
+                        'file' => $cfile,
+                        'upload_preset' => $uploadPreset
+                    ]);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    $response = curl_exec($ch);
+                    curl_close($ch);
+
+                    $responseData = json_decode($response, true);
+
+                    if (isset($responseData['secure_url'])) {
+                        $urlSegura = $responseData['secure_url']; // Esta es la URL completa de Cloudinary
+                        
                         $insF = $pdo->prepare("INSERT INTO fotos_vehiculos (id_vehiculo, id_usuario, ruta_imagen) VALUES (?, ?, ?)");
-                        $insF->execute([$idVehiculo, $idProveedor, $nuevoNombre]);
+                        $insF->execute([$idVehiculo, $idProveedor, $urlSegura]);
                     }
                 }
             }
@@ -106,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Consultar fotos para mostrar en la galería
+// Consultar fotos actualizadas
 $stmtFotos = $pdo->prepare("SELECT * FROM fotos_vehiculos WHERE id_vehiculo = ?");
 $stmtFotos->execute([$idVehiculo]);
 $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
@@ -124,20 +164,19 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
         .edit-container { max-width: 700px; margin: auto; background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid #333; }
         h2 { font-family: 'Bangers'; color: var(--rojo); font-size: 2.5rem; letter-spacing: 2px; margin-top:0; }
         .vehicle-info { background: #252525; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--rojo); }
-        
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; color: #bbb; font-weight: bold; }
-        input[type="number"], select { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 8px; }
+        input[type="number"], select { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
         
         /* Galería */
         .gallery-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
         .thumb-container { position: relative; width: 100%; height: 100px; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
         .thumb-container img { width: 100%; height: 100%; object-fit: cover; }
-        .btn-delete { position: absolute; top: 5px; right: 5px; background: var(--rojo); color: white; text-decoration: none; width: 22px; height: 22px; border-radius: 50%; text-align: center; font-weight: bold; line-height: 20px; font-size: 14px; }
-
+        .btn-delete { position: absolute; top: 5px; right: 5px; background: var(--rojo); color: white; text-decoration: none; width: 22px; height: 22px; border-radius: 50%; text-align: center; font-weight: bold; line-height: 20px; font-size: 14px; z-index: 10; }
         .btn-submit { background: var(--rojo); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
         .btn-cancel { display: block; text-align: center; margin-top: 15px; color: #888; text-decoration: none; }
         .error-msg { background: rgba(229, 9, 20, 0.2); color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--rojo); }
+        .no-fotos { color: #888; font-style: italic; font-size: 0.9rem; grid-column: span 4; text-align: center; padding: 20px; background: #252525; border-radius: 8px;}
     </style>
 </head>
 <body>
@@ -146,18 +185,18 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
     <h2>MODIFICAR UNIDAD</h2>
     
     <?php if ($error): ?>
-        <div class="error-msg"><?php echo $error; ?></div>
+        <div class="error-msg"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
     <form action="" method="POST" enctype="multipart/form-data">
         <div class="vehicle-info">
-            <strong>Vehículo:</strong> <?php echo $v['marca'] . ' ' . $v['modelo']; ?><br>
-            <strong>Placa:</strong> <?php echo $v['placa']; ?>
+            <strong>Vehículo:</strong> <?php echo htmlspecialchars($v['marca'] . ' ' . $v['modelo']); ?><br>
+            <strong>Placa:</strong> <?php echo htmlspecialchars($v['placa']); ?>
         </div>
 
         <div class="form-group">
             <label>Precio por Día ($)</label>
-            <input type="number" name="precio" value="<?php echo $v['precio']; ?>" required>
+            <input type="number" name="precio" value="<?php echo htmlspecialchars($v['precio']); ?>" required>
         </div>
 
         <div class="form-group">
@@ -170,21 +209,26 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div class="form-group">
-            <label>Fotos actuales (Deben ser 4)</label>
+            <label>Fotos actuales en Cloudinary (Deben ser 4)</label>
             <div class="gallery-preview">
-                <?php foreach ($fotosActuales as $foto): 
-                    $rutaFinal = "imagenes/" . basename($foto['ruta_imagen']);
-                ?>
-                    <div class="thumb-container">
-                        <img src="<?php echo $rutaFinal; ?>" onerror="this.src='unnamed.png'">
-                        <a href="?id=<?php echo $idVehiculo; ?>&borrar=<?php echo $foto['id_foto']; ?>" class="btn-delete" onclick="return confirm('¿Borrar foto?')">×</a>
-                    </div>
-                <?php endforeach; ?>
+                <?php if (count($fotosActuales) > 0): ?>
+                    <?php foreach ($fotosActuales as $foto): 
+                        // Como la base de datos guarda la URL completa de Cloudinary, la usamos directo en el src
+                        $urlCloudinary = htmlspecialchars($foto['ruta_imagen']);
+                    ?>
+                        <div class="thumb-container">
+                            <img src="<?php echo $urlCloudinary; ?>" alt="Foto vehículo" onerror="this.src='unnamed.png'">
+                            <a href="?id=<?php echo $idVehiculo; ?>&borrar=<?php echo $foto['id_foto']; ?>" class="btn-delete" onclick="return confirm('¿Borrar esta foto?')">×</a>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="no-fotos">No hay fotos registradas. Sube nuevas.</div>
+                <?php endif; ?>
             </div>
         </div>
 
         <div class="form-group">
-            <label>Subir nuevas fotos (Si borraste alguna)</label>
+            <label>Subir nuevas fotos a Cloudinary</label>
             <input type="file" name="imagenes[]" multiple accept="image/*" style="color: #888;">
         </div>
 
