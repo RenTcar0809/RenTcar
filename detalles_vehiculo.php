@@ -74,10 +74,17 @@ try {
     $fotosFinales = [];
     function normalizarRuta($ruta) {
         $ruta = str_replace('\\', '/', trim($ruta));
+        
+        // Soporte para URLs externas de Cloudinary (http o https)
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
+            return $ruta;
+        }
+        
         if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
         if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
         return 'imagenes/' . $ruta;
     }
+    
     foreach ($fotosBD as $f) { $fotosFinales[] = normalizarRuta($f); }
     if (empty($fotosFinales) && !empty($vehiculo['imagen'])) { $fotosFinales[] = normalizarRuta($vehiculo['imagen']); }
     $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'carro_default.png';
@@ -116,12 +123,12 @@ try {
     <section class="hero-section">
         <div class="gallery-side">
             <div class="main-img-wrap">
-                <img id="mainImage" src="<?php echo $imagenPrincipal; ?>" onerror="this.src='unnamed.png'">
+                <img id="mainImage" src="<?php echo htmlspecialchars($imagenPrincipal); ?>" onerror="this.src='unnamed.png'">
             </div>
             <?php if (count($fotosFinales) > 1): ?>
             <div class="thumbs-grid">
                 <?php foreach ($fotosFinales as $index => $ruta): ?>
-                    <img src="<?php echo $ruta; ?>" class="thumb <?php echo ($index===0)?'active':''; ?>" onclick="cambiarImagen(this, '<?php echo $ruta; ?>')">
+                    <img src="<?php echo htmlspecialchars($ruta); ?>" class="thumb <?php echo ($index===0)?'active':''; ?>" onclick="cambiarImagen(this, '<?php echo htmlspecialchars($ruta); ?>')" onerror="this.src='unnamed.png'">
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
