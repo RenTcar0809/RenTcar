@@ -4,9 +4,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once 'conexion.php';
 
-// Si usas Cloudinary mediante SDK, asegúrate de incluirlo aquí (por ejemplo, composer autoload)
-// require 'vendor/autoload.php';
-
 // 1. Verificar sesión activa
 if (!isset($_SESSION['IdUsuario'])) {
     header("Location: inicioSesion.php");
@@ -35,28 +32,11 @@ if (isset($_GET['borrar'])) {
     $foto = $stmtCheck->fetch(PDO::FETCH_ASSOC);
     
     if ($foto) {
-        $urlImagen = $foto['ruta_imagen'];
-        
-        // OPCIONAL: Si deseas borrar la imagen directamente de Cloudinary usando su API oficial,
-        // necesitarás extraer el public_id de la URL y usar la librería de Cloudinary:
-        /*
-        \Cloudinary\Configuration\Configuration::instance([
-            'cloud' => [
-                'cloud_name' => 'tu_cloud_name',
-                'api_key'    => 'tu_api_key',
-                'api_secret' => 'tu_api_secret'
-            ]
-        ]);
-        // Extraer public_id y borrar:
-        // \Cloudinary\Api\Upload\UploadApi::destroy($publicId);
-        */
-
-        // Borrar el registro de la base de datos
         $del = $pdo->prepare("DELETE FROM fotos_vehiculos WHERE id_foto = ?");
         $del->execute([$idFotoBorrar]);
     }
     
-    header("Location: procesar_editar.php?id=" . $idVehiculo);
+    header("Location: " . basename($_FILE['PHP_SELF'] ?? 'procesar_editar.php') . "?id=" . $idVehiculo);
     exit();
 }
 
@@ -73,80 +53,85 @@ if (!$v) {
 // --- PROCESAR GUARDADO DE CAMBIOS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
+    // Contar fotos actuales en la BD
     $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM fotos_vehiculos WHERE id_vehiculo = ?");
     $stmtCount->execute([$idVehiculo]);
     $cantidadActualEnBD = (int) $stmtCount->fetchColumn();
 
+    // Contar fotos nuevas seleccionadas de manera estricta
     $fotosNuevasCount = 0;
+    $archivosValidos = [];
     if (isset($_FILES['imagenes']) && !empty($_FILES['imagenes']['name'][0])) {
-        foreach ($_FILES['imagenes']['error'] as $err) {
+        foreach ($_FILES['imagenes']['error'] as $i => $err) {
             if ($err === UPLOAD_ERR_OK) {
                 $fotosNuevasCount++;
+                $archivosValidos[] = $i;
             }
         }
     }
 
     $totalFotosFinales = $cantidadActualEnBD + $fotosNuevasCount;
 
+    // Validación estricta: Obliga a que sean exactamente 4 fotos en total
     if ($totalFotosFinales != 4) {
-        $error = "Error: El vehículo debe tener exactamente 4 fotografías en total. Tienes $cantidadActualEnBD y vas a agregar $fotosNuevasCount.";
+        $error = "Error: El vehículo debe tener exactamente 4 fotografías. Actualmente tienes $cantidadActualEnBD en la base de datos y seleccionaste $fotosNuevasCount nuevas (Total: $totalFotosFinales).";
     } else {
+        // 1. Actualizar datos de texto primero
         $nuevoPrecio = $_POST['precio'];
         $nuevoEstado = $_POST['estado'];
 
         $stmtUp = $pdo->prepare("UPDATE vehiculo SET precio = ?, estado = ? WHERE id_v = ? AND id_proveedor = ?");
         $stmtUp->execute([$nuevoPrecio, $nuevoEstado, $idVehiculo, $idProveedor]);
 
-        // Subir nuevas fotos a Cloudinary
+        // 2. Subir nuevas fotos a Cloudinary si el usuario seleccionó alguna
+        $subidaExitosa = true;
         if ($fotosNuevasCount > 0) {
             $archivos = $_FILES['imagenes'];
             
-            foreach ($archivos['name'] as $i => $name) {
-                if ($archivos['error'][$i] === UPLOAD_ERR_OK) {
-                    $tmpFilePath = $archivos['tmp_name'][$i];
+            // ⚠️ REEMPLAZA ESTOS 2 DATOS CON LOS DE TU PANEL DE CLOUDINARY ⚠️
+            $cloudName = "bsd1wma1";       
+            $uploadPreset = "xkzfwqa0"; // Debe estar configurado como "Unsigned" en Cloudinary
 
-                    // Opción A: Si usas la SDK oficial de Cloudinary en PHP:
-                    /*
-                    $resultadoCloudinary = \Cloudinary\Api\Upload\UploadApi::upload($tmpFilePath, [
-                        'folder' => 'rentcar/vehiculos'
-                    ]);
-                    $urlSegura = $resultadoCloudinary['secure_url'];
-                    */
+            foreach ($archivosValidos as $i) {
+                $tmpFilePath = $archivos['tmp_name'][$i];
+                $name = $archivos['name'][$i];
 
-                    // Opción B: Subida mediante API Upload por cURL (si no usas el SDK de Composer)
-                    // (Asegúrate de configurar tus credenciales reales abajo si usas cURL)
-                    $cloudName = "tu_cloud_name";
-                    $uploadPreset = "tu_upload_preset"; // O usa autenticación firmada con API Secret
+                $cfile = new CURLFile($tmpFilePath, $archivos['type'][$i], $name);
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, "https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, [
+                    'file' => $cfile,
+                    'upload_preset' => $uploadPreset
+                ]);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                $response = curl_exec($ch);
+                curl_close($ch);
 
-                    $cfile = new CURLFile($tmpFilePath, $_FILES['imagenes']['type'][$i], $name);
-                    $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, "https://api.cloudinary.com/v1_1/$cloudName/image/upload");
-                    curl_setopt($ch, CURLOPT_POST, true);
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, [
-                        'file' => $cfile,
-                        'upload_preset' => $uploadPreset
-                    ]);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    $response = curl_exec($ch);
-                    curl_close($ch);
+                $responseData = json_decode($response, true);
 
-                    $responseData = json_decode($response, true);
-
-                    if (isset($responseData['secure_url'])) {
-                        $urlSegura = $responseData['secure_url']; // Esta es la URL completa de Cloudinary
-                        
-                        $insF = $pdo->prepare("INSERT INTO fotos_vehiculos (id_vehiculo, id_usuario, ruta_imagen) VALUES (?, ?, ?)");
-                        $insF->execute([$idVehiculo, $idProveedor, $urlSegura]);
-                    }
+                if (isset($responseData['secure_url'])) {
+                    $urlSegura = $responseData['secure_url'];
+                    
+                    $insF = $pdo->prepare("INSERT INTO fotos_vehiculos (id_vehiculo, id_usuario, ruta_imagen) VALUES (?, ?, ?)");
+                    $insF->execute([$idVehiculo, $idProveedor, $urlSegura]);
+                } else {
+                    $subidaExitosa = false;
+                    $error = "Error al conectar con Cloudinary. Revisa tu cloud_name y upload_preset.";
+                    break;
                 }
             }
         }
-        header("Location: historial_vehiculo.php?success=1");
-        exit();
+
+        // Solo redirige si todo salió bien y no hubo errores con Cloudinary
+        if ($subidaExitosa && empty($error)) {
+            header("Location: historial_vehiculo.php?success=1");
+            exit();
+        }
     }
 }
 
-// Consultar fotos actualizadas
+// Consultar fotos actualizadas para mostrar en la galería
 $stmtFotos = $pdo->prepare("SELECT * FROM fotos_vehiculos WHERE id_vehiculo = ?");
 $stmtFotos->execute([$idVehiculo]);
 $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
@@ -184,7 +169,7 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
 <div class="edit-container">
     <h2>MODIFICAR UNIDAD</h2>
     
-    <?php if ($error): ?>
+    <?php if (!empty($error)): ?>
         <div class="error-msg"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
@@ -209,11 +194,10 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div class="form-group">
-            <label>Fotos actuales en Cloudinary (Deben ser 4)</label>
+            <label>Fotos actuales en Cloudinary (Obligatorio: 4 en total)</label>
             <div class="gallery-preview">
                 <?php if (count($fotosActuales) > 0): ?>
                     <?php foreach ($fotosActuales as $foto): 
-                        // Como la base de datos guarda la URL completa de Cloudinary, la usamos directo en el src
                         $urlCloudinary = htmlspecialchars($foto['ruta_imagen']);
                     ?>
                         <div class="thumb-container">
@@ -222,7 +206,7 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <div class="no-fotos">No hay fotos registradas. Sube nuevas.</div>
+                    <div class="no-fotos">No hay fotos registradas. Sube tus fotos pendientes.</div>
                 <?php endif; ?>
             </div>
         </div>
