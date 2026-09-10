@@ -28,7 +28,7 @@
     transform: scale(1.05);
 }
 
-/* Ventana flotante del chat */
+/* Ventana flotante del chat (Asegura que tenga tamaño y flexbox) */
 #chat-float-container {
     display: none;
     position: fixed;
@@ -69,4 +69,68 @@
     color: #fff;
     font-size: 1.1rem;
     cursor: pointer;
+}
+
+/* Área de mensajes para que aparezcan dentro de la caja */
+.chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background: #fcfcfc;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Burbujas de mensajes */
+.message {
+    max-width: 85%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.message.bot {
+    background: #f1f3f5;
+    color: #212529;
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+}
+
+.message.user {
+    background: #000;
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+}
+
+/* Zona inferior de escritura */
+.chat-input-area {
+    padding: 12px;
+    background: #fff;
+    display: flex;
+    gap: 8px;
+    border-top: 1px solid #eee;
+}
+
+.chat-input-area input[type="text"] {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.chat-input-area button {
+    padding: 0 16px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
