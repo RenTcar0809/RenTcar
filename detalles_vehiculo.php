@@ -157,8 +157,8 @@ try {
                 <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper($vehiculo['traccion'] ?: 'N/A'); ?></strong></div></div>
             </div>
 
-            <!-- Botón estilo Marketplace que abre el chat flotante con el nombre del auto -->
-            <button class="main-btn" onclick="iniciarChatReserva('<?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?>')">
+            <!-- Botón estilo Marketplace conectado al chat en tiempo real -->
+            <button class="main-btn" onclick="iniciarChatReserva('auto', <?php echo $vehiculo['id_v']; ?>, '<?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?>')">
                 RESERVAR AHORA <i class="fas fa-comments"></i>
             </button>
         </div>
@@ -258,18 +258,18 @@ try {
     </section>
 </main>
 
-<!-- BOTÓN Y VENTANA FLOTANTE DEL CHATBOT -->
+<!-- BOTÓN Y VENTANA FLOTANTE DEL CHAT EN TIEMPO REAL -->
 <button class="chat-float-btn" onclick="toggleChatFlotante()">
-    <i class="fas fa-comment-dots"></i> Asistente RentCar
+    <i class="fas fa-comment-dots"></i> Chat con Arrendatario
 </button>
 
-<div id="chat-float-container">
+<div id="chat-float-container" data-tipo="auto" data-id="<?php echo $id_vehiculo; ?>">
     <div class="chat-float-header">
-        <h3><i class="fas fa-robot"></i> Chat RentCar</h3>
+        <h3><i class="fas fa-comments"></i> Negociación RentCar</h3>
         <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
     </div>
     <div id="chat-messages" class="chat-messages">
-        <div class="message bot">¡Hola! ¿En qué puedo ayudarte hoy con tu alquiler de vehículos?</div>
+        <!-- Los mensajes se cargarán dinámicamente -->
     </div>
     <div class="chat-input-area">
         <input type="text" id="chat-input" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
@@ -278,6 +278,9 @@ try {
 </div>
 
 <script>
+const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
+let intervaloChat = null;
+
 function cambiarImagen(el, ruta) {
     document.getElementById('mainImage').src = ruta;
     document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
@@ -294,57 +297,125 @@ function ocultarEditor(id) {
     document.getElementById('edit-mode-' + id).style.display = 'none';
 }
 
-// Funciones del Chatbot Flotante / Marketplace
 function toggleChatFlotante() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
-    chatContainer.style.display = (chatContainer.style.display === 'flex') ? 'none' : 'flex';
-    if (chatContainer.style.display === 'flex') document.getElementById('chat-input')?.focus();
+    const isOpen = chatContainer.style.display === 'flex';
+    chatContainer.style.display = isOpen ? 'none' : 'flex';
+    
+    if (!isOpen) {
+        document.getElementById('chat-input')?.focus();
+        iniciarActualizacionChat();
+    } else {
+        detenerActualizacionChat();
+    }
 }
 
-function iniciarChatReserva(nombreVehiculo) {
+function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     const chatContainer = document.getElementById('chat-float-container');
     if (chatContainer) chatContainer.style.display = 'flex';
 
-    setTimeout(() => {
-        agregarMensaje(`Hola, estoy interesado/a en reservar: <b>${nombreVehiculo}</b>. ¿Está disponible y cuáles son los pasos a seguir?`, 'user');
-        setTimeout(() => {
-            agregarMensaje(`¡Hola! Claro que sí, el modelo <b>${nombreVehiculo}</b> está disponible para reserva. Para proceder, asegúrate de tener a la mano tu documento de identidad y licencia vigente. ¿Para qué fecha deseas programar la recogida?`, 'bot');
-        }, 800);
-    }, 200);
-}
+    chatContainer.dataset.tipo = tipoVehiculo;
+    chatContainer.dataset.id = idItem;
 
-function handleKeyPress(e) {
-    if (e.key === 'Enter') enviarMensajeBot();
+    setTimeout(() => {
+        enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: <b>${nombreVehiculo}</b>.`);
+    }, 300);
+
+    iniciarActualizacionChat();
 }
 
 function enviarMensajeBot() {
     const input = document.getElementById('chat-input');
-    if (!input) return;
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!input || !chatContainer) return;
+
     const texto = input.value.trim();
     if (!texto) return;
 
-    agregarMensaje(texto, 'user');
-    input.value = '';
+    const tipo = chatContainer.dataset.tipo || 'auto';
+    const idItem = chatContainer.dataset.id || 0;
 
-    fetch('chatbot_backend.php', {
+    const formData = new URLSearchParams();
+    formData.append('accion', 'enviar');
+    formData.append('tipo_vehiculo', tipo);
+    formData.append('id_item', idItem);
+    formData.append('mensaje', texto);
+
+    fetch('chat_backend.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'mensaje=' + encodeURIComponent(texto)
+        body: formData.toString()
     })
     .then(res => res.json())
-    .then(data => agregarMensaje(data.respuesta, 'bot'))
-    .catch(() => agregarMensaje('Lo siento, ocurrió un error de conexión con el asistente.', 'bot'));
+    .then(data => {
+        if(data.status === 'success') {
+            input.value = '';
+            cargarMensajesServidor();
+        }
+    });
 }
 
-function agregarMensaje(texto, remitente) {
-    const mensajesContainer = document.getElementById('chat-messages');
-    if (!mensajesContainer) return;
-    const div = document.createElement('div');
-    div.className = 'message ' + remitente;
-    div.innerHTML = texto;
-    mensajesContainer.appendChild(div);
-    mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
+function enviarMensajeAutomatico(texto) {
+    const chatContainer = document.getElementById('chat-float-container');
+    const tipo = chatContainer.dataset.tipo || 'auto';
+    const idItem = chatContainer.dataset.id || 0;
+
+    const formData = new URLSearchParams();
+    formData.append('accion', 'enviar');
+    formData.append('tipo_vehiculo', tipo);
+    formData.append('id_item', idItem);
+    formData.append('mensaje', texto);
+
+    fetch('chat_backend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+    }).then(() => cargarMensajesServidor());
+}
+
+function cargarMensajesServidor() {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer || chatContainer.style.display !== 'flex') return;
+
+    const tipo = chatContainer.dataset.tipo || 'auto';
+    const idItem = chatContainer.dataset.id || 0;
+
+    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_item=${idItem}`)
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            const mensajesContainer = document.getElementById('chat-messages');
+            mensajesContainer.innerHTML = '';
+
+            data.mensajes.forEach(m => {
+                const div = document.createElement('div');
+                const esMio = m.remitente === data.usuario_actual;
+                div.className = 'message ' + (esMio ? 'user' : 'bot');
+                div.innerHTML = `<strong>${esMio ? 'Tú' : m.remitente}:</strong> ${m.mensaje}`;
+                mensajesContainer.appendChild(div);
+            });
+            mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
+        }
+    });
+}
+
+function iniciarActualizacionChat() {
+    cargarMensajesServidor();
+    if (!intervaloChat) {
+        intervaloChat = setInterval(cargarMensajesServidor, 3000);
+    }
+}
+
+function detenerActualizacionChat() {
+    if (intervaloChat) {
+        clearInterval(intervaloChat);
+        intervaloChat = null;
+    }
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter') enviarMensajeBot();
 }
 </script>
 </body>
