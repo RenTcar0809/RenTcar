@@ -143,8 +143,8 @@ try {
 </nav>
 
 <main class="main-wrapper">
-    <!-- SECCIÓN 1: FICHA TÉCNICA (Se oculta al hacer clic en reservar) -->
-    <section class="hero-section" id="ficha-tecnica-section">
+    <!-- SECCIÓN 1: FICHA TÉCNICA PRINCIPAL -->
+    <section class="hero-section">
         <div class="gallery-side">
             <div class="main-img-wrap">
                 <img id="mainImage" src="<?php echo htmlspecialchars($imagenPrincipal); ?>" onerror="this.src='unnamed.png'">
@@ -162,36 +162,38 @@ try {
             <h1 class="v-title"><?php echo strtoupper(htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo'])); ?></h1>
             <div class="v-price">$<?php echo number_format($vehiculo['precio'], 2); ?> <span>/ día</span></div>
             
-            <div class="specs-box">
-                <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo $vehiculo['transmision'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo $vehiculo['motor'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo $vehiculo['placa'] ?: 'S/N'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo $vehiculo['color'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-chair"></i> <div><span>Asientos</span><strong><?php echo $vehiculo['asientos'] ?: '0'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper($vehiculo['traccion'] ?: 'N/A'); ?></strong></div></div>
+            <!-- VISTA DE ESPECIFICACIONES (Se oculta al hacer clic en reservar) -->
+            <div id="specs-view">
+                <div class="specs-box">
+                    <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo $vehiculo['transmision'] ?: 'N/A'; ?></strong></div></div>
+                    <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo $vehiculo['motor'] ?: 'N/A'; ?></strong></div></div>
+                    <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo $vehiculo['placa'] ?: 'S/N'; ?></strong></div></div>
+                    <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo $vehiculo['color'] ?: 'N/A'; ?></strong></div></div>
+                    <div class="s-item"><i class="fas fa-chair"></i> <div><span>Asientos</span><strong><?php echo $vehiculo['asientos'] ?: '0'; ?></strong></div></div>
+                    <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper($vehiculo['traccion'] ?: 'N/A'); ?></strong></div></div>
+                </div>
+
+                <button class="main-btn" onclick="abrirChatEnSeccion()">
+                    RESERVAR AHORA <i class="fas fa-key"></i>
+                </button>
             </div>
 
-            <!-- Botón que activa la función en JS para ocultar la ficha y mostrar el chat -->
-            <button class="main-btn" onclick="abrirChatEnSeccion()">
-                RESERVAR AHORA <i class="fas fa-key"></i>
-            </button>
+            <!-- CHATBOT INTEGRADO EN EL PANEL DERECHO (Oculto inicialmente) -->
+            <div id="chat-inline-container">
+                <div class="chat-inline-header">
+                    <h3><i class="fas fa-robot"></i> Asistente RentCar</h3>
+                    <button class="btn-volver-info" onclick="cerrarChatEnSeccion()"><i class="fas fa-arrow-left"></i> Volver</button>
+                </div>
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message bot">¡Hola! Has seleccionado reservar el <b><?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?></b>. ¿Qué dudas tienes sobre los requisitos o el proceso?</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Escribe tu duda..." onkeypress="handleKeyPress(event)">
+                    <button onclick="enviarMensajeBot()">Enviar</button>
+                </div>
+            </div>
         </div>
     </section>
-
-    <!-- CONTENEDOR DEL CHATBOT INTEGRADO (Oculto por defecto) -->
-    <div id="chat-inline-container">
-        <div class="chat-inline-header">
-            <h3><i class="fas fa-robot"></i> Asistente de Reservas RentCar</h3>
-            <button class="btn-volver-info" onclick="cerrarChatEnSeccion()"><i class="fas fa-arrow-left"></i> Volver a ficha técnica</button>
-        </div>
-        <div id="chat-messages" class="chat-messages">
-            <div class="message bot">¡Hola! Has seleccionado reservar este vehículo (<b><?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?></b>). ¿En qué te puedo ayudar para completar tu proceso o qué dudas tienes sobre los requisitos y pagos?</div>
-        </div>
-        <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." onkeypress="handleKeyPress(event)">
-            <button onclick="enviarMensajeBot()">Enviar</button>
-        </div>
-    </div>
 
     <!-- SECCIÓN 2: BANNER DE RECOGIDA -->
     <section class="pickup-banner">

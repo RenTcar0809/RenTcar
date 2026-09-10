@@ -1,20 +1,20 @@
-// Funciones para alternar la Ficha Técnica con el Chat Integrado
+// Funciones para alternar entre especificaciones y el chat en el panel derecho
 function abrirChatEnSeccion() {
-    const ficha = document.getElementById('ficha-tecnica-section');
+    const specsView = document.getElementById('specs-view');
     const chatContainer = document.getElementById('chat-inline-container');
     const chatInput = document.getElementById('chat-input');
 
-    if (ficha) ficha.style.display = 'none';
+    if (specsView) specsView.style.display = 'none';
     if (chatContainer) chatContainer.style.display = 'flex';
     if (chatInput) chatInput.focus();
 }
 
 function cerrarChatEnSeccion() {
-    const ficha = document.getElementById('ficha-tecnica-section');
+    const specsView = document.getElementById('specs-view');
     const chatContainer = document.getElementById('chat-inline-container');
 
     if (chatContainer) chatContainer.style.display = 'none';
-    if (ficha) ficha.style.display = 'grid'; // Restaura el grid original de la ficha técnica
+    if (specsView) specsView.style.display = 'block';
 }
 
 function handleKeyPress(e) {
