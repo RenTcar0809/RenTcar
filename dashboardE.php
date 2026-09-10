@@ -67,10 +67,9 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-// 6. Consultar mensajes o consultas de clientes vinculados a los vehículos de la empresa
-    $sqlMensajes = "SELECT m.mensaje, m.fecha, u.nombre AS cliente, u.correo, v.marca, v.modelo, v.placa 
+// 6. Consultar mensajes de los clientes vinculados a los vehículos de la empresa
+    $sqlMensajes = "SELECT m.mensaje, m.fecha, m.remitente AS cliente, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
-                    INNER JOIN usuario u ON m.id_usuario = u.IdUsuario
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
@@ -78,7 +77,6 @@ try {
     $stmtMensajes = $pdo->prepare($sqlMensajes);
     $stmtMensajes->execute([':id' => $idProveedor]);
     $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
-
 } catch (PDOException $e) {
     // Si alguna tabla (como 'mensajes') no existe todavía, evita que rompa el panel completo
 }
