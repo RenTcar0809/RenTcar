@@ -8,8 +8,7 @@ if (!isset($_SESSION['usuario_nombre'])) {
     exit();
 }
 
-// SIN TRY-CATCH TEMPORALMENTE para que veas si hay algún error real de SQL en pantalla
-// Quitamos el filtro WHERE para forzar a que traiga TODOS los registros que existan en la tabla
+// Consulta para traer todos los vehículos de la base de datos
 $sql = "SELECT v.*, 
                (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
         FROM vehiculo v 
@@ -67,7 +66,6 @@ $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         } 
                         // Caso 2: Ruta local con carpeta
                         elseif (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
-                            $srcFinal = $nombreIndex; // Corregido abajo
                             $srcFinal = $nombreImagen;
                         } 
                         // Caso 3: Archivo local antiguo
