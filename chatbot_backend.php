@@ -25,6 +25,11 @@ elseif (strpos($mensaje, 'hola') !== false || strpos($mensaje, 'buenos dias') !=
 elseif (strpos($mensaje, 'contacto') !== false || strpos($mensaje, 'telefono') !== false || strpos($mensaje, 'ayuda humana') !== false) {
     $respuesta = "Puedes comunicarte con nuestro equipo de soporte técnico o atención al cliente directamente desde tu panel de usuario o llamando a nuestra línea de asistencia principal.";
 }
+elseif (strpos($mensaje, 'horario') !== false || strpos($mensaje, 'recogida') !== false || strpos($mensaje, 'pasar') !== false) {
+    $respuesta = "Recuerda que nuestros horarios de recogida seran acordes a la disponibilidad del arrendatario o de no ser este el caso de la empresa responsable.";
+}
+$mensaje = strtolower($_POST['text'] ?? '');
+
 
 // Retornar la respuesta en formato JSON
 echo json_encode(['respuesta' => $respuesta]);
