@@ -130,6 +130,8 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="detalles_vehiculo.css">
+    <!-- Enlace al CSS del Chatbot -->
+    <link rel="stylesheet" href="chatbot.css">
 </head>
 <body>
 
@@ -284,6 +286,27 @@ try {
     </section>
 </main>
 
+<!-- WIDGET DE CHATBOT DE ASISTENCIA PARA PRÉSTAMOS -->
+<div id="chat-widget-container">
+    <button id="chat-toggle-btn" onclick="toggleChat()">
+        <i class="fas fa-comment-dots"></i> ¿Ayuda con tu préstamo?
+    </button>
+
+    <div id="chat-box">
+        <div class="chat-header">
+            <h4>Asistente RentCar 🚗</h4>
+            <button class="chat-close" onclick="toggleChat()">&times;</button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <div class="message bot">¡Hola! Soy tu asistente virtual de RentCar. ¿En qué te puedo ayudar hoy con el alquiler de tu vehículo? (Puedes preguntar por: <b>requisitos</b>, <b>precios</b>, <b>pagos</b> o <b>cómo reservar</b>).</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Escribe tu duda aquí..." onkeypress="handleKeyPress(event)">
+            <button onclick="enviarMensajeBot()">Enviar</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function cambiarImagen(el, ruta) {
     document.getElementById('mainImage').src = ruta;
@@ -299,6 +322,52 @@ function mostrarEditor(id) {
 function ocultarEditor(id) {
     document.getElementById('view-mode-' + id).style.display = 'block';
     document.getElementById('edit-mode-' + id).style.display = 'none';
+}
+
+// Funciones del Chatbot
+function toggleChat() {
+    const box = document.getElementById('chat-box');
+    box.style.display = box.style.display === 'flex' ? 'none' : 'flex';
+    if(box.style.display === 'flex') {
+        document.getElementById('chat-input').focus();
+    }
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter') {
+        enviarMensajeBot();
+    }
+}
+
+function enviarMensajeBot() {
+    const input = document.getElementById('chat-input');
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    agregarMensaje(texto, 'user');
+    input.value = '';
+
+    fetch('chatbot_backend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'mensaje=' + encodeURIComponent(texto)
+    })
+    .then(res => res.json())
+    .then(data => {
+        agregarMensaje(data.respuesta, 'bot');
+    })
+    .catch(() => {
+        agregarMensaje('Lo siento, ocurrió un error de conexión con el asistente.', 'bot');
+    });
+}
+
+function agregarMensaje(texto, remitente) {
+    const mensajesContainer = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'message ' + remitente;
+    div.innerHTML = texto;
+    mensajesContainer.appendChild(div);
+    mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
 }
 </script>
 </body>
