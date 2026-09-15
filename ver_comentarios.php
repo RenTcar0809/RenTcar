@@ -45,25 +45,27 @@ try {
     die("Error: " . $e->getMessage());
 }
 
-// Lógica de imagen utilizando la tabla de fotos en la base de datos (Compatible con Cloudinary)
-$imgCabecera = 'unnamed.png'; // Imagen por defecto si no encuentra ninguna
+// Lógica de imagen utilizando la tabla correcta: fotos_vehiculos
+$imgCabecera = 'unnamed.png'; 
+
 try {
-    $stmtImg = $pdo->prepare("SELECT ruta_imagen FROM fotos WHERE id_vehiculo = ? ORDER BY id_foto ASC LIMIT 1");
+    $stmtImg = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC LIMIT 1");
     $stmtImg->execute([$id_v]);
     $fotoData = $stmtImg->fetch(PDO::FETCH_ASSOC);
 
     if ($fotoData && !empty($fotoData['ruta_imagen'])) {
-        $ruta = $fotoData['ruta_imagen'];
-        // Si la ruta comienza con http (como Cloudinary), se usa tal cual. Si es local antigua, se le puede anteponer la carpeta si es necesario.
+        $ruta = trim($fotoData['ruta_imagen']);
+        
+        // Si es una URL de Cloudinary (empieza con http), la usa directamente
         if (strpos($ruta, 'http') === 0) {
             $imgCabecera = $ruta;
         } else {
-            // Por si quedó alguna ruta local vieja en la BD
-            $imgCabecera = file_exists($ruta) ? $ruta : 'unnamed.png';
+            // Si es una ruta local vieja, la mantiene
+            $imgCabecera = $ruta;
         }
     }
 } catch (PDOException $e) {
-    // Si ocurre un error en la consulta de la foto, se mantiene 'unnamed.png' por seguridad
+    // Manejo de error si ocurre algún inconveniente con la consulta
     $imgCabecera = 'unnamed.png';
 }
 ?>
