@@ -9,18 +9,31 @@ if (!isset($_SESSION['IdUsuario'])) {
 }
 
 $id_usuario = $_SESSION['IdUsuario'];
+$mensajes_no_leidos = 0; // Inicializamos la variable para evitar advertencias
 
 try {
-    // 1. Consultar los vehículos del proveedor
+    // 1. Obtener el nombre o empresa del proveedor actual para buscar sus mensajes
+    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE IdUsuario = ?');
+    $stmtU->execute([$id_usuario]);
+    $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
+    
+    $nombre_usuario = '';
+    if ($uData) {
+        $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
+    }
+
+    // 2. Consultar los vehículos del proveedor
     $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
     $stmt->execute([':id_usuario' => $id_usuario]);
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 2. Opcional: Consultar mensajes no leídos para la notificación en el botón
-    // (Asegúrate de ajustar el nombre de tu tabla y campos de mensajes si difieren)
-    $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total_no_leidos FROM mensajes WHERE id_destinatario = :id_usuario AND leido = 0');
-    $stmt_msg->execute([':id_usuario' => $id_usuario]);
-    $mensajes_no_leidos = $stmt_msg->fetch(PDO::FETCH_ASSOC)['total_no_leidos'] ?? 0;
+    // 3. Contar los mensajes en la tabla correcta (mensajes_chat) destinados a este usuario
+    if (!empty($nombre_usuario)) {
+        $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total FROM mensajes_chat WHERE destinatario = ?');
+        $stmt_msg->execute([$nombre_usuario]);
+        $res_msg = $stmt_msg->fetch(PDO::FETCH_ASSOC);
+        $mensajes_no_leidos = $res_msg['total'] ?? 0;
+    }
 
 } catch (PDOException $e) {
     $error_msg = "Error al cargar los datos: " . $e->getMessage();
@@ -51,7 +64,6 @@ try {
         .btn-accion { background: var(--rojo); padding: 12px 25px; border-radius: 8px; text-decoration: none; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
         .btn-accion:hover { background: #b20710; }
 
-        /* Estilo para el botón de mensajes */
         .btn-mensajes { 
             background: #222; border: 1px solid #333; padding: 12px 20px; border-radius: 8px; 
             text-decoration: none; color: white; font-weight: bold; display: inline-flex; 
@@ -59,7 +71,6 @@ try {
         }
         .btn-mensajes:hover { background: #333; border-color: #555; }
         
-        /* Insignia de mensajes no leídos */
         .badge-msg { 
             background: var(--rojo); color: white; font-size: 0.75rem; padding: 2px 6px; 
             border-radius: 50%; position: absolute; top: -8px; right: -8px; font-weight: bold; 
@@ -137,7 +148,7 @@ try {
             <div style="background: rgba(229,9,20,0.2); border: 1px solid var(--rojo); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <p style="margin:0;"><?php echo htmlspecialchars($error_msg); ?></p>
             </div>
-        <?elseif (empty($vehiculos)): ?>
+        <?php elseif (empty($vehiculos)): ?>
             <div class="empty-state-container">
                 <i class="fas fa-car-side" style="font-size: 4rem; color: #444; margin-bottom: 20px;"></i>
                 <h2 style="margin: 10px 0; color: #fff;">No tienes vehículos activos</h2>
