@@ -2,7 +2,7 @@
 session_start();
 require_once 'conexion.php';
 
-// 1. Verificar sesión
+// 1. Verificar sesión activa
 if (!isset($_SESSION['usuario_nombre'])) {
     header("Location: inicioSesion.php");
     exit();
@@ -24,7 +24,7 @@ function limpiarInsultos($texto) {
 
 // 3. Procesar NUEVO comentario al presionar el botón
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {
-    $comentario_bruto = trim($_POST['comentario']);
+    $comentario_bruto = trim($_POST['comentario'] ?? '');
     $puntuacion = isset($_POST['rating']) ? intval($_POST['rating']) : 5;
     $comentario_final = limpiarInsultos($comentario_bruto);
 
@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
 
 // 3.1. Procesar ACTUALIZACIÓN de comentario
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
-    $id_com = intval($_POST['id_comentario']);
-    $comentario_edit_bruto = trim($_POST['comentario_edit']);
+    $id_com = intval($_POST['id_comentario'] ?? 0);
+    $comentario_edit_bruto = trim($_POST['comentario_edit'] ?? '');
     $puntuacion_edit = isset($_POST['rating_edit']) ? intval($_POST['rating_edit']) : 5;
     $comentario_edit_final = limpiarInsultos($comentario_edit_bruto);
 
@@ -71,15 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
-// 4. Obtener datos de la motocicleta
+// 4. Obtener datos de la motocicleta (Corregido a la tabla unificada 'vehiculo')
 try {
-    $stmt = $pdo->prepare("SELECT * FROM motocicleta WHERE id_m = ?");
+    $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ? AND LOWER(tipo) LIKE '%moto%'");
     $stmt->execute([$id_moto]);
     $motocicleta = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$motocicleta) { header("Location: motocicletas.php"); exit(); }
+    if (!$motocicleta) { 
+        header("Location: motocicletas.php"); 
+        exit(); 
+    }
 
-    $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_motocicletas WHERE id_motocicleta = ? ORDER BY id_foto ASC");
+    // Consulta de fotos usando la tabla correcta 'fotos_vehiculos'
+    $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
     $stmtFotos->execute([$id_moto]);
     $fotosBD = $stmtFotos->fetchAll(PDO::FETCH_COLUMN);
 
@@ -96,6 +100,7 @@ try {
     if (empty($fotosFinales) && !empty($motocicleta['imagen'])) { $fotosFinales[] = normalizarRuta($motocicleta['imagen']); }
     $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
 
+    // Obtener comentarios
     $stmtCom = $pdo->prepare("SELECT * FROM comentarios_motocicletas WHERE id_motocicleta = ? ORDER BY fecha DESC");
     $stmtCom->execute([$id_moto]);
     $comentarios = $stmtCom->fetchAll(PDO::FETCH_ASSOC);
@@ -145,20 +150,20 @@ try {
         </div>
 
         <div class="info-side">
-            <h1 class="v-title"><?php echo strtoupper(htmlspecialchars($motocicleta['marca'] . ' ' . $motocicleta['modelo'])); ?></h1>
-            <div class="v-price">$<?php echo number_format($motocicleta['precio'], 2); ?> <span>/ día</span></div>
+            <h1 class="v-title"><?php echo strtoupper(htmlspecialchars(($motocicleta['marca'] ?? '') . ' ' . ($motocicleta['modelo'] ?? ''))); ?></h1>
+            <div class="v-price">$<?php echo number_format($motocicleta['precio'] ?? 0, 2); ?> <span>/ día</span></div>
             
             <div class="specs-box">
-                <div class="s-item"><i class="fas fa-motorcycle"></i> <div><span>Cilindrada</span><strong><?php echo $motocicleta['cilindrada'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo $motocicleta['motor'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo $motocicleta['placa'] ?: 'S/N'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo $motocicleta['color'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo $motocicleta['transmision'] ?: 'N/A'; ?></strong></div></div>
-                <div class="s-item"><i class="fas fa-gas-pump"></i> <div><span>Combustible</span><strong><?php echo ucfirst($motocicleta['combustible'] ?: 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-motorcycle"></i> <div><span>Cilindrada</span><strong><?php echo htmlspecialchars($motocicleta['cilindrada'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo htmlspecialchars($motocicleta['motor'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo htmlspecialchars($motocicleta['placa'] ?? 'S/N'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo htmlspecialchars($motocicleta['color'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo htmlspecialchars($motocicleta['transmision'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-gas-pump"></i> <div><span>Combustible</span><strong><?php echo ucfirst(htmlspecialchars($motocicleta['combustible'] ?? 'N/A')); ?></strong></div></div>
             </div>
 
             <!-- Botón estilo Marketplace conectado al chat en tiempo real -->
-            <button class="main-btn" onclick="iniciarChatReserva('moto', <?php echo $motocicleta['id_m']; ?>, '<?php echo htmlspecialchars($motocicleta['marca'] . ' ' . $motocicleta['modelo']); ?>')">
+            <button class="main-btn" onclick="iniciarChatReserva('moto', <?php echo $motocicleta['id_v']; ?>, '<?php echo htmlspecialchars(($motocicleta['marca'] ?? '') . ' ' . ($motocicleta['modelo'] ?? '')); ?>')">
                 RESERVAR AHORA <i class="fas fa-comments"></i>
             </button>
         </div>
@@ -189,7 +194,7 @@ try {
             <div class="write-box">
                 <h3>¿Qué te pareció esta motocicleta?</h3>
                 <?php if(!empty($error_msg)): ?>
-                    <p style="color: var(--rojo); font-size: 0.85rem; margin-bottom: 10px;"><?php echo $error_msg; ?></p>
+                    <p style="color: var(--rojo); font-size: 0.85rem; margin-bottom: 10px;"><?php echo htmlspecialchars($error_msg); ?></p>
                 <?php endif; ?>
                 <form method="POST">
                     <div class="rating-selector">
@@ -278,7 +283,7 @@ try {
 </div>
 
 <script>
-const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
+const usuarioActual = "<?php echo htmlspecialchars($_SESSION['usuario_nombre'] ?? ''); ?>";
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
