@@ -22,7 +22,7 @@ function limpiarInsultos($texto) {
     return preg_replace($patron, '****', $texto);
 }
 
-// 3. Procesar NUEVO comentario al presionar el botón
+// 3. Procesar NUEVO comentario al presionar el botón (Tabla corregida)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {
     $comentario_bruto = trim($_POST['comentario'] ?? '');
     $puntuacion = isset($_POST['rating']) ? intval($_POST['rating']) : 5;
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
 
     if (!empty($comentario_final)) {
         try {
-            $sql = "INSERT INTO comentarios_motocicletas (id_motocicleta, usuario_nombre, comentario, puntuacion) VALUES (?, ?, ?, ?)";
+            $sql = "INSERT INTO comentarios_vehiculos (id_vehiculo, usuario_nombre, comentario, puntuacion) VALUES (?, ?, ?, ?)";
             $ins = $pdo->prepare($sql);
             $ins->execute([$id_moto, $_SESSION['usuario_nombre'], $comentario_final, $puntuacion]);
             
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
     }
 }
 
-// 3.1. Procesar ACTUALIZACIÓN de comentario
+// 3.1. Procesar ACTUALIZACIÓN de comentario (Tabla corregida)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
     $id_com = intval($_POST['id_comentario'] ?? 0);
     $comentario_edit_bruto = trim($_POST['comentario_edit'] ?? '');
@@ -53,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
 
     if (!empty($comentario_edit_final)) {
         try {
-            $chk = $pdo->prepare("SELECT usuario_nombre FROM comentarios_motocicletas WHERE id_comentario = ?");
+            $chk = $pdo->prepare("SELECT usuario_nombre FROM comentarios_vehiculos WHERE id_comentario = ?");
             $chk->execute([$id_com]);
             $c_data = $chk->fetch(PDO::FETCH_ASSOC);
 
             if ($c_data && $c_data['usuario_nombre'] === $_SESSION['usuario_nombre']) {
-                $upd = $pdo->prepare("UPDATE comentarios_motocicletas SET comentario = ?, puntuacion = ? WHERE id_comentario = ?");
+                $upd = $pdo->prepare("UPDATE comentarios_vehiculos SET comentario = ?, puntuacion = ? WHERE id_comentario = ?");
                 $upd->execute([$comentario_edit_final, $puntuacion_edit, $id_com]);
             }
             header("Location: detalles_motocicleta.php?id=$id_moto&msg=updated#comentarios");
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
-// 4. Obtener datos de la motocicleta (Corregido a la tabla unificada 'vehiculo')
+// 4. Obtener datos de la motocicleta (Tabla unificada 'vehiculo')
 try {
     $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ? AND LOWER(tipo) LIKE '%moto%'");
     $stmt->execute([$id_moto]);
@@ -100,8 +100,8 @@ try {
     if (empty($fotosFinales) && !empty($motocicleta['imagen'])) { $fotosFinales[] = normalizarRuta($motocicleta['imagen']); }
     $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
 
-    // Obtener comentarios
-    $stmtCom = $pdo->prepare("SELECT * FROM comentarios_motocicletas WHERE id_motocicleta = ? ORDER BY fecha DESC");
+    // Obtener comentarios (Tabla corregida a comentarios_vehiculos)
+    $stmtCom = $pdo->prepare("SELECT * FROM comentarios_vehiculos WHERE id_vehiculo = ? ORDER BY fecha DESC");
     $stmtCom->execute([$id_moto]);
     $comentarios = $stmtCom->fetchAll(PDO::FETCH_ASSOC);
 
@@ -162,7 +162,6 @@ try {
                 <div class="s-item"><i class="fas fa-gas-pump"></i> <div><span>Combustible</span><strong><?php echo ucfirst(htmlspecialchars($motocicleta['combustible'] ?? 'N/A')); ?></strong></div></div>
             </div>
 
-            <!-- Botón estilo Marketplace conectado al chat en tiempo real -->
             <button class="main-btn" onclick="iniciarChatReserva('moto', <?php echo $motocicleta['id_v']; ?>, '<?php echo htmlspecialchars(($motocicleta['marca'] ?? '') . ' ' . ($motocicleta['modelo'] ?? '')); ?>')">
                 RESERVAR AHORA <i class="fas fa-comments"></i>
             </button>
@@ -263,7 +262,6 @@ try {
     </section>
 </main>
 
-<!-- BOTÓN Y VENTANA FLOTANTE DEL CHAT EN TIEMPO REAL -->
 <button class="chat-float-btn" onclick="toggleChatFlotante()">
     <i class="fas fa-comment-dots"></i> Chat con Arrendatario
 </button>
@@ -273,9 +271,7 @@ try {
         <h3><i class="fas fa-comments"></i> Negociación RentCar</h3>
         <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
     </div>
-    <div id="chat-messages" class="chat-messages">
-        <!-- Los mensajes se cargarán dinámicamente -->
-    </div>
+    <div id="chat-messages" class="chat-messages"></div>
     <div class="chat-input-area">
         <input type="text" id="chat-input" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
         <button onclick="enviarMensajeBot()">Enviar</button>
