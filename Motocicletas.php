@@ -73,11 +73,16 @@ try {
                     // 2. Normalizar la ruta (reemplazar '\' por '/')
                     $fotoBD = str_replace('\\', '/', trim($fotoBD));
 
-                    // 3. Construir la ruta hacia la carpeta 'imagenes'
+                    // 3. Determinar si es una URL externa (Cloudinary / http) o un archivo local
                     if (!empty($fotoBD)) {
-                        if (strpos($fotoBD, 'imagenes/') === 0) {
+                        if (strpos($fotoBD, 'http://') === 0 || strpos($fotoBD, 'https://') === 0) {
+                            // Es una URL completa de Cloudinary, se usa tal cual
+                            $srcImagen = $fotoBD;
+                        } elseif (strpos($fotoBD, 'imagenes/') === 0) {
+                            // Ya tiene la ruta local prefijada
                             $srcImagen = $fotoBD;
                         } else {
+                            // Es un nombre de archivo local suelto, le anteponemos la carpeta
                             $srcImagen = 'imagenes/' . $fotoBD;
                         }
                     } else {
