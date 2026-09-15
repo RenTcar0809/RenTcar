@@ -14,18 +14,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Búsqueda por correo o NIT
-        $sql = "SELECT * FROM usuario WHERE correo = :login OR nit = :login LIMIT 1";
+        // 1. Búsqueda ampliada por nombre, correo o NIT
+        $sql = "SELECT * FROM usuario WHERE nombre = :login OR correo = :login OR nit = :login LIMIT 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':login' => $identificador]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($usuario) {
-            // Obtenemos el hash guardado en la base de datos
-            $hashGuardado = $usuario['contraseña'] ?? $usuario['contrasena'] ?? '';
+            // Obtenemos la contraseña guardada en la base de datos
+            $pwdGuardada = $usuario['contraseña'] ?? $usuario['contrasena'] ?? '';
             
-            // Verificamos la contraseña encriptada de forma segura
-            if (password_verify($password, $hashGuardado)) {
+            $passwordValida = false;
+
+            // 2. Verificación dual: Comprobamos si es un hash seguro o si está en texto plano
+            if (strpos($pwdGuardada, '$2y$') === 0 || strpos($pwdGuardada, '$argon') === 0) {
+                // Si está encriptada con password_hash
+                if (password_verify($password, $pwdGuardada)) {
+                    $passwordValida = true;
+                }
+            } else {
+                // Si está guardada en texto plano (como algunos registros de prueba en tu BD)
+                if ($password === $pwdGuardada) {
+                    $passwordValida = true;
+                }
+            }
+
+            if ($passwordValida) {
                 session_regenerate_id(true);
 
                 // Asignamos las variables de sesión unificadas (respetando 'IdUsuario')
@@ -51,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // SI NO SE ENCONTRÓ O LA CONTRASEÑA ES INCORRECTA
-        echo "<script>alert('Correo o NIT incorrectos, o contraseña inválida.'); window.history.back();</script>";
+        // SI NO SE ENCONTRÓ EL USUARIO O LA CONTRASEÑA ES INCORRECTA
+        echo "<script>alert('Usuario, correo o NIT incorrectos, o contraseña inválida.'); window.history.back();</script>";
         exit();
 
     } catch (PDOException $e) {
@@ -61,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 } else {
-    die("Debes enviar el formulario primero.");
+    header("Location: inicioSesion.php");
+    exit();
 }
 ?>
