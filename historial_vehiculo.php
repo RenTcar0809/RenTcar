@@ -11,12 +11,19 @@ if (!isset($_SESSION['IdUsuario'])) {
 $id_usuario = $_SESSION['IdUsuario'];
 
 try {
+    // 1. Consultar los vehículos del proveedor
     $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
     $stmt->execute([':id_usuario' => $id_usuario]);
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 2. Opcional: Consultar mensajes no leídos para la notificación en el botón
+    // (Asegúrate de ajustar el nombre de tu tabla y campos de mensajes si difieren)
+    $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total_no_leidos FROM mensajes WHERE id_destinatario = :id_usuario AND leido = 0');
+    $stmt_msg->execute([':id_usuario' => $id_usuario]);
+    $mensajes_no_leidos = $stmt_msg->fetch(PDO::FETCH_ASSOC)['total_no_leidos'] ?? 0;
+
 } catch (PDOException $e) {
-    $error_msg = "Error al cargar los vehículos: " . $e->getMessage();
+    $error_msg = "Error al cargar los datos: " . $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -39,8 +46,24 @@ try {
         .btn-volver { text-decoration: none; color: #aaa; font-weight: 600; display: flex; align-items: center; gap: 5px; }
         .btn-volver:hover { color: white; }
         
+        .grupo-acciones-derecha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
         .btn-accion { background: var(--rojo); padding: 12px 25px; border-radius: 8px; text-decoration: none; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
         .btn-accion:hover { background: #b20710; }
+
+        /* Estilo para el botón de mensajes */
+        .btn-mensajes { 
+            background: #222; border: 1px solid #333; padding: 12px 20px; border-radius: 8px; 
+            text-decoration: none; color: white; font-weight: bold; display: inline-flex; 
+            align-items: center; gap: 8px; transition: 0.2s; position: relative; 
+        }
+        .btn-mensajes:hover { background: #333; border-color: #555; }
+        
+        /* Insignia de mensajes no leídos */
+        .badge-msg { 
+            background: var(--rojo); color: white; font-size: 0.75rem; padding: 2px 6px; 
+            border-radius: 50%; position: absolute; top: -8px; right: -8px; font-weight: bold; 
+        }
 
         .vehiculos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
         
@@ -92,17 +115,29 @@ try {
             <a href="dashboardf.php" class="btn-volver">
                 <i class="fas fa-chevron-left"></i> Volver
             </a>
+            
             <h1 class="titulo-principal">GESTIÓN DE FLOTA</h1>
-            <a href="indexV.php" class="btn-accion">
-                <i class="fas fa-plus"></i> NUEVA UNIDAD
-            </a>
+            
+            <div class="grupo-acciones-derecha">
+                <!-- BOTÓN DE MENSAJES -->
+                <a href="mensajes.php" class="btn-mensajes">
+                    <i class="fas fa-envelope"></i> Mensajes
+                    <?php if ($mensajes_no_leidos > 0): ?>
+                        <span class="badge-msg"><?php echo $mensajes_no_leidos; ?></span>
+                    <?php endif; ?>
+                </a>
+
+                <a href="indexV.php" class="btn-accion">
+                    <i class="fas fa-plus"></i> NUEVA UNIDAD
+                </a>
+            </div>
         </div>
 
         <?php if (isset($error_msg)): ?>
             <div style="background: rgba(229,9,20,0.2); border: 1px solid var(--rojo); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <p style="margin:0;"><?php echo htmlspecialchars($error_msg); ?></p>
             </div>
-        <?php elseif (empty($vehiculos)): ?>
+        <?elseif (empty($vehiculos)): ?>
             <div class="empty-state-container">
                 <i class="fas fa-car-side" style="font-size: 4rem; color: #444; margin-bottom: 20px;"></i>
                 <h2 style="margin: 10px 0; color: #fff;">No tienes vehículos activos</h2>
