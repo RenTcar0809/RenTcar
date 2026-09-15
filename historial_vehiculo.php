@@ -12,8 +12,8 @@ $id_usuario = $_SESSION['IdUsuario'];
 $mensajes_no_leidos = 0; // Inicializamos la variable para evitar advertencias
 
 try {
-    // 1. Obtener el nombre o empresa del proveedor actual para buscar sus mensajes
-    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE IdUsuario = ?');
+    // 1. Obtener el nombre o empresa del proveedor actual usando comillas dobles para respetar el case de PostgreSQL
+    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
     $stmtU->execute([$id_usuario]);
     $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
     
@@ -22,12 +22,12 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // 2. Consultar los vehículos del proveedor
+    // 2. Consultar los vehículos del proveedor (verificando también si id_proveedor o id_usuario aplica)
     $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
     $stmt->execute([':id_usuario' => $id_usuario]);
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 3. Contar los mensajes en la tabla correcta (mensajes_chat) destinados a este usuario
+    // 3. Contar los mensajes en la tabla mensajes_chat destinados a este usuario
     if (!empty($nombre_usuario)) {
         $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total FROM mensajes_chat WHERE destinatario = ?');
         $stmt_msg->execute([$nombre_usuario]);
