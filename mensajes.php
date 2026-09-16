@@ -3,7 +3,7 @@ session_start();
 require_once 'conexion.php'; 
 
 if (!isset($_SESSION['IdUsuario'])) {
-    header("Location: login.php");
+    header("Location: inicioSesion.php");
     exit();
 }
 
@@ -31,7 +31,7 @@ try {
             m.destinatario,
             v.marca,
             v.modelo,
-            v.imagen
+            v.ruta_imagen
         FROM mensajes_chat m
         LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
         WHERE m.destinatario = ? OR m.remitente = ?
