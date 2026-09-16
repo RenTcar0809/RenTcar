@@ -10,6 +10,7 @@ if (!isset($_SESSION['IdUsuario'])) {
 $id_usuario = $_SESSION['IdUsuario'];
 $nombre_usuario = '';
 $error_msg = '';
+$contactos = []; // <--- Inicializamos siempre como un array vacío por seguridad
 
 try {
     // Obtener la identidad del proveedor actual respetando el case de PostgreSQL
@@ -21,8 +22,7 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Obtener la lista de chats haciendo JOIN con la tabla vehiculo para traer su foto y nombre/marca/modelo
-    // Nota: Ajusta las columnas 'marca', 'modelo' o 'imagen' según los nombres exactos en tu tabla 'vehiculo'
+    // Obtener la lista de chats haciendo JOIN con la tabla vehiculo
     $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
@@ -38,32 +38,28 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agrupar chats únicos basados en el vehículo y el cliente con el que se habla
-    $contactos = [];
+    // Agrupar chats únicos
     foreach ($todos_mensajes as $msg) {
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
         if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
-            // Creamos una clave única combinando vehículo e interlocutor por si hay varios chats con distintos autos
             $clave_contacto = $msg['id_vehiculo'] . '_' . $interlocutor;
             
-            // Construir el nombre del vehículo (ej: "Toyota Corolla" o ajusta según tus columnas)
             $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
             
             $contactos[$clave_contacto] = [
                 'interlocutor' => $interlocutor,
                 'id_vehiculo'  => $msg['id_vehiculo'],
                 'nombre_auto'  => $nombre_vehiculo ?: 'Vehículo #' . $msg['id_vehiculo'],
-                'imagen_auto'  => $msg['imagen'] ?? 'default_car.png' // Imagen por defecto si no tiene
+                'imagen_auto'  => $msg['imagen'] ?? 'default_car.png'
             ];
         }
     }
 
 } catch (PDOException $e) {
-    $error_msg = "Error al cargar los mensajes: " . $e->getMessage();
+    $error_msg = "Error en la base de datos: " . $e->getMessage();
 }
 
 $keys_contacto = array_keys($contactos);
-// El parámetro get actual puede ser la clave compuesta o podemos validarlo
 $contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
 
 $id_vehiculo_activo = '';
