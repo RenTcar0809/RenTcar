@@ -334,13 +334,11 @@ function enviarMensajeBot() {
     const texto = input.value.trim();
     if (!texto) return;
 
-    const tipo = chatContainer.dataset.tipo || 'moto';
     const idItem = chatContainer.dataset.id || 0;
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
-    formData.append('tipo_vehiculo', tipo);
-    formData.append('id_item', idItem);
+    formData.append('id_vehiculo', idItem);
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -353,36 +351,37 @@ function enviarMensajeBot() {
         if(data.status === 'success') {
             input.value = '';
             cargarMensajesServidor();
+        } else {
+            console.error("Error del servidor:", data.message);
         }
-    });
+    })
+    .catch(err => console.error("Error de red:", err));
 }
 
 function enviarMensajeAutomatico(texto) {
     const chatContainer = document.getElementById('chat-float-container');
-    const tipo = chatContainer.dataset.tipo || 'moto';
     const idItem = chatContainer.dataset.id || 0;
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
-    formData.append('tipo_vehiculo', tipo);
-    formData.append('id_item', idItem);
+    formData.append('id_vehiculo', idItem);
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
-    }).then(() => cargarMensajesServidor());
+    })
+    .then(() => cargarMensajesServidor());
 }
 
 function cargarMensajesServidor() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer || chatContainer.style.display !== 'flex') return;
 
-    const tipo = chatContainer.dataset.tipo || 'moto';
     const idItem = chatContainer.dataset.id || 0;
 
-    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_item=${idItem}`)
+    fetch(`chat_backend.php?accion=obtener&id_vehiculo=${idItem}`)
     .then(res => res.json())
     .then(data => {
         if(data.status === 'success') {
