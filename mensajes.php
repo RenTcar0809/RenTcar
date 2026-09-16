@@ -10,7 +10,7 @@ if (!isset($_SESSION['IdUsuario'])) {
 $id_usuario = $_SESSION['IdUsuario'];
 $nombre_usuario = '';
 $error_msg = '';
-$contactos = []; // <--- Inicializamos siempre como un array vacío por seguridad
+$contactos = []; 
 
 try {
     // Obtener la identidad del proveedor actual respetando el case de PostgreSQL
@@ -22,7 +22,8 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Obtener la lista de chats haciendo JOIN usando id_v en lugar de id_vehiculo para la tabla vehiculo
+    // Obtener la lista de chats haciendo JOIN usando id_v para la tabla vehiculo
+    // Nota: Si tu columna de imagen en la tabla vehiculo se llama diferente (ej: 'foto'), cámbiala aquí de 'v.imagen' a 'v.foto'
     $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
@@ -37,8 +38,6 @@ try {
     ');
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
-    $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
-    $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
     // Agrupar chats únicos
     foreach ($todos_mensajes as $msg) {
@@ -48,11 +47,14 @@ try {
             
             $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
             
+            // Como está en Cloudinary, la URL viene lista o ponemos una por defecto si está vacía
+            $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'https://via.placeholder.com/40?text=Auto';
+            
             $contactos[$clave_contacto] = [
                 'interlocutor' => $interlocutor,
                 'id_vehiculo'  => $msg['id_vehiculo'],
                 'nombre_auto'  => $nombre_vehiculo ?: 'Vehículo #' . $msg['id_vehiculo'],
-                'imagen_auto'  => $msg['imagen'] ?? 'default_car.png'
+                'imagen_auto'  => $imagen_cloudinary
             ];
         }
     }
@@ -188,13 +190,11 @@ if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
     </div>
 
     <script>
-        // Auto-scroll al final del chat al cargar
         const chatBox = document.getElementById('chatBox');
         if (chatBox) {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // Envío asíncrono con AJAX opcional
         const formEnviar = document.getElementById('formEnviarMensaje');
         if (formEnviar) {
             formEnviar.addEventListener('submit', function(e) {
