@@ -111,7 +111,7 @@ if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
         <!-- BARRA LATERAL DE CONVERSACIONES -->
         <aside class="chat-sidebar">
             <div class="sidebar-header">
-                <a href="historial_vehiculo.php" class="btn-volver">
+                <a href="dashboardf.php" class="btn-volver">
                     <i class="fas fa-chevron-left"></i> Volver
                 </a>
                 <h2>Mensajes</h2>

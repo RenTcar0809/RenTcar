@@ -129,7 +129,7 @@ try {
 <nav class="top-nav">
     <div class="nav-container">
         <a href="dashboardf.php" class="logo">REN<span>T</span>CAR</a>
-        <a href="motocicletas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+        <a href="Motocicletas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
     </div>
 </nav>
 
