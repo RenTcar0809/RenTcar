@@ -39,6 +39,9 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
             <a href="historial_vehiculo.php" class="nav-link">
                 <i class="fa-solid fa-folder-open"></i> <span>MIS VEHÍCULOS</span>
             </a>
+            <a href="mensajes.php" class="nav-link">
+                <i class="fa-solid fa-comments"></i> <span>MENSAJES</span>
+            </a>
         </nav>
     </aside>
 
@@ -53,6 +56,7 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
                 <div class="dropdown-content" id="myDropdown">
                     <a href="configuracion.php"><i class="fa-solid fa-gear"></i> Ajustes / Mi Perfil</a>
                     <a href="reservas.php"><i class="fa-solid fa-list"></i> Mis Reservas</a>
+                    <a href="mensajes.php"><i class="fa-solid fa-comments"></i> Mensajes</a>
                     <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
                 </div>
             </div>
