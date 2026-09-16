@@ -22,7 +22,7 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Obtener la lista de chats haciendo JOIN con la tabla vehiculo
+    // Obtener la lista de chats haciendo JOIN usando id_v en lugar de id_vehiculo para la tabla vehiculo
     $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
@@ -32,9 +32,11 @@ try {
             v.modelo,
             v.imagen
         FROM mensajes_chat m
-        LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
+        LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
         WHERE m.destinatario = ? OR m.remitente = ?
     ');
+    $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
+    $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
