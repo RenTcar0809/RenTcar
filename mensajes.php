@@ -9,6 +9,7 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 $id_usuario = $_SESSION['IdUsuario'];
 $nombre_usuario = '';
+$error_msg = '';
 
 try {
     // Obtener la identidad del proveedor actual respetando el case de PostgreSQL
@@ -20,23 +21,39 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Obtener la lista de chats agrupados o conversaciones donde participa el proveedor
+    // Obtener la lista de chats haciendo JOIN con la tabla vehiculo para traer su foto y nombre/marca/modelo
+    // Nota: Ajusta las columnas 'marca', 'modelo' o 'imagen' según los nombres exactos en tu tabla 'vehiculo'
     $stmt_chats = $pdo->prepare('
-        SELECT DISTINCT id_vehiculo, remitente, destinatario 
-        FROM mensajes_chat 
-        WHERE destinatario = ? OR remitente = ?
+        SELECT DISTINCT 
+            m.id_vehiculo, 
+            m.remitente, 
+            m.destinatario,
+            v.marca,
+            v.modelo,
+            v.imagen
+        FROM mensajes_chat m
+        LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
+        WHERE m.destinatario = ? OR m.remitente = ?
     ');
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agrupar interlocutores únicos para la barra lateral de contactos
+    // Agrupar chats únicos basados en el vehículo y el cliente con el que se habla
     $contactos = [];
     foreach ($todos_mensajes as $msg) {
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
         if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
-            $contactos[$interlocutor] = [
-                'nombre' => $interlocutor,
-                'id_vehiculo' => $msg['id_vehiculo']
+            // Creamos una clave única combinando vehículo e interlocutor por si hay varios chats con distintos autos
+            $clave_contacto = $msg['id_vehiculo'] . '_' . $interlocutor;
+            
+            // Construir el nombre del vehículo (ej: "Toyota Corolla" o ajusta según tus columnas)
+            $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
+            
+            $contactos[$clave_contacto] = [
+                'interlocutor' => $interlocutor,
+                'id_vehiculo'  => $msg['id_vehiculo'],
+                'nombre_auto'  => $nombre_vehiculo ?: 'Vehículo #' . $msg['id_vehiculo'],
+                'imagen_auto'  => $msg['imagen'] ?? 'default_car.png' // Imagen por defecto si no tiene
             ];
         }
     }
@@ -45,21 +62,37 @@ try {
     $error_msg = "Error al cargar los mensajes: " . $e->getMessage();
 }
 
-// Interlocutor seleccionado actualmente por GET (si existe)
-$contacto_activo = $_GET['contacto'] ?? (array_key_exists(0, array_keys($contactos)) ? array_keys($contactos)[0] : '');
-$id_vehiculo_activo = $contactos[$contacto_activo]['id_vehiculo'] ?? 0;
+$keys_contacto = array_keys($contactos);
+// El parámetro get actual puede ser la clave compuesta o podemos validarlo
+$contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
 
-// Obtener mensajes de la conversación activa si hay un contacto seleccionado
+$id_vehiculo_activo = '';
+$nombre_vehiculo_activo = '';
+$imagen_vehiculo_activo = '';
+$interlocutor_real = '';
+
+if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
+    $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
+    $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
+    $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
+    $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
+}
+
+// Obtener mensajes de la conversación activa
 $mensajes_chat = [];
-if (!empty($contacto_activo)) {
-    $stmt_h = $pdo->prepare('
-        SELECT * FROM mensajes_chat 
-        WHERE id_vehiculo = ? 
-        AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
-        ORDER BY fecha ASC
-    ');
-    $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $contacto_activo, $contacto_activo, $nombre_usuario]);
-    $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
+if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
+    try {
+        $stmt_h = $pdo->prepare('
+            SELECT * FROM mensajes_chat 
+            WHERE id_vehiculo = ? 
+            AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
+            ORDER BY fecha ASC
+        ');
+        $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+        $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $error_msg = "Error al cargar el chat: " . $e->getMessage();
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -91,15 +124,15 @@ if (!empty($contacto_activo)) {
                         <p>No tienes conversaciones activas con clientes aún.</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($contactos as $c): ?>
-                        <a href="mensajes.php?contacto=<?php echo urlencode($c['nombre']); ?>" 
-                           class="contact-item <?php echo ($contacto_activo === $c['nombre']) ? 'active' : ''; ?>">
+                    <?php foreach ($contactos as $key => $c): ?>
+                        <a href="mensajes.php?contacto=<?php echo urlencode($key); ?>" 
+                           class="contact-item <?php echo ($contacto_activo_key === $key) ? 'active' : ''; ?>">
                             <div class="contact-avatar">
-                                <i class="fas fa-user"></i>
+                                <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='https://via.placeholder.com/40?text=Auto'">
                             </div>
                             <div class="contact-info">
-                                <h4><?php echo htmlspecialchars($c['nombre']); ?></h4>
-                                <small>Vehículo ID: <?php echo $c['id_vehiculo']; ?></small>
+                                <h4><?php echo htmlspecialchars($c['nombre_auto']); ?></h4>
+                                <small>Cliente: <?php echo htmlspecialchars($c['interlocutor']); ?></small>
                             </div>
                         </a>
                     <?php endforeach; ?>
@@ -109,18 +142,27 @@ if (!empty($contacto_activo)) {
 
         <!-- CONTENEDOR PRINCIPAL DEL CHAT -->
         <main class="chat-main">
-            <?php if (empty($contacto_activo)): ?>
+            <?php if (!empty($error_msg)): ?>
+                <div style="padding: 20px; color: #ff6b6b; background: rgba(255,0,0,0.1); border-bottom: 1px solid #333;">
+                    <?php echo htmlspecialchars($error_msg); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (empty($contacto_activo_key)): ?>
                 <div class="empty-chat-state">
                     <i class="fas fa-comments" style="font-size: 4rem; color: #444; margin-bottom: 15px;"></i>
                     <h3>Selecciona una conversación</h3>
-                    <p>Elige un cliente de la lista izquierda para ver el historial y responderle.</p>
+                    <p>Elige un chat de la lista izquierda para ver el vehículo y responder al cliente.</p>
                 </div>
             <?php else: ?>
                 <div class="chat-header">
                     <div class="contact-avatar">
-                        <i class="fas fa-user"></i>
+                        <img src="<?php echo htmlspecialchars($imagen_vehiculo_activo); ?>" alt="Vehículo" onerror="this.src='https://via.placeholder.com/40?text=Auto'">
                     </div>
-                    <h3><?php echo htmlspecialchars($contacto_activo); ?></h3>
+                    <div>
+                        <h3><?php echo htmlspecialchars($nombre_vehiculo_activo); ?></h3>
+                        <small style="color: #aaa; font-size: 0.85rem;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
+                    </div>
                 </div>
 
                 <div class="chat-messages" id="chatBox">
@@ -138,7 +180,7 @@ if (!empty($contacto_activo)) {
                     <input type="hidden" name="accion" value="enviar">
                     <input type="hidden" name="tipo_vehiculo" value="auto">
                     <input type="hidden" name="id_item" value="<?php echo $id_vehiculo_activo; ?>">
-                    <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($contacto_activo); ?>">
+                    <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($interlocutor_real); ?>">
                     
                     <input type="text" name="mensaje" id="inputMensaje" placeholder="Escribe un mensaje..." autocomplete="off" required>
                     <button type="submit"><i class="fas fa-paper-plane"></i></button>
@@ -154,7 +196,7 @@ if (!empty($contacto_activo)) {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // Envío asíncrono con AJAX opcional para mejor fluidez
+        // Envío asíncrono con AJAX opcional
         const formEnviar = document.getElementById('formEnviarMensaje');
         if (formEnviar) {
             formEnviar.addEventListener('submit', function(e) {
@@ -168,7 +210,7 @@ if (!empty($contacto_activo)) {
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        location.reload(); // Recarga para actualizar los mensajes enviados al instante
+                        location.reload(); 
                     }
                 })
                 .catch(err => console.error('Error al enviar:', err));
