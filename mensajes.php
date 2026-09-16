@@ -22,20 +22,20 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Obtener la lista de chats haciendo JOIN usando id_v para la tabla vehiculo
-    // Nota: Si tu columna de imagen en la tabla vehiculo se llama diferente (ej: 'foto'), cámbiala aquí de 'v.imagen' a 'v.foto'
-    $stmt_chats = $pdo->prepare('
+  $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
             m.remitente, 
             m.destinatario,
             v.marca,
             v.modelo,
-            v.ruta_imagen
+            (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = m.id_vehiculo LIMIT 1) AS imagen
         FROM mensajes_chat m
         LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
         WHERE m.destinatario = ? OR m.remitente = ?
     ');
+    $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
+    $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
