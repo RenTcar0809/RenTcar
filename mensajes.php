@@ -22,11 +22,12 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-  $stmt_chats = $pdo->prepare('
+    $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
             m.remitente, 
             m.destinatario,
+            v.id_v,
             v.marca,
             v.modelo,
             (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = m.id_vehiculo LIMIT 1) AS imagen
@@ -36,8 +37,6 @@ try {
     ');
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
-    $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
-    $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
     // Agrupar chats únicos
     foreach ($todos_mensajes as $msg) {
@@ -45,7 +44,11 @@ try {
         if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
             $clave_contacto = $msg['id_vehiculo'] . '_' . $interlocutor;
             
-            $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
+            if (!empty($msg['marca']) || !empty($msg['modelo'])) {
+                $nombre_vehiculo = trim($msg['marca'] . ' ' . $msg['modelo']);
+            } else {
+                $nombre_vehiculo = ($msg['id_vehiculo'] > 0) ? 'Vehículo #' . $msg['id_vehiculo'] : 'Conversación General';
+            }
             
             // Como está en Cloudinary, la URL viene lista o ponemos una por defecto si está vacía
             $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'https://via.placeholder.com/40?text=Auto';
@@ -53,7 +56,7 @@ try {
             $contactos[$clave_contacto] = [
                 'interlocutor' => $interlocutor,
                 'id_vehiculo'  => $msg['id_vehiculo'],
-                'nombre_auto'  => $nombre_vehiculo ?: 'Vehículo #' . $msg['id_vehiculo'],
+                'nombre_auto'  => $nombre_vehiculo,
                 'imagen_auto'  => $imagen_cloudinary
             ];
         }
@@ -179,7 +182,8 @@ if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
                 <form class="chat-input-area" id="formEnviarMensaje">
                     <input type="hidden" name="accion" value="enviar">
                     <input type="hidden" name="tipo_vehiculo" value="auto">
-                    <input type="hidden" name="id_item" value="<?php echo $id_vehiculo_activo; ?>">
+                    <!-- CORREGIDO: Se cambia id_item por id_vehiculo -->
+                    <input type="hidden" name="id_vehiculo" value="<?php echo $id_vehiculo_activo; ?>">
                     <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($interlocutor_real); ?>">
                     
                     <input type="text" name="mensaje" id="inputMensaje" placeholder="Escribe un mensaje..." autocomplete="off" required>
