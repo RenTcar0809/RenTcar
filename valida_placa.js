@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", function() {
     const inputPlaca = document.getElementById("placa");
     const botonGuardar = document.querySelector(".btn-primary");
     
+    // Si por alguna razón no encuentra el input de placa en esta vista, detenemos el script para evitar errores
+    if (!inputPlaca) return;
+
     // Buscamos automáticamente el formulario donde está la placa
     const formulario = inputPlaca.closest("form");
 
@@ -23,30 +26,36 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // 2. BLOQUEO CRÍTICO: Interceptar el envío del formulario
-    formulario.addEventListener("submit", function(event) {
-        // Si el usuario intenta enviar y la placa NO está aprobada...
-        if (!placaAprobada) {
-            event.preventDefault(); // <-- Cancela el viaje a procesar_vehiculo.php
-            mostrarError("❌ No puedes registrar el vehículo hasta que la placa sea válida y esté libre.");
-            inputPlaca.focus();
-        }
-    });
+    if (formulario) {
+        formulario.addEventListener("submit", function(event) {
+            // Si el usuario intenta enviar y la placa NO está aprobada...
+            if (!placaAprobada) {
+                event.preventDefault(); // <-- Cancela el envío a procesar_vehiculo.php
+                mostrarError("❌ No puedes registrar el vehículo hasta que la placa sea válida y esté libre.");
+                inputPlaca.focus();
+            }
+        });
+    }
 
     // 3. Validación al salir del campo (blur)
     inputPlaca.addEventListener("blur", function() {
         let placaValor = inputPlaca.value.trim().toUpperCase();
         inputPlaca.value = placaValor;
 
-        const formatoPlaca = /^[A-Z]{3}[0-9]{3}$/;
+        // EXPRESIONES REGULARES PARA COLOMBIA:
+        // - Carro: 3 letras y 3 números (Ej: ABC123)
+        // - Moto: 3 letras, 2 números y 1 letra/número (Ej: YSR13F)
+        const formatoCarro = /^[A-Z]{3}[0-9]{3}$/;
+        const formatoMoto = /^[A-Z]{3}[0-9]{2}[A-Z0-9]$/;
 
         if (placaValor.length === 0) {
             limpiarEstado();
             return;
         }
 
-        // Validación de Formato
-        if (!formatoPlaca.test(placaValor)) {
-            mostrarError("❌ Formato inválido. Debe ser de 3 letras y 3 números (Ej: ABC123).");
+        // Validación de Formato (Carro o Moto)
+        if (!formatoCarro.test(placaValor) && !formatoMoto.test(placaValor)) {
+            mostrarError("❌ Formato inválido. Carro (ABC123) o Moto (ABC12F).");
             return;
         }
 
@@ -82,8 +91,10 @@ document.addEventListener("DOMContentLoaded", function() {
         msgError.style.color = "#ff4444"; 
         inputPlaca.style.borderColor = "#ff4444";
         inputPlaca.style.boxShadow = "0 0 5px rgba(255, 68, 68, 0.5)";
-        botonGuardar.disabled = true;
-        botonGuardar.style.opacity = "0.5";
+        if (botonGuardar) {
+            botonGuardar.disabled = true;
+            botonGuardar.style.opacity = "0.5";
+        }
     }
 
     function mostrarExito(mensaje) {
@@ -92,8 +103,10 @@ document.addEventListener("DOMContentLoaded", function() {
         msgError.style.color = "#28a745"; 
         inputPlaca.style.borderColor = "#28a745";
         inputPlaca.style.boxShadow = "0 0 5px rgba(40, 167, 69, 0.5)";
-        botonGuardar.disabled = false;
-        botonGuardar.style.opacity = "1";
+        if (botonGuardar) {
+            botonGuardar.disabled = false;
+            botonGuardar.style.opacity = "1";
+        }
     }
 
     function limpiarEstado() {
@@ -101,56 +114,9 @@ document.addEventListener("DOMContentLoaded", function() {
         msgError.textContent = "";
         inputPlaca.style.borderColor = "";
         inputPlaca.style.boxShadow = "";
-        botonGuardar.disabled = false;
-        botonGuardar.style.opacity = "1";
-    }
-});
-document.addEventListener("DOMContentLoaded", function() {
-    // Capturamos el selector principal
-    const selectTipo = document.getElementById("tipo");
-    
-    // Capturamos los contenedores y los inputs de Carro
-    const contenedorTraccion = document.getElementById("contenedor-traccion");
-    const inputTraccion = document.getElementById("traccion");
-    const contenedorAsientos = document.getElementById("contenedor-asientos");
-    const inputAsientos = document.getElementById("asientos");
-
-    // Capturamos los contenedores y los inputs de Moto
-    const contenedorCilindraje = document.getElementById("contenedor-cilindraje");
-    const inputCilindraje = document.getElementById("cilindraje");
-
-    // Función que adapta el formulario
-    function adaptarFormulario() {
-        if (selectTipo.value === "Motocicleta") {
-            // 1. Ocultar y quitar 'required' a los campos de Carro
-            contenedorTraccion.style.display = "none";
-            inputTraccion.removeAttribute("required");
-            
-            contenedorAsientos.style.display = "none";
-            inputAsientos.removeAttribute("required");
-
-            // 2. Mostrar y agregar 'required' a los campos de Moto
-            contenedorCilindraje.style.display = "flex"; // Usamos flex porque así está definido en tu CSS para .input-field
-            inputCilindraje.setAttribute("required", "required");
-            
-        } else {
-            // 1. Mostrar y agregar 'required' a los campos de Carro
-            contenedorTraccion.style.display = "flex";
-            inputTraccion.setAttribute("required", "required");
-            
-            contenedorAsientos.style.display = "flex";
-            inputAsientos.setAttribute("required", "required");
-
-            // 2. Ocultar y quitar 'required' a los campos de Moto
-            contenedorCilindraje.style.display = "none";
-            inputCilindraje.removeAttribute("required");
+        if (botonGuardar) {
+            botonGuardar.disabled = false;
+            botonGuardar.style.opacity = "1";
         }
     }
-
-    // Ejecutamos la función inmediatamente al cargar la página 
-    // por si el valor por defecto es distinto a "Carro"
-    adaptarFormulario();
-
-    // Escuchamos cada vez que el usuario cambia la opción en el select
-    selectTipo.addEventListener("change", adaptarFormulario);
 });
