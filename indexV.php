@@ -118,12 +118,6 @@ session_start();
                                 <option value="">Seleccione Transmisión...</option>
                             </select>
                         </div>
-                        
-                        <!-- CAMPO EXCLUSIVO DE CARRO (Tracción) -->
-                        <div class="input-field" id="contenedor-traccion">
-                            <label for="traccion">Tracción (Ej: 4x2, FWD)</label>
-                            <input type="text" name="traccion" id="traccion">
-                        </div>
                     </div>
                 </section>
 
