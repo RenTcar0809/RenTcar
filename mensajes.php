@@ -38,17 +38,18 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agrupar chats únicos
+  // Agrupar chats únicos
     foreach ($todos_mensajes as $msg) {
+        // IGNORAR mensajes que no tengan un vehículo válido asignado (> 0)
+        if (empty($msg['id_vehiculo']) || $msg['id_vehiculo'] <= 0) {
+            continue; 
+        }
+
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
         if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
             $clave_contacto = $msg['id_vehiculo'] . '_' . $interlocutor;
             
-            if (!empty($msg['marca']) || !empty($msg['modelo'])) {
-                $nombre_vehiculo = trim($msg['marca'] . ' ' . $msg['modelo']);
-            } else {
-                $nombre_vehiculo = ($msg['id_vehiculo'] > 0) ? 'Vehículo #' . $msg['id_vehiculo'] : 'Conversación General';
-            }
+            $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
             
             // Como está en Cloudinary, la URL viene lista o ponemos una por defecto si está vacía
             $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'https://via.placeholder.com/40?text=Auto';
