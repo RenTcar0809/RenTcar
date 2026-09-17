@@ -10,8 +10,6 @@ session_start();
     <title>RentCar - Registro de Vehículo Inteligente</title>
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="indexv.css?v=<?php echo filemtime('indexv.css'); ?>">
-    <!-- Importar Tesseract.js para leer la tarjeta de propiedad / matrícula -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -30,22 +28,33 @@ session_start();
         <div class="form-card">
             <header class="card-header">
                 <h1 class="main-title">REGISTRO INTELIGENTE DE VEHÍCULO</h1>
-                <p class="subtitle">Bienvenido, <strong><?php echo isset($_SESSION['usuario_nombre']) ? $_SESSION['usuario_nombre'] : 'Usuario'; ?></strong>. Sube la foto de la matrícula o selecciona el modelo comercial.</p>
+                <p class="subtitle">Bienvenido, <strong><?php echo isset($_SESSION['usuario_nombre']) ? $_SESSION['usuario_nombre'] : 'Usuario'; ?></strong>. Sube la foto de la matrícula y selecciona los datos del vehículo.</p>
             </header>
 
-            <!-- LECTOR OCR DE MATRÍCULA -->
-            <div style="background: rgba(255, 0, 0, 0.05); border: 2px dashed #ff4444; padding: 20px; border-radius: 12px; margin-bottom: 25px; text-align: center;">
-                <h3 style="color: #fff; margin-bottom: 8px;"><i class="fas fa-camera"></i> Autocompletar con Matrícula / Tarjeta de Propiedad</h3>
-                <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Sube una foto clara de la licencia de tránsito o tarjeta de propiedad para extraer los datos automáticamente.</p>
-                <input type="file" id="imagenMatricula" accept="image/*" style="display: none;">
-                <button type="button" onclick="document.getElementById('imagenMatricula').click()" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                    📁 Seleccionar Imagen de Matrícula
-                </button>
-                <p id="estadoOCR" style="color: #4CAF50; font-weight: bold; margin-top: 10px; font-size: 0.9rem;"></p>
-            </div>
-
-            <form action="procesar_vehiculo.php" method="POST">
+            <!-- EL FORMULARIO DEBE TENER enctype="multipart/form-data" PARA ENVIAR ARCHIVOS -->
+            <form action="procesar_vehiculo.php" method="POST" enctype="multipart/form-data">
                 
+                <!-- SECCIÓN DE FOTO DE MATRÍCULA Y VISTA PREVIA (DENTRO DEL FORMULARIO) -->
+                <div style="background: rgba(255, 0, 0, 0.05); border: 2px dashed #ff4444; padding: 20px; border-radius: 12px; margin-bottom: 25px; text-align: center;">
+                    <h3 style="color: #fff; margin-bottom: 8px;">📷 Tarjeta de Propiedad / Matrícula</h3>
+                    <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Sube una foto clara del documento oficial del vehículo.</p>
+                    
+                    <!-- Input con name="imagen_matricula" para que PHP lo reciba -->
+                    <input type="file" name="imagen_matricula" id="imagenMatricula" accept="image/*" required style="display: none;">
+                    
+                    <button type="button" onclick="document.getElementById('imagenMatricula').click()" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                        📁 Seleccionar Imagen de Matrícula
+                    </button>
+                    
+                    <p id="nombreArchivo" style="color: #4CAF50; font-weight: bold; margin-top: 10px; font-size: 0.9rem;"></p>
+
+                    <!-- CONTENEDOR DE LA VISTA PREVIA DE LA IMAGEN -->
+                    <div id="previewContainer" style="margin-top: 15px; display: none;">
+                        <p style="color: #bbb; font-size: 0.85rem; margin-bottom: 5px;">Vista previa:</p>
+                        <img id="imagenPreview" src="" alt="Vista previa de matrícula" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 2px solid #ff4444; object-fit: cover;">
+                    </div>
+                </div>
+
                 <section class="form-section">
                     <h2 class="section-title"><span>01</span> Información General y Referencia Colombia</h2>
                     <div class="grid-row">
@@ -57,7 +66,7 @@ session_start();
                             </select>
                         </div>
 
-                        <!-- Selector Inteligente de Marcas en Colombia -->
+                        <!-- Selector de Marcas -->
                         <div class="input-field">
                             <label for="marca">Marca</label>
                             <select name="marca" id="marca" required onchange="cargarReferencias()">
@@ -65,7 +74,7 @@ session_start();
                             </select>
                         </div>
 
-                        <!-- Selector Inteligente de Modelos/Referencias -->
+                        <!-- Selector de Modelos -->
                         <div class="input-field">
                             <label for="modelo">Línea / Referencia</label>
                             <select name="modelo" id="modelo" required>
@@ -134,8 +143,28 @@ session_start();
         </div>
     </main>
 
-    <!-- Archivos JavaScript separados -->
+    <!-- Scripts JavaScript -->
     <script src="registro_vehiculo.js"></script>
     <script src="valida_placa.js"></script>
+
+    <!-- SCRIPT PARA MOSTRAR LA VISTA PREVIA DE LA FOTO -->
+    <script>
+        document.getElementById('imagenMatricula').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Mostrar nombre del archivo
+                document.getElementById('nombreArchivo').textContent = "📄 " + file.name;
+                
+                // Generar vista previa de la imagen
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('imagenPreview');
+                    preview.src = e.target.result;
+                    document.getElementById('previewContainer').style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
 </body>
 </html>
