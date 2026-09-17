@@ -8,7 +8,7 @@ require_once 'conexion.php';
 
 $pagina_formulario = "indexV.php"; 
 
-// Validar que el usuario haya iniciado sesión
+// Validar sesión activa
 if (!isset($_SESSION['IdUsuario'])) {
     header("Location: login.php");
     exit();
@@ -16,7 +16,7 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v'])) {
     
-    // 1. RECOGER Y SANGRIAR DATOS DEL FORMULARIO
+    // 1. RECOGER DATOS DEL FORMULARIO
     $id_proveedor = $_SESSION['IdUsuario']; 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     }
 
     try {
-        // 3. VERIFICAR SI LA PLACA YA EXISTE (Usando id_v)
+        // 3. VERIFICAR SI LA PLACA YA EXISTE (Apunta a la tabla 'vehiculo')
         $stmt_check = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
         $stmt_check->execute([$placa]);
         
@@ -50,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 4. INSERTAR DATOS TÉCNICOS EN LA BASE DE DATOS
-        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, num_motor, num_chasis, asientos, precio_dia) 
+        // 4. INSERTAR DATOS TÉCNICOS EN LA TABLA 'vehiculo'
+        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, num_motor, num_chasis, asientos, precio) 
                 VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :num_motor, :num_chasis, :asientos, :precio)";
         
         $stmt = $pdo->prepare($sql);
@@ -64,25 +64,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':placa'        => $placa,
             ':motor'        => $motor,
             ':transmision'  => $transmision,
-            ':traccion'     => ($tipo === 'Motocicleta') ? 'N/A' : $traccion,
+            ':traccion'     => ($tipo === 'Motocicleta') ? 'trasera' : $traccion, // Coincide con tus registros previos
             ':num_motor'    => $num_motor,
             ':num_chasis'   => $num_chasis,
             ':asientos'     => ($tipo === 'Motocicleta') ? 2 : $asientos,
             ':precio'       => $precio
         ]);
 
-        // 5. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y su llave id_v)
-        // Nota: En PostgreSQL se suele especificar el nombre de la secuencia (ej: vehiculos_id_v_seq). 
-        // Si estás en local con MySQL, PDO ignorará el parámetro de la secuencia automáticamente.
+        // 5. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y su secuencia)
         try {
-            $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculos_id_v_seq');
+            $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculo_id_v_seq');
         } catch (Exception $ex) {
-            $id_vehiculo_nuevo = $pdo->lastInsertId(); // Fallback por si la secuencia tiene otro nombre o es MySQL
+            $id_vehiculo_nuevo = $pdo->lastInsertId(); 
         }
 
-        // Si por alguna razón no capturó el ID, intentamos consultarlo por la placa recién insertada
+        // Respaldo por seguridad si la secuencia no retorna el ID directo
         if (!$id_vehiculo_nuevo) {
-            $stmt_id = $pdo->prepare("SELECT id_v FROM vehiculos WHERE placa = ?");
+            $stmt_id = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
             $stmt_id->execute([$placa]);
             $vehiculo_encontrado = $stmt_id->fetch();
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
