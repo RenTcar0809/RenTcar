@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
 
     try {
         // Validar si la placa ya existe en la base de datos (funciona igual en Postgres y MySQL)
-        $stmt_check = $pdo->prepare("SELECT id FROM vehiculos WHERE placa = ?");
+        $stmt_check = $pdo->prepare("SELECT id FROM vehiculo WHERE placa = ?");
         $stmt_check->execute([$placa]);
         if ($stmt_check->rowCount() > 0) {
             $_SESSION['error_placa'] = "La placa '$placa' ya se encuentra registrada en el sistema.";
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         }
 
         // Insertar datos técnicos vinculados al usuario logueado
-        $sql = "INSERT INTO vehiculos (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, num_motor, num_chasis, asientos, precio_dia) 
+        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, num_motor, num_chasis, asientos, precio_dia) 
                 VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :num_motor, :num_chasis, :asientos, :precio)";
         
         $stmt = $pdo->prepare($sql);
