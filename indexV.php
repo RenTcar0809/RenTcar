@@ -140,12 +140,15 @@ session_start();
                     <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
                 </div>
 
-            </form>
+       </form>
         </div>
     </div>
 
+    <!-- SCRIPT DE LÓGICA DE VEHÍCULOS (Marcas y Referencias Dinámicas) -->
+    <script src="registrar_vehiculo.js"></script>
+
     <script>
-        // Script simple para reflejar el nombre del archivo seleccionado visualmente
+        // Script para reflejar el nombre del archivo seleccionado de la matrícula
         document.getElementById('imagenMatricula').addEventListener('change', function(e) {
             if(e.target.files.length > 0) {
                 document.getElementById('nombreArchivo').textContent = "📄 Archivo seleccionado: " + e.target.files[0].name;
