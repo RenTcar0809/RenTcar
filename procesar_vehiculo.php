@@ -16,8 +16,8 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v'])) {
     
-    // 1. RECOGER DATOS DEL FORMULARIO
-    $id_proveedor = $_SESSION['IdUsuario']; 
+    // 1. RECOGER Y LIMPIAR DATOS DEL FORMULARIO
+    $id_proveedor = intval($_SESSION['IdUsuario']); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
     $modelo       = trim($_POST['modelo'] ?? '');
@@ -28,8 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $traccion     = trim($_POST['traccion'] ?? '');
     $num_motor    = trim($_POST['num_motor'] ?? '');
     $num_chasis   = trim($_POST['num_chasis'] ?? '');
-    $asientos     = intval($_POST['asientos'] ?? 5);
-    $precio       = floatval($_POST['precio'] ?? 0);
+    
+    // Limpieza estricta de enteros y flotantes (evita que se envíen cadenas vacías "")
+    $asientos     = ($_POST['asientos'] !== '') ? intval($_POST['asientos']) : (($tipo === 'Motocicleta') ? 2 : 5);
+    $precio       = ($_POST['precio'] !== '') ? floatval($_POST['precio']) : 0.00;
 
     // 2. VALIDACIÓN DE PLACA PARA COLOMBIA (Carros ABC123 y Motos ABC12F / ABC123)
     $patron_placa = '/^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z0-9])$/';
@@ -40,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     }
 
     try {
-        // 3. VERIFICAR SI LA PLACA YA EXISTE (Apunta a la tabla 'vehiculo')
+        // 3. VERIFICAR SI LA PLACA YA EXISTE
         $stmt_check = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
         $stmt_check->execute([$placa]);
         
@@ -64,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':placa'        => $placa,
             ':motor'        => $motor,
             ':transmision'  => $transmision,
-            ':traccion'     => ($tipo === 'Motocicleta') ? 'trasera' : $traccion, // Coincide con tus registros previos
+            ':traccion'     => ($tipo === 'Motocicleta') ? 'trasera' : $traccion,
             ':num_motor'    => $num_motor,
             ':num_chasis'   => $num_chasis,
             ':asientos'     => ($tipo === 'Motocicleta') ? 2 : $asientos,
