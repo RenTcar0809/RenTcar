@@ -24,7 +24,7 @@ const catalogoColombia = {
         "TVS": ["Apache RTR 160", "Apache RTR 200", "Raider 125", "Sport 100", "NTRQ 125", "Apache RR 310"],
         "KTM": ["Duke 200", "Duke 250", "Duke 390", "RC 200", "Adventure 250", "Adventure 390"],
         "Hero": ["Eco 100", "Dawn 125", "Hunk 160R", "XPulse 200", "Ignitor 125", "Dash 125"],
-        "Victory": ["One 110", "Bomber 125", "MRX 125", "MRX 150", "MRX 200", "Tornado 250", "Zontes 350T", "Crypton (Gama)"],
+        "Victory": ["One 110","Life 125", "Bomber 125", "MRX 125", "MRX 150", "MRX 200", "Tornado 250", "Zontes 350T", "Crypton (Gama)"],
         "Husqvarna": ["Svartpilen 200", "Svartpilen 401", "Vitpilen 401"]
     }
 };
