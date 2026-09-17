@@ -32,16 +32,16 @@ function actualizarModelosColombia() {
     }
     document.getElementById('modelo').innerHTML = '<option value="">Seleccione Modelo...</option>';
     
-    // Mostrar/Ocultar campos dinámicos según el tipo de vehículo
+    // Ocultar o mostrar tracción y asientos según sea carro o moto
     const contenedorTraccion = document.getElementById('contenedor-traccion');
     const contenedorAsientos = document.getElementById('contenedor-asientos');
 
-    if(tipo === 'Motocicleta') {
-        if(contenedorTraccion) contenedorTraccion.style.display = 'none';
-        if(contenedorAsientos) contenedorAsientos.style.display = 'none';
+    if (tipo === 'Motocicleta') {
+        if (contenedorTraccion) contenedorTraccion.style.display = 'none';
+        if (contenedorAsientos) contenedorAsientos.style.display = 'none';
     } else {
-        if(contenedorTraccion) contenedorTraccion.style.display = 'block';
-        if(contenedorAsientos) contenedorAsientos.style.display = 'block';
+        if (contenedorTraccion) contenedorTraccion.style.display = 'block';
+        if (contenedorAsientos) contenedorAsientos.style.display = 'block';
     }
 }
 
@@ -61,7 +61,7 @@ function cargarReferencias() {
     }
 }
 
-// Inicializar marcas al cargar la página
-window.onload = function() {
+// Inicializar al cargar la página completamente
+document.addEventListener("DOMContentLoaded", function() {
     actualizarModelosColombia();
-};
+});

@@ -52,7 +52,6 @@ session_start();
                             </select>
                         </div>
                         
-                        <!-- MARCA (Convertido a SELECT para que el usuario no escriba libremente) -->
                         <div class="input-field">
                             <label>Marca</label>
                             <select name="marca" id="marca" onchange="cargarReferencias()" required>
@@ -60,7 +59,6 @@ session_start();
                             </select>
                         </div>
 
-                        <!-- LÍNEA / REFERENCIA (Convertido a SELECT controlado por JS) -->
                         <div class="input-field">
                             <label>Línea / Referencia</label>
                             <select name="modelo" id="modelo" required>
@@ -84,7 +82,6 @@ session_start();
                             <input type="text" name="placa" id="placa" placeholder="Ej: YSR13F" style="text-transform: uppercase;" required>
                         </div>
                         
-                        <!-- MOTOR (Convertido a SELECT con opciones estándar) -->
                         <div class="input-field">
                             <label>Motor / Cilindraje</label>
                             <select name="motor" id="motor" required>
@@ -114,6 +111,7 @@ session_start();
                             </select>
                         </div>
 
+                        <!-- ID agregado para ocultar en motos -->
                         <div class="input-field" id="contenedor-traccion">
                             <label>Tracción</label>
                             <input type="text" name="traccion" placeholder="Ej: 4X2, FWD">
@@ -134,9 +132,10 @@ session_start();
                 <div class="form-section">
                     <h3 class="section-title"><span>03</span> Administración</h3>
                     <div class="grid-row">
+                        <!-- ID agregado para ocultar en motos -->
                         <div class="input-field" id="contenedor-asientos">
                             <label>Asientos</label>
-                            <input type="number" name="asientos" value="5" min="1" max="60">
+                            <input type="number" name="asientos" id="asientos" value="5" min="1" max="60">
                         </div>
                         <div class="input-field">
                             <label>Precio Día ($ COP)</label>
@@ -145,7 +144,7 @@ session_start();
                     </div>
                 </div>
 
-                <!-- SECCIÓN 04: DOCUMENTACIÓN (SOLO SUBIR ARCHIVO A CLOUDINARY, SIN OCR) -->
+                <!-- SECCIÓN 04: DOCUMENTACIÓN -->
                 <div class="form-section">
                     <h3 class="section-title"><span>04</span> Documentación del Vehículo</h3>
                     
@@ -171,11 +170,10 @@ session_start();
         </div>
     </div>
 
-    <!-- SCRIPT DE LÓGICA DE CATÁLOGO (Sin Tesseract) -->
+    <!-- SCRIPT JS -->
     <script src="registrar_vehiculo.js"></script>
 
     <script>
-        // Visualizador del nombre del archivo seleccionado
         document.getElementById('imagenMatricula').addEventListener('change', function(e) {
             if(e.target.files.length > 0) {
                 document.getElementById('nombreArchivo').textContent = "📄 Archivo seleccionado: " + e.target.files[0].name;
