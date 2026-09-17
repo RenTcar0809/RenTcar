@@ -65,7 +65,7 @@ window.onload = function() {
     actualizarModelosColombia();
 };
 
-// LECTOR OCR (Extrae textos de la tarjeta de matrícula / propiedad)
+// LECTOR OCR OPTIMIZADO
 document.addEventListener('DOMContentLoaded', () => {
     const inputMatricula = document.getElementById('imagenMatricula');
     if (inputMatricula) {
@@ -74,39 +74,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!file) return;
 
             const estado = document.getElementById('estadoOCR');
-            estado.textContent = "⏳ Leyendo la tarjeta de propiedad (esto puede tomar unos segundos)...";
+            estado.textContent = "⏳ Analizando la licencia de tránsito...";
 
             Tesseract.recognize(
                 file,
-                'spa', // Idioma español
+                'spa',
                 { logger: m => console.log(m) }
             ).then(({ data: { text } }) => {
-                estado.textContent = "✅ ¡Datos extraídos con éxito!";
-                console.log("Texto detectado:", text);
+                estado.textContent = "✅ ¡Datos procesados!";
+                console.log("Texto detectado por OCR:\n", text);
 
-                // Buscar una placa tipo AAA123 o AAA12A
-                const regexPlaca = /[A-Z]{3}[0-9]{2}[0-9A-Z]/i;
-                const matchPlaca = text.match(regexPlaca);
-                if (matchPlaca) {
-                    document.getElementById('placa').value = matchPlaca[0].toUpperCase();
+                // 1. Limpiar y buscar Placa (Formato Colombia: Tres letras y tres caracteres/números, ej: YSR13F)
+                const palabras = text.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/);
+                for (let palabra of palabras) {
+                    if (/^[A-Z]{3}[0-9]{2}[0-9A-Z]$/.test(palabra.toUpperCase())) {
+                        document.getElementById('placa').value = palabra.toUpperCase();
+                        break;
+                    }
                 }
 
+                // 2. Buscar líneas clave para Motor y Chasis de forma más precisa
                 const lineas = text.split('\n');
                 lineas.forEach(linea => {
                     let lin = linea.trim();
-                    if (lin.toUpperCase().includes('MOTOR') && lin.length > 8) {
-                        let valMotor = lin.replace(/[^a-zA-Z0-9]/g, '');
-                        if(valMotor.length > 5) document.getElementById('num_motor').value = valMotor.slice(-8);
+                    let upperLin = lin.toUpperCase();
+
+                    // Detectar número de motor
+                    if (upperLin.includes('MOTOR') && !upperLin.includes('NUMERO DE')) {
+                        let limpia = lin.replace(/[^a-zA-Z0-9]/g, '');
+                        if (limpia.length >= 8) {
+                            document.getElementById('num_motor').value = limpia.slice(-12); // Toma los caracteres finales válidos
+                        }
                     }
-                    if (lin.toUpperCase().includes('CHASIS') || lin.toUpperCase().includes('SERIE')) {
-                        let valChasis = lin.replace(/[^a-zA-Z0-9]/g, '');
-                        if(valChasis.length > 5) document.getElementById('num_chasis').value = valChasis.slice(-10);
+
+                    // Detectar número de chasis / serie / VIN
+                    if (upperLin.includes('CHASIS') || upperLin.includes('VIN') || upperLin.includes('SERIE')) {
+                        let limpia = lin.replace(/[^a-zA-Z0-9]/g, '');
+                        if (limpia.length >= 10) {
+                            document.getElementById('num_chasis').value = limpia.slice(-17); // Formato VIN estándar
+                        }
                     }
                 });
 
             }).catch(err => {
                 console.error(err);
-                estado.textContent = "❌ Error al leer la imagen. Intenta con una foto más iluminada.";
+                estado.textContent = "❌ No se pudo leer bien la imagen. Rellena los datos manualmente.";
             });
         });
     }
