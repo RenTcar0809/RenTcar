@@ -32,15 +32,16 @@ function actualizarModelosColombia() {
     }
     document.getElementById('modelo').innerHTML = '<option value="">Seleccione Modelo...</option>';
     
-    // Mostrar/Ocultar campos dinámicos
+    // Mostrar/Ocultar campos dinámicos según el tipo de vehículo
+    const contenedorTraccion = document.getElementById('contenedor-traccion');
+    const contenedorAsientos = document.getElementById('contenedor-asientos');
+
     if(tipo === 'Motocicleta') {
-        document.getElementById('contenedor-traccion').style.display = 'none';
-        document.getElementById('contenedor-cilindraje').style.display = 'block';
-        document.getElementById('contenedor-asientos').style.display = 'none';
+        if(contenedorTraccion) contenedorTraccion.style.display = 'none';
+        if(contenedorAsientos) contenedorAsientos.style.display = 'none';
     } else {
-        document.getElementById('contenedor-traccion').style.display = 'block';
-        document.getElementById('contenedor-cilindraje').style.display = 'none';
-        document.getElementById('contenedor-asientos').style.display = 'block';
+        if(contenedorTraccion) contenedorTraccion.style.display = 'block';
+        if(contenedorAsientos) contenedorAsientos.style.display = 'block';
     }
 }
 
@@ -64,62 +65,3 @@ function cargarReferencias() {
 window.onload = function() {
     actualizarModelosColombia();
 };
-
-// LECTOR OCR OPTIMIZADO
-document.addEventListener('DOMContentLoaded', () => {
-    const inputMatricula = document.getElementById('imagenMatricula');
-    if (inputMatricula) {
-        inputMatricula.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const estado = document.getElementById('estadoOCR');
-            estado.textContent = "⏳ Analizando la licencia de tránsito...";
-
-            Tesseract.recognize(
-                file,
-                'spa',
-                { logger: m => console.log(m) }
-            ).then(({ data: { text } }) => {
-                estado.textContent = "✅ ¡Datos procesados!";
-                console.log("Texto detectado por OCR:\n", text);
-
-                // 1. Limpiar y buscar Placa (Formato Colombia: Tres letras y tres caracteres/números, ej: YSR13F)
-                const palabras = text.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/);
-                for (let palabra of palabras) {
-                    if (/^[A-Z]{3}[0-9]{2}[0-9A-Z]$/.test(palabra.toUpperCase())) {
-                        document.getElementById('placa').value = palabra.toUpperCase();
-                        break;
-                    }
-                }
-
-                // 2. Buscar líneas clave para Motor y Chasis de forma más precisa
-                const lineas = text.split('\n');
-                lineas.forEach(linea => {
-                    let lin = linea.trim();
-                    let upperLin = lin.toUpperCase();
-
-                    // Detectar número de motor
-                    if (upperLin.includes('MOTOR') && !upperLin.includes('NUMERO DE')) {
-                        let limpia = lin.replace(/[^a-zA-Z0-9]/g, '');
-                        if (limpia.length >= 8) {
-                            document.getElementById('num_motor').value = limpia.slice(-12); // Toma los caracteres finales válidos
-                        }
-                    }
-
-                    // Detectar número de chasis / serie / VIN
-                    if (upperLin.includes('CHASIS') || upperLin.includes('VIN') || upperLin.includes('SERIE')) {
-                        let limpia = lin.replace(/[^a-zA-Z0-9]/g, '');
-                        if (limpia.length >= 10) {
-                            document.getElementById('num_chasis').value = limpia.slice(-17); // Formato VIN estándar
-                        }
-                    }
-                });
-
-            }).catch(err => {
-                console.error(err);
-                estado.textContent = "❌ No se pudo leer bien la imagen. Rellena los datos manualmente.";
-            });
-        });
-    }
-});
