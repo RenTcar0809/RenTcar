@@ -124,15 +124,6 @@ session_start();
                             <label for="traccion">Tracción (Ej: 4x2, FWD)</label>
                             <input type="text" name="traccion" id="traccion">
                         </div>
-
-                        <div class="input-field">
-                            <label for="num_motor">Nº Motor</label>
-                            <input type="text" name="num_motor" id="num_motor" required>
-                        </div>
-                        <div class="input-field">
-                            <label for="num_chasis">Nº Chasis</label>
-                            <input type="text" name="num_chasis" id="num_chasis" required>
-                        </div>
                     </div>
                 </section>
 
