@@ -1,5 +1,5 @@
 <?php
-// ¡IMPORTANTE! Esto siempre debe ir en la línea 1 para que funcionen los mensajes
+// ¡IMPORTANTE! Esto siempre debe ir en la línea 1 para que funcionen las sesiones y mensajes de error
 session_start();
 ?>
 <!DOCTYPE html>
@@ -28,18 +28,18 @@ session_start();
         <div class="form-card">
             <header class="card-header">
                 <h1 class="main-title">REGISTRO INTELIGENTE DE VEHÍCULO</h1>
-                <p class="subtitle">Bienvenido, <strong><?php echo isset($_SESSION['usuario_nombre']) ? $_SESSION['usuario_nombre'] : 'Usuario'; ?></strong>. Sube la foto de la matrícula y selecciona los datos del vehículo.</p>
+                <p class="subtitle">Bienvenido, <strong><?php echo isset($_SESSION['usuario_nombre']) ? htmlspecialchars($_SESSION['usuario_nombre']) : 'Usuario'; ?></strong>. Sube la foto de la matrícula y selecciona los datos correspondientes.</p>
             </header>
 
             <!-- EL FORMULARIO DEBE TENER enctype="multipart/form-data" PARA ENVIAR ARCHIVOS -->
             <form action="procesar_vehiculo.php" method="POST" enctype="multipart/form-data">
                 
-                <!-- SECCIÓN DE FOTO DE MATRÍCULA Y VISTA PREVIA (DENTRO DEL FORMULARIO) -->
+                <!-- SECCIÓN DE FOTO DE MATRÍCULA Y VISTA PREVIA -->
                 <div style="background: rgba(255, 0, 0, 0.05); border: 2px dashed #ff4444; padding: 20px; border-radius: 12px; margin-bottom: 25px; text-align: center;">
                     <h3 style="color: #fff; margin-bottom: 8px;">📷 Tarjeta de Propiedad / Matrícula</h3>
                     <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Sube una foto clara del documento oficial del vehículo.</p>
                     
-                    <!-- Input con name="imagen_matricula" para que PHP lo reciba -->
+                    <!-- Input con name="imagen_matricula" para que el PHP lo reciba -->
                     <input type="file" name="imagen_matricula" id="imagenMatricula" accept="image/*" required style="display: none;">
                     
                     <button type="button" onclick="document.getElementById('imagenMatricula').click()" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">
@@ -74,7 +74,7 @@ session_start();
                             </select>
                         </div>
 
-                        <!-- Selector de Modelos -->
+                        <!-- Selector de Modelos / Líneas -->
                         <div class="input-field">
                             <label for="modelo">Línea / Referencia</label>
                             <select name="modelo" id="modelo" required>
@@ -82,7 +82,10 @@ session_start();
                             </select>
                         </div>
 
-                        <div class="input-field"><label for="color">Color</label><input type="text" name="color" id="color" required></div>
+                        <div class="input-field">
+                            <label for="color">Color</label>
+                            <input type="text" name="color" id="color" required>
+                        </div>
                     </div>
                 </section>
 
@@ -94,34 +97,42 @@ session_start();
                             <input type="text" name="placa" id="placa" maxlength="6" style="text-transform: uppercase;" required>
                             <?php
                             if (isset($_SESSION['error_placa'])) {
-                                echo "<span style='display:block; color:#ff4444; font-size:14px; margin-top:5px; font-weight:bold;'>❌ " . $_SESSION['error_placa'] . "</span>";
+                                echo "<span style='display:block; color:#ff4444; font-size:14px; margin-top:5px; font-weight:bold;'>❌ " . htmlspecialchars($_SESSION['error_placa']) . "</span>";
                                 unset($_SESSION['error_placa']); 
                             }
                             ?>
                         </div>
-                        <div class="input-field"><label for="motor">Motor (Ej: 1.6L)</label><input type="text" name="motor" id="motor" required></div>
+
+                        <!-- MOTOR / CILINDRAJE DINÁMICO -->
+                        <div class="input-field">
+                            <label for="motor" id="label-motor">Motor (Ej: 1.6L)</label>
+                            <select name="motor" id="motor" required>
+                                <option value="">Seleccione opción...</option>
+                            </select>
+                        </div>
+
+                        <!-- TRANSMISIÓN DINÁMICA -->
                         <div class="input-field">
                             <label for="transmision">Transmisión</label>
-                            <select name="transmision" id="transmision">
-                                <option value="Automática">Automática</option>
-                                <option value="Manual">Manual</option>
+                            <select name="transmision" id="transmision" required>
+                                <option value="">Seleccione Transmisión...</option>
                             </select>
                         </div>
                         
-                        <!-- CAMPO EXCLUSIVO DE CARRO -->
+                        <!-- CAMPO EXCLUSIVO DE CARRO (Tracción) -->
                         <div class="input-field" id="contenedor-traccion">
                             <label for="traccion">Tracción (Ej: 4x2, FWD)</label>
                             <input type="text" name="traccion" id="traccion">
                         </div>
 
-                        <!-- CAMPO EXCLUSIVO DE MOTO -->
-                        <div class="input-field" id="contenedor-cilindraje" style="display: none;">
-                            <label for="cilindraje">Cilindraje (CC)</label>
-                            <input type="number" name="cilindraje" id="cilindraje">
+                        <div class="input-field">
+                            <label for="num_motor">Nº Motor</label>
+                            <input type="text" name="num_motor" id="num_motor" required>
                         </div>
-
-                        <div class="input-field"><label for="num_motor">Nº Motor</label><input type="text" name="num_motor" id="num_motor" required></div>
-                        <div class="input-field"><label for="num_chasis">Nº Chasis</label><input type="text" name="num_chasis" id="num_chasis" required></div>
+                        <div class="input-field">
+                            <label for="num_chasis">Nº Chasis</label>
+                            <input type="text" name="num_chasis" id="num_chasis" required>
+                        </div>
                     </div>
                 </section>
 
@@ -132,7 +143,10 @@ session_start();
                             <label for="asientos">Asientos</label>
                             <input type="number" name="asientos" id="asientos" value="5">
                         </div>
-                        <div class="input-field"><label for="precio">Precio Día ($COP)</label><input type="number" step="0.01" name="precio" id="precio" required></div>
+                        <div class="input-field">
+                            <label for="precio">Precio Día ($COP)</label>
+                            <input type="number" step="0.01" name="precio" id="precio" required>
+                        </div>
                     </div>
                 </section>
 
@@ -147,15 +161,12 @@ session_start();
     <script src="registro_vehiculo.js"></script>
     <script src="valida_placa.js"></script>
 
-    <!-- SCRIPT PARA MOSTRAR LA VISTA PREVIA DE LA FOTO -->
+    <!-- Script visual complementario para la vista previa de la foto de matrícula -->
     <script>
         document.getElementById('imagenMatricula').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (file) {
-                // Mostrar nombre del archivo
                 document.getElementById('nombreArchivo').textContent = "📄 " + file.name;
-                
-                // Generar vista previa de la imagen
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const preview = document.getElementById('imagenPreview');
