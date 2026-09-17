@@ -1,141 +1,156 @@
 <?php
-// ¡IMPORTANTE! Esto siempre debe ir en la línea 1 para que funcionen los mensajes
 session_start();
+// Si tienes un archivo de conexión o control de sesión, inclúyelo aquí
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RentCar - Registro de Vehículo Inteligente</title>
-    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="indexv.css?v=<?php echo filemtime('indexv.css'); ?>">
-    <!-- Importar Tesseract.js para leer la tarjeta de propiedad / matrícula -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <title>Registro de Vehículo - RentCar</title>
+    <link rel="stylesheet" href="indexv.css">
+    <!-- Fuentes para mantener tu diseño original -->
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <header class="navbar">
+    <!-- NAVBAR -->
+    <nav class="navbar">
         <div class="nav-content">
-            <a href="dashboardf.php" class="logo-container" aria-label="Ir al panel principal">
-                <span class="logo-text">
-                    <span class="txt-red">REN</span><span class="txt-black">T</span><span class="txt-red">CAR</span>
-                </span>
-                <img src="unnamed.png" alt="Logo Carro" class="logo-img">
+            <a href="#" class="logo-container">
+                <span class="logo-text">RENT<span class="txt-black">CAR</span></span>
             </a>
         </div>
-    </header>
+    </nav>
 
-    <main class="container">
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container">
         <div class="form-card">
-            <header class="card-header">
-                <h1 class="main-title">REGISTRO INTELIGENTE DE VEHÍCULO</h1>
-                <p class="subtitle">Bienvenido, <strong><?php echo isset($_SESSION['usuario_nombre']) ? $_SESSION['usuario_nombre'] : 'Usuario'; ?></strong>. Sube la foto de la matrícula o selecciona el modelo comercial.</p>
-            </header>
-
-            <!-- LECTOR OCR DE MATRÍCULA -->
-            <div style="background: rgba(255, 0, 0, 0.05); border: 2px dashed #ff4444; padding: 20px; border-radius: 12px; margin-bottom: 25px; text-align: center;">
-                <h3 style="color: #fff; margin-bottom: 8px;"><i class="fas fa-camera"></i> Autocompletar con Matrícula / Tarjeta de Propiedad</h3>
-                <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Sube una foto clara de la licencia de tránsito o tarjeta de propiedad para extraer los datos automáticamente.</p>
-                <input type="file" id="imagenMatricula" accept="image/*" style="display: none;">
-                <button type="button" onclick="document.getElementById('imagenMatricula').click()" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                    📁 Seleccionar Imagen de Matrícula
-                </button>
-                <p id="estadoOCR" style="color: #4CAF50; font-weight: bold; margin-top: 10px; font-size: 0.9rem;"></p>
+            
+            <div class="card-header">
+                <h1 class="main-title">REGISTRO DE <span class="txt-red">VEHÍCULO</span></h1>
+                <p class="subtitle">Ingresa la información técnica y adjunta la tarjeta de propiedad oficial.</p>
             </div>
 
-            <form action="procesar_vehiculo.php" method="POST">
+            <!-- ALERTA DE ERROR SI LA PLACA FALLA O FALTA LA FOTO -->
+            <?php if (isset($_SESSION['error_placa'])): ?>
+                <div style="background: rgba(255,0,0,0.15); border: 1px solid var(--accent-red); color: #ff8888; padding: 12px 20px; border-radius: 12px; margin-bottom: 25px; font-weight: 500; font-size: 14px;">
+                    ⚠️ <?php echo $_SESSION['error_placa']; unset($_SESSION['error_placa']); ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- FORMULARIO PRINCIPAL -->
+            <form action="procesar_vehiculo.php" method="POST" enctype="multipart/form-data">
                 
-                <section class="form-section">
-                    <h2 class="section-title"><span>01</span> Información General y Referencia Colombia</h2>
+                <!-- SECCIÓN 01: INFORMACIÓN BÁSICA -->
+                <div class="form-section">
+                    <h3 class="section-title"><span>01</span> Información Básica</h3>
                     <div class="grid-row">
                         <div class="input-field">
-                            <label for="tipo">Tipo de Vehículo</label>
-                            <select name="tipo" id="tipo" required onchange="actualizarModelosColombia()">
+                            <label>Tipo de Vehículo</label>
+                            <select name="tipo" required>
                                 <option value="Carro">Carro</option>
                                 <option value="Motocicleta">Motocicleta</option>
                             </select>
                         </div>
-
-                        <!-- Selector Inteligente de Marcas en Colombia -->
                         <div class="input-field">
-                            <label for="marca">Marca</label>
-                            <select name="marca" id="marca" required onchange="cargarReferencias()">
-                                <option value="">Seleccione Marca...</option>
-                            </select>
+                            <label>Marca</label>
+                            <input type="text" name="marca" placeholder="Ej: Chevrolet, Victory" required>
                         </div>
-
-                        <!-- Selector Inteligente de Modelos/Referencias -->
                         <div class="input-field">
-                            <label for="modelo">Línea / Referencia</label>
-                            <select name="modelo" id="modelo" required>
-                                <option value="">Seleccione Modelo...</option>
-                            </select>
+                            <label>Línea / Referencia</label>
+                            <input type="text" name="modelo" placeholder="Ej: Spark, Life 125" required>
                         </div>
-
-                        <div class="input-field"><label for="color">Color</label><input type="text" name="color" id="color" required></div>
+                        <div class="input-field">
+                            <label>Color</label>
+                            <input type="text" name="color" placeholder="Ej: Negro Mate" required>
+                        </div>
                     </div>
-                </section>
+                </div>
 
-                <section class="form-section">
-                    <h2 class="section-title"><span>02</span> Detalles Técnicos</h2>
+                <!-- SECCIÓN 02: DETALLES TÉCNICOS -->
+                <div class="form-section">
+                    <h3 class="section-title"><span>02</span> Detalles Técnicos</h3>
                     <div class="grid-row">
                         <div class="input-field">
-                            <label for="placa">Placa</label>
-                            <input type="text" name="placa" id="placa" maxlength="6" style="text-transform: uppercase;" required>
-                            <?php
-                            if (isset($_SESSION['error_placa'])) {
-                                echo "<span style='display:block; color:#ff4444; font-size:14px; margin-top:5px; font-weight:bold;'>❌ " . $_SESSION['error_placa'] . "</span>";
-                                unset($_SESSION['error_placa']); 
-                            }
-                            ?>
+                            <label>Placa (Ej: ABC123 o YSR13F)</label>
+                            <input type="text" name="placa" placeholder="Ej: YSR13F" style="text-transform: uppercase;" required>
                         </div>
-                        <div class="input-field"><label for="motor">Motor (Ej: 1.6L)</label><input type="text" name="motor" id="motor" required></div>
                         <div class="input-field">
-                            <label for="transmision">Transmisión</label>
-                            <select name="transmision" id="transmision">
+                            <label>Motor (Ej: 1.6L / 125CC)</label>
+                            <input type="text" name="motor" placeholder="Ej: 1.6L" required>
+                        </div>
+                        <div class="input-field">
+                            <label>Transmisión</label>
+                            <select name="transmision" required>
                                 <option value="Automática">Automática</option>
-                                <option value="Manual">Manual</option>
+                                <option value="Mecánica">Mecánica</option>
                             </select>
                         </div>
-                        
-                        <!-- CAMPO EXCLUSIVO DE CARRO -->
-                        <div class="input-field" id="contenedor-traccion">
-                            <label for="traccion">Tracción (Ej: 4x2, FWD)</label>
-                            <input type="text" name="traccion" id="traccion">
+                        <div class="input-field">
+                            <label>Tracción (Opcional)</label>
+                            <input type="text" name="traccion" placeholder="Ej: 4X2, FWD">
                         </div>
-
-                        <!-- CAMPO EXCLUSIVO DE MOTO -->
-                        <div class="input-field" id="contenedor-cilindraje" style="display: none;">
-                            <label for="cilindraje">Cilindraje (CC)</label>
-                            <input type="number" name="cilindraje" id="cilindraje">
+                        <div class="input-field">
+                            <label>Nº Motor</label>
+                            <input type="text" name="num_motor" placeholder="Número de motor" required>
                         </div>
-
-                        <div class="input-field"><label for="num_motor">Nº Motor</label><input type="text" name="num_motor" id="num_motor" required></div>
-                        <div class="input-field"><label for="num_chasis">Nº Chasis</label><input type="text" name="num_chasis" id="num_chasis" required></div>
+                        <div class="input-field">
+                            <label>Nº Chasis / VIN</label>
+                            <input type="text" name="num_chasis" placeholder="Número de chasis" required>
+                        </div>
                     </div>
-                </section>
+                </div>
 
-                <section class="form-section">
-                    <h2 class="section-title"><span>03</span> Administración</h2>
+                <!-- SECCIÓN 03: ADMINISTRACIÓN -->
+                <div class="form-section">
+                    <h3 class="section-title"><span>03</span> Administración</h3>
                     <div class="grid-row">
-                        <div class="input-field" id="contenedor-asientos">
-                            <label for="asientos">Asientos</label>
-                            <input type="number" name="asientos" id="asientos" value="5">
+                        <div class="input-field">
+                            <label>Asientos</label>
+                            <input type="number" name="asientos" value="5" min="1" max="60" required>
                         </div>
-                        <div class="input-field"><label for="precio">Precio Día ($COP)</label><input type="number" step="0.01" name="precio" id="precio" required></div>
+                        <div class="input-field">
+                            <label>Precio Día ($ COP)</label>
+                            <input type="number" name="precio" placeholder="Ej: 120000" required>
+                        </div>
                     </div>
-                </section>
+                </div>
 
+                <!-- SECCIÓN 04: DOCUMENTACIÓN (MATRÍCULA A CLOUDINARY) -->
+                <div class="form-section">
+                    <h3 class="section-title"><span>04</span> Documentación del Vehículo</h3>
+                    
+                    <div style="background: rgba(230, 0, 0, 0.03); border: 2px dashed rgba(230, 0, 0, 0.4); padding: 30px; border-radius: 16px; text-align: center;">
+                        <h3 style="color: #fff; font-size: 16px; margin-bottom: 6px;">📷 Foto de la Tarjeta de Propiedad / Matrícula</h3>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Sube la foto del documento oficial del vehículo para respaldar el registro.</p>
+                        
+                        <!-- Input oculto para la imagen -->
+                        <input type="file" name="imagen_matricula" id="imagenMatricula" accept="image/*" required style="display: none;">
+                        
+                        <button type="button" onclick="document.getElementById('imagenMatricula').click()" class="btn-secondary">
+                            📁 Seleccionar Archivo
+                        </button>
+                        <p id="nombreArchivo" style="color: #4CAF50; font-weight: bold; margin-top: 12px; font-size: 13px;"></p>
+                    </div>
+                </div>
+
+                <!-- BOTÓN DE ENVÍO -->
                 <div class="form-footer">
                     <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
                 </div>
+
             </form>
         </div>
-    </main>
+    </div>
 
-    <!-- Archivos JavaScript separados -->
-    <script src="registro_vehiculo.js"></script>
-    <script src="valida_placa.js"></script>
+    <script>
+        // Script simple para reflejar el nombre del archivo seleccionado visualmente
+        document.getElementById('imagenMatricula').addEventListener('change', function(e) {
+            if(e.target.files.length > 0) {
+                document.getElementById('nombreArchivo').textContent = "📄 Archivo seleccionado: " + e.target.files[0].name;
+            }
+        });
+    </script>
 </body>
 </html>
