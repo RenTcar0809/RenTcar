@@ -136,8 +136,8 @@ session_start();
                 </section>
 
                 <div class="form-footer">
-                    <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
-                </div>
+    <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
+</div>
             </form>
         </div>
     </main>
