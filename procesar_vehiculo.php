@@ -16,7 +16,58 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v'])) {
     
-    // 1. RECOGER Y LIMPIAR DATOS DEL FORMULARIO
+    // ==========================================
+    // 1. CREDENCIALES DE CLOUDINARY
+    // ==========================================
+    $cloud_name = "tu_cloud_name"; // Reemplaza con tu Cloud Name de Cloudinary
+    $api_key    = "tu_api_key";    // Reemplaza con tu API Key
+    $api_secret = "tu_api_secret"; // Reemplaza con tu API Secret
+
+    $url_imagen_matricula = "";
+
+    // 2. PROCESAR Y SUBIR LA FOTO DE LA MATRÍCULA A CLOUDINARY
+    if (isset($_FILES['imagen_matricula']) && $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_OK) {
+        $fileTmpPath = $_FILES['imagen_matricula']['tmp_name'];
+        $url_cloudinary = "https://api.cloudinary.com/v1_1/" . $cloud_name . "/image/upload";
+        
+        $timestamp = time();
+        // Generar firma de seguridad para Cloudinary
+        $signature = sha1("folder=rentcar_matriculas&timestamp=" . $timestamp . $api_secret);
+        
+        $data = array(
+            'file'      => new CURLFile($fileTmpPath),
+            'api_key'   => $api_key,
+            'timestamp' => $timestamp,
+            'signature' => $signature,
+            'folder'    => 'rentcar_matriculas'
+        );
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url_cloudinary);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        $resultado_cloudinary = json_decode($response, true);
+        
+        if ($http_code === 200 && isset($resultado_cloudinary['secure_url'])) {
+            $url_imagen_matricula = $resultado_cloudinary['secure_url'];
+        } else {
+            $_SESSION['error_placa'] = "Error al subir la tarjeta de propiedad a Cloudinary.";
+            header("Location: " . $pagina_formulario);
+            exit();
+        }
+    } else {
+        $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS DEL FORMULARIO ACTUAL
     $id_proveedor = intval($_SESSION['IdUsuario']); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
@@ -25,15 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $placa        = strtoupper(trim($_POST['placa'] ?? ''));
     $motor        = trim($_POST['motor'] ?? ''); 
     $transmision  = trim($_POST['transmision'] ?? '');
-    $traccion     = trim($_POST['traccion'] ?? '');
-    $num_motor    = trim($_POST['num_motor'] ?? '');
-    $num_chasis   = trim($_POST['num_chasis'] ?? '');
-    
-    // Limpieza estricta de enteros y flotantes (evita que se envíen cadenas vacías "")
     $asientos     = ($_POST['asientos'] !== '') ? intval($_POST['asientos']) : (($tipo === 'Motocicleta') ? 2 : 5);
     $precio       = ($_POST['precio'] !== '') ? floatval($_POST['precio']) : 0.00;
 
-    // 2. VALIDACIÓN DE PLACA PARA COLOMBIA (Carros ABC123 y Motos ABC12F / ABC123)
+    // 4. VALIDACIÓN DE PLACA PARA COLOMBIA (Carros ABC123 y Motos ABC12F / ABC123)
     $patron_placa = '/^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z0-9])$/';
     if (!preg_match($patron_placa, $placa)) {
         $_SESSION['error_placa'] = "Formato de placa inválido. Carro (ABC123) o Moto (ABC12F).";
@@ -42,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     }
 
     try {
-        // 3. VERIFICAR SI LA PLACA YA EXISTE
+        // 5. VERIFICAR SI LA PLACA YA EXISTE EN LA TABLA 'vehiculo'
         $stmt_check = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
         $stmt_check->execute([$placa]);
         
@@ -52,9 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 4. INSERTAR DATOS TÉCNICOS EN LA TABLA 'vehiculo'
-        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, num_motor, num_chasis, asientos, precio) 
-                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :num_motor, :num_chasis, :asientos, :precio)";
+        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo' (Sincronizado con tus columnas reales)
+        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, asientos, precio, imagen) 
+                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :asientos, :precio, :imagen)";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -66,14 +112,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':placa'        => $placa,
             ':motor'        => $motor,
             ':transmision'  => $transmision,
-            ':traccion'     => ($tipo === 'Motocicleta') ? 'trasera' : $traccion,
-            ':num_motor'    => $num_motor,
-            ':num_chasis'   => $num_chasis,
-            ':asientos'     => ($tipo === 'Motocicleta') ? 2 : $asientos,
-            ':precio'       => $precio
+            ':asientos'     => $asientos,
+            ':precio'       => $precio,
+            ':imagen'       => $url_imagen_matricula // URL segura devuelta por Cloudinary
         ]);
 
-        // 5. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y su secuencia)
+        // 7. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y su secuencia)
         try {
             $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculo_id_v_seq');
         } catch (Exception $ex) {
@@ -88,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
         }
 
-        // 6. REDIRECCIÓN PROFESIONAL AL PASO 2 (SUBIR FOTOS)
+        // 8. REDIRECCIÓN PROFESIONAL AL PASO 2 (SUBIR LAS 4 FOTOS DE GALERÍA)
         header("Location: subirfoto.php?id=" . $id_vehiculo_nuevo);
         exit();
 
