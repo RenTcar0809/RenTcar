@@ -25,43 +25,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
 
     $url_imagen_matricula = "";
 
-    // 2. PROCESAR Y SUBIR LA FOTO DE LA MATRÍCULA A CLOUDINARY
-    if (isset($_FILES['imagen_matricula']) && $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_OK) {
-        $fileTmpPath = $_FILES['imagen_matricula']['tmp_name'];
-        $url_cloudinary = "https://api.cloudinary.com/v1_1/" . $cloud_name . "/image/upload";
-        
-        $timestamp = time();
-        $signature = sha1("folder=rentcar_matriculas&timestamp=" . $timestamp . $api_secret);
-        
-        $data = array(
-            'file'      => new CURLFile($fileTmpPath),
-            'api_key'   => $api_key,
-            'timestamp' => $timestamp,
-            'signature' => $signature,
-            'folder'    => 'rentcar_matriculas'
-        );
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url_cloudinary);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        $resultado_cloudinary = json_decode($response, true);
-        
-        if ($http_code === 200 && isset($resultado_cloudinary['secure_url'])) {
-            $url_imagen_matricula = $resultado_cloudinary['secure_url'];
-        } else {
-            $_SESSION['error_placa'] = "Error al subir la tarjeta de propiedad a Cloudinary.";
-            header("Location: " . $pagina_formulario);
-            exit();
-        }
-    } else {
+    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
+    if (!isset($_FILES['imagen_matricula']) || $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_NO_FILE) {
         $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    if ($_FILES['imagen_matricula']['error'] !== UPLOAD_ERR_OK) {
+        $_SESSION['error_placa'] = "Error al cargar la imagen de la matrícula (Código de error: " . $_FILES['imagen_matricula']['error'] . ").";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    // Subir a Cloudinary
+    $fileTmpPath = $_FILES['imagen_matricula']['tmp_name'];
+    $url_cloudinary = "https://api.cloudinary.com/v1_1/" . $cloud_name . "/image/upload";
+    
+    $timestamp = time();
+    $signature = sha1("folder=rentcar_matriculas&timestamp=" . $timestamp . $api_secret);
+    
+    $data = array(
+        'file'      => new CURLFile($fileTmpPath),
+        'api_key'   => $api_key,
+        'timestamp' => $timestamp,
+        'signature' => $signature,
+        'folder'    => 'rentcar_matriculas'
+    );
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url_cloudinary);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    $resultado_cloudinary = json_decode($response, true);
+    
+    if ($http_code === 200 && isset($resultado_cloudinary['secure_url'])) {
+        $url_imagen_matricula = $resultado_cloudinary['secure_url'];
+    } else {
+        $_SESSION['error_placa'] = "Error al subir la tarjeta de propiedad a Cloudinary.";
         header("Location: " . $pagina_formulario);
         exit();
     }

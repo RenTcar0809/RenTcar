@@ -39,8 +39,8 @@ session_start();
                     <h3 style="color: #fff; margin-bottom: 8px;">📷 Tarjeta de Propiedad / Matrícula</h3>
                     <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Sube una foto clara del documento oficial del vehículo.</p>
                     
-                    <!-- Input con name="imagen_matricula" para que el PHP lo reciba -->
-                    <input type="file" name="imagen_matricula" id="imagenMatricula" accept="image/*" required style="display: none;">
+                    <!-- Input sin 'required' para evitar bloqueos por estar oculto (PHP lo valida de forma segura) -->
+                    <input type="file" name="imagen_matricula" id="imagenMatricula" accept="image/*" style="display: none;">
                     
                     <button type="button" onclick="document.getElementById('imagenMatricula').click()" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">
                         📁 Seleccionar Imagen de Matrícula
@@ -125,9 +125,9 @@ session_start();
                     <h2 class="section-title"><span>03</span> Administración</h2>
                     <div class="grid-row">
                         <div class="input-field" id="contenedor-asientos">
-                         <label for="asientos">Asientos</label>
-                         <input type="number" name="asientos" id="asientos" value="5" required>
-                       </div>
+                            <label for="asientos">Asientos</label>
+                            <input type="number" name="asientos" id="asientos" value="5" required>
+                        </div>
                         <div class="input-field">
                             <label for="precio">Precio Día ($COP)</label>
                             <input type="number" step="0.01" name="precio" id="precio" required>
@@ -136,8 +136,8 @@ session_start();
                 </section>
 
                 <div class="form-footer">
-    <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
-</div>
+                    <button type="submit" name="enviar_registro_v" class="btn-primary">GUARDAR VEHÍCULO</button>
+                </div>
             </form>
         </div>
     </main>
