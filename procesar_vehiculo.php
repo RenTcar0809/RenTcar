@@ -19,9 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     // ==========================================
     // 1. CREDENCIALES DE CLOUDINARY
     // ==========================================
-    $cloud_name = "tu_cloud_name"; // Reemplaza con tu Cloud Name de Cloudinary
-    $api_key    = "tu_api_key";    // Reemplaza con tu API Key
-    $api_secret = "tu_api_secret"; // Reemplaza con tu API Secret
+    $cloud_name = "bsd1wma1"; // Reemplaza con tu Cloud Name de Cloudinary
+    $api_key    = "219554281638733";    // Reemplaza con tu API Key
+    $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; // Reemplaza con tu API Secret
 
     $url_imagen_matricula = "";
 
