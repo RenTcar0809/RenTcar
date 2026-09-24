@@ -16,18 +16,21 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v'])) {
     
-    // ==========================================
-    // 1. CREDENCIALES DE CLOUDINARY
-    // ==========================================
+
     $cloud_name = "bsd1wma1"; // Reemplaza con tu Cloud Name de Cloudinary
     $api_key    = "219554281638733";    // Reemplaza con tu API Key
     $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; // Reemplaza con tu API Secret
-
     $url_imagen_matricula = "";
 
     // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
     if (!isset($_FILES['imagen_matricula']) || $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_NO_FILE) {
         $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    if ($_FILES['imagen_matricula']['error'] === 1) {
+        $_SESSION['error_placa'] = "La imagen es demasiado pesada para el servidor. Por favor, selecciona una foto de menor resolución.";
         header("Location: " . $pagina_formulario);
         exit();
     }
@@ -58,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Evita errores SSL en servidores cloud
     
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -73,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         exit();
     }
 
-    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS (BLINDAJE NUMÉRICO ESTRICTO)
+    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS (BLINDAJE NUMÉRICO Y DE CAMPOS)
     $id_proveedor = intval($_SESSION['IdUsuario']); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
@@ -82,6 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $placa        = strtoupper(trim($_POST['placa'] ?? ''));
     $motor        = trim($_POST['motor'] ?? ''); 
     $transmision  = trim($_POST['transmision'] ?? '');
+    
+    // Asignar tracción por defecto según el tipo de vehículo para evitar el error NOT NULL
+    $traccion     = trim($_POST['traccion'] ?? ($tipo === 'Motocicleta' ? 'Cadena' : 'Delantera'));
     
     // Blindaje contra cadenas vacías para PostgreSQL
     $asientos_raw = $_POST['asientos'] ?? '';
@@ -109,9 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo'
-        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, asientos, precio, imagen) 
-                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :asientos, :precio, :imagen)";
+        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo' (Incluyendo 'traccion')
+        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, asientos, precio, imagen) 
+                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :asientos, :precio, :imagen)";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -123,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':placa'        => $placa,
             ':motor'        => $motor,
             ':transmision'  => $transmision,
+            ':traccion'     => $traccion,
             ':asientos'     => $asientos,
             ':precio'       => $precio,
             ':imagen'       => $url_imagen_matricula
@@ -137,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
 
         if (!$id_vehiculo_nuevo) {
             $stmt_id = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
+            $stmt_id->execute([$placa]);
             $stmt_id->execute([$placa]);
             $vehiculo_encontrado = $stmt_id->fetch();
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
@@ -157,3 +166,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     exit();
 }
 ?>
+
+  
