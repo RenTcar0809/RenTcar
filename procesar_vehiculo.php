@@ -31,7 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         $url_cloudinary = "https://api.cloudinary.com/v1_1/" . $cloud_name . "/image/upload";
         
         $timestamp = time();
-        // Generar firma de seguridad para Cloudinary
         $signature = sha1("folder=rentcar_matriculas&timestamp=" . $timestamp . $api_secret);
         
         $data = array(
@@ -67,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         exit();
     }
 
-    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS DEL FORMULARIO ACTUAL
+    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS (BLINDAJE NUMÉRICO ESTRICTO)
     $id_proveedor = intval($_SESSION['IdUsuario']); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
@@ -76,8 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $placa        = strtoupper(trim($_POST['placa'] ?? ''));
     $motor        = trim($_POST['motor'] ?? ''); 
     $transmision  = trim($_POST['transmision'] ?? '');
-    $asientos     = ($_POST['asientos'] !== '') ? intval($_POST['asientos']) : (($tipo === 'Motocicleta') ? 2 : 5);
-    $precio       = ($_POST['precio'] !== '') ? floatval($_POST['precio']) : 0.00;
+    
+    // Blindaje contra cadenas vacías para PostgreSQL
+    $asientos_raw = $_POST['asientos'] ?? '';
+    $asientos     = ($asientos_raw !== '') ? intval($asientos_raw) : (($tipo === 'Motocicleta') ? 2 : 5);
+    
+    $precio_raw   = $_POST['precio'] ?? '';
+    $precio       = ($precio_raw !== '') ? floatval($precio_raw) : 0.00;
 
     // 4. VALIDACIÓN DE PLACA PARA COLOMBIA (Carros ABC123 y Motos ABC12F / ABC123)
     $patron_placa = '/^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z0-9])$/';
@@ -98,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo' (Sincronizado con tus columnas reales)
+        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo'
         $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, asientos, precio, imagen) 
                 VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :asientos, :precio, :imagen)";
         
@@ -114,17 +118,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':transmision'  => $transmision,
             ':asientos'     => $asientos,
             ':precio'       => $precio,
-            ':imagen'       => $url_imagen_matricula // URL segura devuelta por Cloudinary
+            ':imagen'       => $url_imagen_matricula
         ]);
 
-        // 7. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y su secuencia)
+        // 7. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL)
         try {
             $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculo_id_v_seq');
         } catch (Exception $ex) {
             $id_vehiculo_nuevo = $pdo->lastInsertId(); 
         }
 
-        // Respaldo por seguridad si la secuencia no retorna el ID directo
         if (!$id_vehiculo_nuevo) {
             $stmt_id = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
             $stmt_id->execute([$placa]);
@@ -132,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
         }
 
-        // 8. REDIRECCIÓN PROFESIONAL AL PASO 2 (SUBIR LAS 4 FOTOS DE GALERÍA)
+        // 8. REDIRECCIÓN AL PASO 2
         header("Location: subirfoto.php?id=" . $id_vehiculo_nuevo);
         exit();
 

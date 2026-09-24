@@ -125,9 +125,9 @@ session_start();
                     <h2 class="section-title"><span>03</span> Administración</h2>
                     <div class="grid-row">
                         <div class="input-field" id="contenedor-asientos">
-                            <label for="asientos">Asientos</label>
-                            <input type="number" name="asientos" id="asientos" value="5">
-                        </div>
+                         <label for="asientos">Asientos</label>
+                         <input type="number" name="asientos" id="asientos" value="5" required>
+                       </div>
                         <div class="input-field">
                             <label for="precio">Precio Día ($COP)</label>
                             <input type="number" step="0.01" name="precio" id="precio" required>
