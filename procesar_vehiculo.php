@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
 
         // 6. ASOCIAR LA MATRÍCULA ÚNICAMENTE AL USUARIO / PROVEEDOR
         // (Asegúrate de tener una columna llamada 'licencia_transito' o ajusta el nombre según tu tabla de usuarios)
-        $stmt_user_doc = $pdo->prepare("UPDATE usuario SET licencia_transito = ? WHERE IdUsuario = ?");
+        $stmt_user_doc = $pdo->prepare('UPDATE usuario SET licencia_transito = ? WHERE "IdUsuario" = ?');
         $stmt_user_doc->execute([$url_imagen_matricula, $id_proveedor]);
 
         // 7. INSERTAR DATOS EN LA TABLA 'vehiculo' (Sin incluir la foto de la matrícula)
