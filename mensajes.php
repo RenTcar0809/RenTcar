@@ -1,5 +1,8 @@
 <?php
 session_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once 'conexion.php'; 
 
 if (!isset($_SESSION['IdUsuario'])) {
@@ -13,7 +16,7 @@ $error_msg = '';
 $contactos = []; 
 
 try {
-    // Obtener la identidad del proveedor actual respetando el case de PostgreSQL
+    // Obtener la identidad del usuario actual respetando el case de PostgreSQL
     $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
     $stmtU->execute([$id_usuario]);
     $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
@@ -22,7 +25,7 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Consulta adaptada para incluir tanto carros como motos de la tabla vehiculo
+    // Consulta para traer los mensajes y los datos del vehículo (Carros o Motos)
     $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
@@ -36,34 +39,42 @@ try {
         FROM mensajes_chat m
         LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
         WHERE m.destinatario = ? OR m.remitente = ?
+        ORDER BY m.id_vehiculo DESC
     ');
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agrupar chats únicos (Carros y Motos)
+    // Agrupar chats únicos de forma segura (sin descartar nada)
     foreach ($todos_mensajes as $msg) {
-        if (empty($msg['id_vehiculo']) || $msg['id_vehiculo'] <= 0) {
-            continue; 
-        }
-
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
+        
         if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
-            $clave_contacto = $msg['id_vehiculo'] . '_' . $interlocutor;
+            $id_v_val = !empty($msg['id_vehiculo']) ? $msg['id_vehiculo'] : 0;
+            $clave_contacto = $id_v_val . '_' . $interlocutor;
             
-            $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
+            // Si el vehículo existe, armar su nombre; si no, mostrar un texto por defecto
+            if (!empty($msg['marca']) || !empty($msg['modelo'])) {
+                $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? ''));
+            } else {
+                $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
+            }
+            
             $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'https://via.placeholder.com/40?text=Auto';
             
             // Detectar si es moto o carro de manera flexible
             $tipo_v = strtolower($msg['tipo'] ?? 'auto');
             $tipo_formateado = (strpos($tipo_v, 'moto') !== false) ? 'moto' : 'auto';
 
-            $contactos[$clave_contacto] = [
-                'interlocutor'  => $interlocutor,
-                'id_vehiculo'   => $msg['id_vehiculo'],
-                'nombre_auto'   => $nombre_vehiculo,
-                'imagen_auto'   => $imagen_cloudinary,
-                'tipo_vehiculo' => $tipo_formateado
-            ];
+            // Solo sobrescribir si no existe o si este tiene información más detallada
+            if (!isset($contactos[$clave_contacto])) {
+                $contactos[$clave_contacto] = [
+                    'interlocutor'  => $interlocutor,
+                    'id_vehiculo'   => $id_v_val,
+                    'nombre_auto'   => $nombre_vehiculo,
+                    'imagen_auto'   => $imagen_cloudinary,
+                    'tipo_vehiculo' => $tipo_formateado
+                ];
+            }
         }
     }
 
@@ -74,7 +85,7 @@ try {
 $keys_contacto = array_keys($contactos);
 $contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
 
-$id_vehiculo_activo = '';
+$id_vehiculo_activo = 0;
 $nombre_vehiculo_activo = '';
 $imagen_vehiculo_activo = '';
 $interlocutor_real = '';
@@ -88,17 +99,27 @@ if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
     $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
 }
 
-// Obtener mensajes de la conversación activa
+// Obtener los mensajes de la conversación activa
 $mensajes_chat = [];
-if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
+if (!empty($interlocutor_real)) {
     try {
-        $stmt_h = $pdo->prepare('
-            SELECT * FROM mensajes_chat 
-            WHERE id_vehiculo = ? 
-            AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
-            ORDER BY fecha ASC
-        ');
-        $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+        if ($id_vehiculo_activo > 0) {
+            $stmt_h = $pdo->prepare('
+                SELECT * FROM mensajes_chat 
+                WHERE id_vehiculo = ? 
+                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
+                ORDER BY fecha ASC
+            ');
+            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+        } else {
+            $stmt_h = $pdo->prepare('
+                SELECT * FROM mensajes_chat 
+                WHERE (id_vehiculo IS NULL OR id_vehiculo = 0)
+                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
+                ORDER BY fecha ASC
+            ');
+            $stmt_h->execute([$nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+        }
         $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         $error_msg = "Error al cargar el chat: " . $e->getMessage();
@@ -188,7 +209,6 @@ if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
 
                 <form class="chat-input-area" id="formEnviarMensaje">
                     <input type="hidden" name="accion" value="enviar">
-                    <!-- DINÁMICO: Envía 'auto' o 'moto' según corresponda -->
                     <input type="hidden" name="tipo_vehiculo" value="<?php echo htmlspecialchars($tipo_vehiculo_activo); ?>">
                     <input type="hidden" name="id_vehiculo" value="<?php echo $id_vehiculo_activo; ?>">
                     <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($interlocutor_real); ?>">
