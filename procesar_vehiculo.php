@@ -16,13 +16,12 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v'])) {
     
-
-    $cloud_name = "bsd1wma1"; // Reemplaza con tu Cloud Name de Cloudinary
-    $api_key    = "219554281638733";    // Reemplaza con tu API Key
-    $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; // Reemplaza con tu API Secret
+    $cloud_name = "bsd1wma1"; 
+    $api_key    = "219554281638733"; 
+    $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; 
     $url_imagen_matricula = "";
 
-    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
+    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA (Solo para verificación del usuario)
     if (!isset($_FILES['imagen_matricula']) || $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_NO_FILE) {
         $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
         header("Location: " . $pagina_formulario);
@@ -41,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         exit();
     }
 
-    // Subir a Cloudinary
+    // Subir a Cloudinary (carpeta de matrículas/documentos internos)
     $fileTmpPath = $_FILES['imagen_matricula']['tmp_name'];
     $url_cloudinary = "https://api.cloudinary.com/v1_1/" . $cloud_name . "/image/upload";
     
@@ -61,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Evita errores SSL en servidores cloud
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); 
     
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -77,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         exit();
     }
 
-    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS (BLINDAJE NUMÉRICO Y DE CAMPOS)
+    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS
     $id_proveedor = intval($_SESSION['IdUsuario']); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
@@ -87,17 +86,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $motor        = trim($_POST['motor'] ?? ''); 
     $transmision  = trim($_POST['transmision'] ?? '');
     
-    // Asignar tracción por defecto según el tipo de vehículo para evitar el error NOT NULL
     $traccion     = trim($_POST['traccion'] ?? ($tipo === 'Motocicleta' ? 'Cadena' : 'Delantera'));
     
-    // Blindaje contra cadenas vacías para PostgreSQL
     $asientos_raw = $_POST['asientos'] ?? '';
     $asientos     = ($asientos_raw !== '') ? intval($asientos_raw) : (($tipo === 'Motocicleta') ? 2 : 5);
     
     $precio_raw   = $_POST['precio'] ?? '';
     $precio       = ($precio_raw !== '') ? floatval($precio_raw) : 0.00;
 
-    // 4. VALIDACIÓN DE PLACA PARA COLOMBIA (Carros ABC123 y Motos ABC12F / ABC123)
+    // 4. VALIDACIÓN DE PLACA PARA COLOMBIA
     $patron_placa = '/^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z0-9])$/';
     if (!preg_match($patron_placa, $placa)) {
         $_SESSION['error_placa'] = "Formato de placa inválido. Carro (ABC123) o Moto (ABC12F).";
@@ -116,9 +113,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo' (Incluyendo 'traccion')
-        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, asientos, precio, imagen) 
-                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :asientos, :precio, :imagen)";
+        // 6. ASOCIAR LA MATRÍCULA ÚNICAMENTE AL USUARIO / PROVEEDOR
+        // (Asegúrate de tener una columna llamada 'licencia_transito' o ajusta el nombre según tu tabla de usuarios)
+        $stmt_user_doc = $pdo->prepare("UPDATE usuario SET licencia_transito = ? WHERE IdUsuario = ?");
+        $stmt_user_doc->execute([$url_imagen_matricula, $id_proveedor]);
+
+        // 7. INSERTAR DATOS EN LA TABLA 'vehiculo' (Sin incluir la foto de la matrícula)
+        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, asientos, precio) 
+                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :asientos, :precio)";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -132,11 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':transmision'  => $transmision,
             ':traccion'     => $traccion,
             ':asientos'     => $asientos,
-            ':precio'       => $precio,
-            ':imagen'       => $url_imagen_matricula
+            ':precio'       => $precio
         ]);
 
-        // 7. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL)
+        // 8. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y MySQL)
         try {
             $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculo_id_v_seq');
         } catch (Exception $ex) {
@@ -146,12 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         if (!$id_vehiculo_nuevo) {
             $stmt_id = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
             $stmt_id->execute([$placa]);
-            $stmt_id->execute([$placa]);
             $vehiculo_encontrado = $stmt_id->fetch();
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
         }
 
-        // 8. REDIRECCIÓN AL PASO 2
+        // 9. REDIRECCIÓN A TU ARCHIVO 'subirfoto.php' PARA LAS FOTOS COMERCIALES
         header("Location: subirfoto.php?id=" . $id_vehiculo_nuevo);
         exit();
 
@@ -166,5 +166,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     exit();
 }
 ?>
-
-  
