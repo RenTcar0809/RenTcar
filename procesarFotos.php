@@ -1,15 +1,18 @@
 <?php
 session_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once 'conexion.php';
 
-// 1. Validar sesión activa y que llegue el ID del vehículo por la URL
-if (!isset($_SESSION['IdUsuario']) || !isset($_GET['id'])) {
+// 1. Validar sesión activa y que llegue el ID del vehículo por POST desde el formulario oculto
+if (!isset($_SESSION['IdUsuario']) || !isset($_POST['id_vehiculo']) || intval($_POST['id_vehiculo']) <= 0) {
     header("Location: indexV.php?error=sesion_expirada");
     exit();
 }
 
 $id_usuario = $_SESSION['IdUsuario'];
-$id_vehiculo = intval($_GET['id']);
+$id_vehiculo = intval($_POST['id_vehiculo']);
 
 // 2. Validación estricta en servidor: Obligatorio subir exactamente 4 fotos
 if (!isset($_FILES['fotos']) || empty($_FILES['fotos']['name'][0]) || count($_FILES['fotos']['name']) !== 4) {
