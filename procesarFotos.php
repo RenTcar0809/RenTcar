@@ -2,21 +2,23 @@
 session_start();
 require_once 'conexion.php';
 
-// 1. Verificación estricta de sesión y datos pendientes del vehículo
+// 1. Verificación de sesión y datos pendientes del vehículo
 if (!isset($_SESSION['IdUsuario']) || !isset($_SESSION['vehiculo_pendiente'])) {
-    die("Acceso denegado o sesión expirada. Vuelva a registrar el vehículo.");
+    // Si la sesión expiro o faltan datos, redirigimos al formulario de registro en lugar de detener la ejecución con un die() plano
+    header("Location: registrar_vehiculo.php?error=sesion_expirada");
+    exit();
 }
 
 $id_usuario = $_SESSION['IdUsuario'];
 $datos_vehiculo = $_SESSION['vehiculo_pendiente'];
 
 // 2. Validación estricta en servidor: Obligatorio subir exactamente 4 fotos
-if (!isset($_FILES['fotos']) || count($_FILES['fotos']['name']) !== 4) {
+if (!isset($_FILES['fotos']) || empty($_FILES['fotos']['name'][0]) || count($_FILES['fotos']['name']) !== 4) {
     header("Location: subirfotos.php?error=obligatorio");
     exit();
 }
 
-// CONFIGURACIÓN DE CLOUDINARY (Asegúrate de poner tus datos reales aquí)
+// CONFIGURACIÓN DE CLOUDINARY
 $cloudName = "bsd1wma1";       
 $uploadPreset = "xkzfwqa0"; 
 
@@ -54,6 +56,11 @@ try {
             ]);
             
             $response = curl_exec($ch);
+            
+            if (curl_errno($ch)) {
+                throw new Exception("Error de conexión cURL: " . curl_error($ch));
+            }
+            
             curl_close($ch);
             
             $responseData = json_decode($response, true);
@@ -65,8 +72,10 @@ try {
                     ':ruta_imagen' => $responseData['secure_url'] // URL pública de Cloudinary
                 ]);
             } else {
-                throw new Exception("Error al subir la imagen a Cloudinary.");
+                throw new Exception("Error al subir la imagen a Cloudinary. Respuesta: " . $response);
             }
+        } else {
+            throw new Exception("Error en la carga del archivo código: " . $_FILES['fotos']['error'][$i]);
         }
     }
 
@@ -77,12 +86,19 @@ try {
     unset($_SESSION['vehiculo_pendiente']);
 
     // 6. Redirección final al historial
-    header("Location: historial_vehiculo.php");
+    header("Location: historial_vehiculo.php?registro=exitoso");
     exit();
 
 } catch (Exception $e) {
-    // Si algo falla, revertimos toda la operación
-    $pdo->rollBack();
+    // Si algo falla, revertimos toda la operación en la base de datos
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    
+    // Redirigir o mostrar el error de forma controlada
     die("Error en el sistema al registrar el vehículo: " . $e->getMessage());
 }
 ?>
+
+
+
