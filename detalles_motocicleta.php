@@ -279,53 +279,6 @@ try {
 </div>
 
 <script>
-const usuarioActual = "<?php echo htmlspecialchars($_SESSION['usuario_nombre'] ?? ''); ?>";
-let intervaloChat = null;
-
-function cambiarImagen(el, ruta) {
-    document.getElementById('mainImage').src = ruta;
-    document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-}
-
-function mostrarEditor(id) {
-    document.getElementById('view-mode-' + id).style.display = 'none';
-    document.getElementById('edit-mode-' + id).style.display = 'block';
-}
-
-function ocultarEditor(id) {
-    document.getElementById('view-mode-' + id).style.display = 'block';
-    document.getElementById('edit-mode-' + id).style.display = 'none';
-}
-
-function toggleChatFlotante() {
-    const chatContainer = document.getElementById('chat-float-container');
-    if (!chatContainer) return;
-    const isOpen = chatContainer.style.display === 'flex';
-    chatContainer.style.display = isOpen ? 'none' : 'flex';
-    
-    if (!isOpen) {
-        document.getElementById('chat-input')?.focus();
-        iniciarActualizacionChat();
-    } else {
-        detenerActualizacionChat();
-    }
-}
-
-function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
-    const chatContainer = document.getElementById('chat-float-container');
-    if (chatContainer) chatContainer.style.display = 'flex';
-
-    chatContainer.dataset.tipo = tipoVehiculo;
-    chatContainer.dataset.id = idItem;
-
-    setTimeout(() => {
-        enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de la motocicleta: <b>${nombreVehiculo}</b>.`);
-    }, 300);
-
-    iniciarActualizacionChat();
-}
-
 function enviarMensajeBot() {
     const input = document.getElementById('chat-input');
     const chatContainer = document.getElementById('chat-float-container');
@@ -338,7 +291,7 @@ function enviarMensajeBot() {
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
-    formData.append('id_vehiculo', idItem);
+    formData.append('id_vehiculo', idItem); // Aseguramos que se envíe como id_vehiculo
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -364,7 +317,7 @@ function enviarMensajeAutomatico(texto) {
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
-    formData.append('id_vehiculo', idItem);
+    formData.append('id_vehiculo', idItem); // Aseguramos que se envíe como id_vehiculo
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -381,6 +334,7 @@ function cargarMensajesServidor() {
 
     const idItem = chatContainer.dataset.id || 0;
 
+    // Solicitamos los mensajes filtrando estrictamente por el id_vehiculo actual
     fetch(`chat_backend.php?accion=obtener&id_vehiculo=${idItem}`)
     .then(res => res.json())
     .then(data => {
@@ -398,24 +352,6 @@ function cargarMensajesServidor() {
             mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
         }
     });
-}
-
-function iniciarActualizacionChat() {
-    cargarMensajesServidor();
-    if (!intervaloChat) {
-        intervaloChat = setInterval(cargarMensajesServidor, 3000);
-    }
-}
-
-function detenerActualizacionChat() {
-    if (intervaloChat) {
-        clearInterval(intervaloChat);
-        intervaloChat = null;
-    }
-}
-
-function handleKeyPress(e) {
-    if (e.key === 'Enter') enviarMensajeBot();
 }
 </script>
 </body>
