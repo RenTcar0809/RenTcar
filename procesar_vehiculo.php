@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; 
     $url_imagen_matricula = "";
 
-    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA (Solo para verificación del usuario)
+    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
     if (!isset($_FILES['imagen_matricula']) || $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_NO_FILE) {
         $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
         header("Location: " . $pagina_formulario);
@@ -113,12 +113,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 6. ASOCIAR LA MATRÍCULA ÚNICAMENTE AL USUARIO / PROVEEDOR
-        // (Asegúrate de tener una columna llamada 'licencia_transito' o ajusta el nombre según tu tabla de usuarios)
+        // 6. ASOCIAR LA MATRÍCULA AL USUARIO / PROVEEDOR
         $stmt_user_doc = $pdo->prepare('UPDATE usuario SET licencia_transito = ? WHERE "IdUsuario" = ?');
         $stmt_user_doc->execute([$url_imagen_matricula, $id_proveedor]);
 
-        // 7. INSERTAR DATOS EN LA TABLA 'vehiculo' (Sin incluir la foto de la matrícula)
+        // 7. INSERTAR DATOS EN LA TABLA 'vehiculo' (Limpio, sin la matrícula)
         $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, asientos, precio) 
                 VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :asientos, :precio)";
         
@@ -151,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
         }
 
-        // 9. REDIRECCIÓN A TU ARCHIVO 'subirfoto.php' PARA LAS FOTOS COMERCIALES
+        // 9. REDIRECCIÓN A 'subirfoto.php' PARA LAS FOTOS COMERCIALES
         header("Location: subirfoto.php?id=" . $id_vehiculo_nuevo);
         exit();
 
