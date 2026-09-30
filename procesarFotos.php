@@ -5,7 +5,7 @@ require_once 'conexion.php';
 // 1. Verificación de sesión y datos pendientes del vehículo
 if (!isset($_SESSION['IdUsuario']) || !isset($_SESSION['vehiculo_pendiente'])) {
     // Si la sesión expiro o faltan datos, redirigimos al formulario de registro en lugar de detener la ejecución con un die() plano
-    header("Location: registrar_vehiculo.php?error=sesion_expirada");
+    header("Location: indexV.php?error=sesion_expirada");
     exit();
 }
 
