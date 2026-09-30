@@ -22,6 +22,7 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
+    // Consulta adaptada para incluir tanto carros como motos de la tabla vehiculo
     $stmt_chats = $pdo->prepare('
         SELECT DISTINCT 
             m.id_vehiculo, 
@@ -30,6 +31,7 @@ try {
             v.id_v,
             v.marca,
             v.modelo,
+            v.tipo,
             (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = m.id_vehiculo LIMIT 1) AS imagen
         FROM mensajes_chat m
         LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
@@ -38,9 +40,8 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-  // Agrupar chats únicos
+    // Agrupar chats únicos (Carros y Motos)
     foreach ($todos_mensajes as $msg) {
-        // IGNORAR mensajes que no tengan un vehículo válido asignado (> 0)
         if (empty($msg['id_vehiculo']) || $msg['id_vehiculo'] <= 0) {
             continue; 
         }
@@ -50,15 +51,18 @@ try {
             $clave_contacto = $msg['id_vehiculo'] . '_' . $interlocutor;
             
             $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? 'Vehículo #' . $msg['id_vehiculo']));
-            
-            // Como está en Cloudinary, la URL viene lista o ponemos una por defecto si está vacía
             $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'https://via.placeholder.com/40?text=Auto';
             
+            // Detectar si es moto o carro de manera flexible
+            $tipo_v = strtolower($msg['tipo'] ?? 'auto');
+            $tipo_formateado = (strpos($tipo_v, 'moto') !== false) ? 'moto' : 'auto';
+
             $contactos[$clave_contacto] = [
-                'interlocutor' => $interlocutor,
-                'id_vehiculo'  => $msg['id_vehiculo'],
-                'nombre_auto'  => $nombre_vehiculo,
-                'imagen_auto'  => $imagen_cloudinary
+                'interlocutor'  => $interlocutor,
+                'id_vehiculo'   => $msg['id_vehiculo'],
+                'nombre_auto'   => $nombre_vehiculo,
+                'imagen_auto'   => $imagen_cloudinary,
+                'tipo_vehiculo' => $tipo_formateado
             ];
         }
     }
@@ -74,12 +78,14 @@ $id_vehiculo_activo = '';
 $nombre_vehiculo_activo = '';
 $imagen_vehiculo_activo = '';
 $interlocutor_real = '';
+$tipo_vehiculo_activo = 'auto';
 
 if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
     $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
     $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
     $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
     $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
+    $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
 }
 
 // Obtener mensajes de la conversación activa
@@ -182,8 +188,8 @@ if (!empty($id_vehiculo_activo) && !empty($interlocutor_real)) {
 
                 <form class="chat-input-area" id="formEnviarMensaje">
                     <input type="hidden" name="accion" value="enviar">
-                    <input type="hidden" name="tipo_vehiculo" value="auto">
-                    <!-- CORREGIDO: Se cambia id_item por id_vehiculo -->
+                    <!-- DINÁMICO: Envía 'auto' o 'moto' según corresponda -->
+                    <input type="hidden" name="tipo_vehiculo" value="<?php echo htmlspecialchars($tipo_vehiculo_activo); ?>">
                     <input type="hidden" name="id_vehiculo" value="<?php echo $id_vehiculo_activo; ?>">
                     <input type="hidden" name="destinatario" value="<?php echo htmlspecialchars($interlocutor_real); ?>">
                     
