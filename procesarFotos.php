@@ -2,19 +2,18 @@
 session_start();
 require_once 'conexion.php';
 
-// 1. Verificación de sesión y datos pendientes del vehículo
-if (!isset($_SESSION['IdUsuario']) || !isset($_SESSION['vehiculo_pendiente'])) {
-    // Si la sesión expiro o faltan datos, redirigimos al formulario de registro en lugar de detener la ejecución con un die() plano
+// 1. Validar sesión activa y que llegue el ID del vehículo por la URL
+if (!isset($_SESSION['IdUsuario']) || !isset($_GET['id'])) {
     header("Location: indexV.php?error=sesion_expirada");
     exit();
 }
 
 $id_usuario = $_SESSION['IdUsuario'];
-$datos_vehiculo = $_SESSION['vehiculo_pendiente'];
+$id_vehiculo = intval($_GET['id']);
 
 // 2. Validación estricta en servidor: Obligatorio subir exactamente 4 fotos
 if (!isset($_FILES['fotos']) || empty($_FILES['fotos']['name'][0]) || count($_FILES['fotos']['name']) !== 4) {
-    header("Location: subirfotos.php?error=obligatorio");
+    header("Location: subirfoto.php?id=" . $id_vehiculo . "&error=obligatorio");
     exit();
 }
 
@@ -23,24 +22,11 @@ $cloudName = "bsd1wma1";
 $uploadPreset = "xkzfwqa0"; 
 
 try {
-    // Iniciamos la transacción para asegurar que el vehículo y las fotos se guarden juntos
-    $pdo->beginTransaction();
-
-    // 3. INSERTAMOS EL VEHÍCULO EN LA BD
-    $sql_vehiculo = "INSERT INTO vehiculo (id_proveedor, tipo, num_motor, num_chasis, traccion, motor, transmision, color, marca, placa, modelo, precio, asientos) 
-                     VALUES (:id_proveedor, :tipo, :num_motor, :num_chasis, :traccion, :motor, :transmision, :color, :marca, :placa, :modelo, :precio, :asientos)";
-    
-    $stmt_v = $pdo->prepare($sql_vehiculo);
-    $stmt_v->execute($datos_vehiculo);
-
-    // Obtenemos el ID real generado para el vehículo
-    $id_nuevo_vehiculo = $pdo->lastInsertId();
-
-    // 4. PREPARAR EL INSERT DE LAS FOTOS USANDO id_vehiculo
+    // 3. PREPARAR EL INSERT DE LAS FOTOS USANDO EL ID DEL VEHÍCULO
     $sql_foto = "INSERT INTO fotos_vehiculos (id_vehiculo, id_usuario, ruta_imagen) VALUES (:id_vehiculo, :id_usuario, :ruta_imagen)";
     $stmt_f = $pdo->prepare($sql_foto);
 
-    // 5. PROCESAMIENTO Y SUBIDA DE LOS 4 ARCHIVOS A CLOUDINARY
+    // 4. PROCESAMIENTO Y SUBIDA DE LOS 4 ARCHIVOS A CLOUDINARY
     foreach ($_FILES['fotos']['tmp_name'] as $i => $tmp_name) {
         if ($_FILES['fotos']['error'][$i] === UPLOAD_ERR_OK) {
             
@@ -67,7 +53,7 @@ try {
 
             if (isset($responseData['secure_url'])) {
                 $stmt_f->execute([
-                    ':id_vehiculo' => $id_nuevo_vehiculo,
+                    ':id_vehiculo' => $id_vehiculo,
                     ':id_usuario'  => $id_usuario,
                     ':ruta_imagen' => $responseData['secure_url'] // URL pública de Cloudinary
                 ]);
@@ -79,26 +65,11 @@ try {
         }
     }
 
-    // Si todo salió bien, guardamos definitivamente en la BD
-    $pdo->commit();
-
-    // Limpiamos la variable temporal de la sesión
-    unset($_SESSION['vehiculo_pendiente']);
-
-    // 6. Redirección final al historial
+    // 5. Redirección final al historial si todo sale bien
     header("Location: historial_vehiculo.php?registro=exitoso");
     exit();
 
 } catch (Exception $e) {
-    // Si algo falla, revertimos toda la operación en la base de datos
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    
-    // Redirigir o mostrar el error de forma controlada
-    die("Error en el sistema al registrar el vehículo: " . $e->getMessage());
+    die("Error en el sistema al registrar las fotos: " . $e->getMessage());
 }
 ?>
-
-
-
