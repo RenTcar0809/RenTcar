@@ -16,7 +16,7 @@ $error_msg = '';
 $contactos = []; 
 
 try {
-    // Obtener la identidad del usuario actual respetando el case de PostgreSQL
+    // Obtener la identidad del usuario actual
     $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
     $stmtU->execute([$id_usuario]);
     $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
@@ -25,7 +25,10 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Consulta para traer los mensajes, datos del vehículo y buscar la imagen en ambas tablas
+    // Guardar el nombre en sesión para compatibilidad con chat_backend.php
+    $_SESSION['usuario_nombre'] = $nombre_usuario;
+
+    // Consulta para traer los mensajes
     $stmt_chats = $pdo->prepare('
         SELECT 
             m.id_vehiculo, 
@@ -45,37 +48,29 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Función inteligente unificada para normalizar y decidir qué ruta mostrar
     function obtenerUrlImagen($ruta) {
         $ruta = trim(str_replace('\\', '/', $ruta));
         if (empty($ruta)) {
             return 'unnamed.png';
         }
-        // Si ya es una URL web completa (Cloudinary u otra), se usa tal cual
         if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
             return $ruta;
         }
-        // Si ya incluye la ruta local 'imagenes/' o 'uploads/'
         if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) {
             return $ruta;
         }
-        // Verificar si existe en la carpeta uploads
         if (file_exists('uploads/' . $ruta)) {
             return 'uploads/' . $ruta;
         }
-        // Verificar si existe en la carpeta imagenes
         if (file_exists('imagenes/' . $ruta)) {
             return 'imagenes/' . $ruta;
         }
-        // Si el archivo existe directamente en la raíz
         if (file_exists($ruta)) {
             return $ruta;
         }
-        
         return 'unnamed.png';
     }
 
-    // Agrupar chats únicos de forma segura
     foreach ($todos_mensajes as $msg) {
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
         
@@ -83,22 +78,18 @@ try {
             $id_v_val = !empty($msg['id_vehiculo']) ? $msg['id_vehiculo'] : 0;
             $clave_contacto = $id_v_val . '_' . $interlocutor;
             
-            // Si el vehículo existe, armar su nombre; si no, mostrar un texto por defecto
             if (!empty($msg['marca']) || !empty($msg['modelo'])) {
                 $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? ''));
             } else {
                 $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
             }
             
-            // Obtener la ruta de la base de datos
             $url_foto_bruta = !empty($msg['imagen_fotos_tabla']) ? $msg['imagen_fotos_tabla'] : ($msg['imagen_principal_vehiculo'] ?? '');
             $imagen_cloudinary = obtenerUrlImagen($url_foto_bruta);
             
-            // Detectar si es moto o carro de manera flexible
             $tipo_v = strtolower($msg['tipo'] ?? 'auto');
             $tipo_formateado = (strpos($tipo_v, 'moto') !== false) ? 'moto' : 'auto';
 
-            // Solo sobrescribir si no existe
             if (!isset($contactos[$clave_contacto])) {
                 $contactos[$clave_contacto] = [
                     'interlocutor'  => $interlocutor,
@@ -111,51 +102,44 @@ try {
         }
     }
 
-} catch (PDOException $e) {
-    $error_msg = "Error en la base de datos: " . $e->getMessage();
+} catch (PDOException $e) {$error_msg = "Error en la base de datos: " . $e->getMessage();
 }
 
 $keys_contacto = array_keys($contactos);
-$contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
+$contacto_activo_key =$_GET['contacto'] ?? (!empty($keys_contacto) ?$keys_contacto[0] : '');
 
 $id_vehiculo_activo = 0;
-$nombre_vehiculo_activo = '';
-$imagen_vehiculo_activo = '';
-$interlocutor_real = '';
-$tipo_vehiculo_activo = 'auto';
+$nombre_vehiculo_activo = '';$imagen_vehiculo_activo = '';
+$interlocutor_real = '';$tipo_vehiculo_activo = 'auto';
 
-if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
-    $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
-    $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
-    $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
-    $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
-    $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
+if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {$id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
+    $nombre_vehiculo_activo =$contactos[$contacto_activo_key]['nombre_auto'];$imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
+    $interlocutor_real =$contactos[$contacto_activo_key]['interlocutor'];$tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
 }
 
-// Obtener los mensajes de la conversación activa
+// Obtener mensajes de la conversación activa
 $mensajes_chat = [];
 if (!empty($interlocutor_real)) {
     try {
         if ($id_vehiculo_activo > 0) {
-            $stmt_h = $pdo->prepare('
+            $stmt_h =$pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE id_vehiculo = ? 
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
         } else {
-            $stmt_h = $pdo->prepare('
+            $stmt_h =$pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE (id_vehiculo IS NULL OR id_vehiculo = 0)
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+            $stmt_h->execute([$nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
         }
-        $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        $error_msg = "Error al cargar el chat: " . $e->getMessage();
+        $mensajes_chat =$stmt_h->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {$error_msg = "Error al cargar el chat: " . $e->getMessage();
     }
 }
 ?>
@@ -188,11 +172,14 @@ if (!empty($interlocutor_real)) {
                         <p>No tienes conversaciones activas con clientes aún.</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($contactos as $key => $c): ?>
+                    <?php foreach ($contactos as $key =>$c): ?>
                         <a href="mensajes.php?contacto=<?php echo urlencode($key); ?>" 
-                           class="contact-item <?php echo ($contacto_activo_key === $key) ? 'active' : ''; ?>">
-                            <div class="contact-avatar">
+                           class="contact-item <?php echo ($contacto_activo_key ===$key) ? 'active' : ''; ?>"
+                           data-key="<?php echo htmlspecialchars($key); ?>">
+                            <div class="contact-avatar" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
+                                <!-- Indicador de mensaje nuevo -->
+                                <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #e74c3c; border-radius: 50%; border: 2px solid #1a1a1a; box-shadow: 0 0 5px rgba(231,76,60,0.8);"></span>
                             </div>
                             <div class="contact-info">
                                 <h4><?php echo htmlspecialchars($c['nombre_auto']); ?></h4>
@@ -227,15 +214,13 @@ if (!empty($interlocutor_real)) {
                         <h3><?php echo htmlspecialchars($nombre_vehiculo_activo); ?></h3>
                         <small style="color: #aaa; font-size: 0.85rem;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
                     </div>
-                    <!-- Botón para terminar y eliminar chat -->
                     <button type="button" onclick="eliminarConversacion(<?php echo $id_vehiculo_activo; ?>, '<?php echo htmlspecialchars($interlocutor_real); ?>')" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;" title="Terminar y eliminar chat">
                         <i class="fas fa-trash-alt"></i> Terminar Chat
                     </button>
                 </div>
 
                 <div class="chat-messages" id="chatBox">
-                    <?php foreach ($mensajes_chat as $msg): 
-                        $es_mio = ($msg['remitente'] === $nombre_usuario);
+                    <?php foreach ($mensajes_chat as $msg):$es_mio = ($msg['remitente'] ===$nombre_usuario);
                     ?>
                         <div class="message-bubble <?php echo $es_mio ? 'sent' : 'received'; ?>">
                             <p><?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?></p>
@@ -285,7 +270,6 @@ if (!empty($interlocutor_real)) {
             });
         }
 
-        // Función para terminar y eliminar la conversación actual
         function eliminarConversacion(idVehiculo, interlocutor) {
             if (!confirm('¿Estás seguro de que deseas terminar y eliminar esta conversación? Se borrarán todos los mensajes de este chat.')) {
                 return;
@@ -311,6 +295,33 @@ if (!empty($interlocutor_real)) {
             })
             .catch(err => console.error('Error de red:', err));
         }
+
+        // Revisar si hay nuevos mensajes periódicamente (polling)
+        function revisarNotificaciones() {
+            fetch('chat_backend.php?accion=verificar_nuevos')
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.notificaciones) {
+                    data.notificaciones.forEach(notif => {
+                        let claveContacto = notif.id_vehiculo + '_' + notif.remitente;
+                        let elementoContacto = document.querySelector(`.contact-item[data-key="${claveContacto}"]`);
+                        
+                        if (elementoContacto && !elementoContacto.classList.contains('active')) {
+                            let badge = elementoContacto.querySelector('.badge-nuevo');
+                            if (badge) {
+                                badge.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(err => console.error('Error al revisar notificaciones:', err));
+        }
+
+        // Ejecutar cada 5 segundos
+        setInterval(revisarNotificaciones, 5000);
+        // Primera ejecución inmediata
+        revisarNotificaciones();
     </script>
 </body>
 </html>
