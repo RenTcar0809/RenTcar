@@ -59,7 +59,8 @@ try {
                 $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
             }
             
-            $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'https://via.placeholder.com/40?text=Auto';
+            // Se reemplaza el servicio externo por una ruta local segura
+            $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'unnamed.png';
             
             // Detectar si es moto o carro de manera flexible
             $tipo_v = strtolower($msg['tipo'] ?? 'auto');
@@ -159,7 +160,7 @@ if (!empty($interlocutor_real)) {
                         <a href="mensajes.php?contacto=<?php echo urlencode($key); ?>" 
                            class="contact-item <?php echo ($contacto_activo_key === $key) ? 'active' : ''; ?>">
                             <div class="contact-avatar">
-                                <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='https://via.placeholder.com/40?text=Auto'">
+                                <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
                             </div>
                             <div class="contact-info">
                                 <h4><?php echo htmlspecialchars($c['nombre_auto']); ?></h4>
@@ -188,7 +189,7 @@ if (!empty($interlocutor_real)) {
             <?php else: ?>
                 <div class="chat-header">
                     <div class="contact-avatar">
-                        <img src="<?php echo htmlspecialchars($imagen_vehiculo_activo); ?>" alt="Vehículo" onerror="this.src='https://via.placeholder.com/40?text=Auto'">
+                        <img src="<?php echo htmlspecialchars($imagen_vehiculo_activo); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
                     </div>
                     <div>
                         <h3><?php echo htmlspecialchars($nombre_vehiculo_activo); ?></h3>
