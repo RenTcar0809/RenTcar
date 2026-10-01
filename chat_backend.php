@@ -15,24 +15,36 @@ $id_item = intval($_REQUEST['id_item'] ?? $_REQUEST['id_vehiculo'] ?? 0);
 $usuario_actual = $_SESSION['usuario_nombre'];
 
 // 3. ELIMINAR / TERMINAR CONVERSACIÓN
-    if ($accion === 'eliminar_chat') {
-        $destinatario_borrar = trim($_POST['destinatario'] ?? $_GET['destinatario'] ?? '');
+if ($accion === 'eliminar_chat') {
+    $destinatario_borrar = trim($_POST['destinatario'] ?? $_GET['destinatario'] ?? '');
 
-        if ($id_item > 0 && !empty($destinatario_borrar)) {
+    if (!empty($destinatario_borrar)) {
+        if ($id_item > 0) {
+            // Si tiene ID de vehículo válido
             $stmtDel = $pdo->prepare("
                 DELETE FROM mensajes_chat 
                 WHERE id_vehiculo = ? 
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
             ");
             $stmtDel->execute([$id_item, $usuario_actual, $destinatario_borrar, $destinatario_borrar, $usuario_actual]);
-
-            echo json_encode(['status' => 'success']);
-            exit();
+        } else {
+            // Si el ID de vehículo es 0 o nulo
+            $stmtDel = $pdo->prepare("
+                DELETE FROM mensajes_chat 
+                WHERE (id_vehiculo IS NULL OR id_vehiculo = 0) 
+                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
+            ");
+            $stmtDel->execute([$usuario_actual, $destinatario_borrar, $destinatario_borrar, $usuario_actual]);
         }
 
-        echo json_encode(['status' => 'error', 'message' => 'Faltan datos para eliminar la conversación']);
+        echo json_encode(['status' => 'success']);
         exit();
     }
+
+    echo json_encode(['status' => 'error', 'message' => 'Faltan datos para eliminar la conversación']);
+    exit();
+}
+
 try {
     // 1. Obtener al dueño del vehículo de la tabla 'vehiculo'
     $dueno = '';
@@ -62,10 +74,8 @@ try {
         $mensaje = trim($_POST['mensaje'] ?? '');
 
         if (!empty($mensaje) && $id_item > 0) {
-            // Si mandaron un destinatario explícito, lo usamos; si no, va dirigido al dueño o por defecto
             $destinatario_final = !empty($interlocutor_enviado) ? $interlocutor_enviado : $dueno;
 
-            // Si por alguna razón el usuario actual es el mismo dueño y no hay destinatario, buscamos en los mensajes previos con quién hablaba
             if ($usuario_actual === $destinatario_final) {
                 $stmtUltimo = $pdo->prepare("SELECT remitente FROM mensajes_chat WHERE id_vehiculo = ? AND remitente != ? ORDER BY fecha DESC LIMIT 1");
                 $stmtUltimo->execute([$id_item, $usuario_actual]);
@@ -99,7 +109,6 @@ try {
         $stmt->execute([$id_item, $usuario_actual, $otro_usuario, $otro_usuario, $usuario_actual]);
         $mensajes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Si la consulta estricta anterior no trae nada (por ejemplo, primer mensaje automático), traemos todos los mensajes del vehículo
         if (empty($mensajes)) {
             $stmtG = $pdo->prepare("SELECT * FROM mensajes_chat WHERE id_vehiculo = ? ORDER BY fecha ASC");
             $stmtG->execute([$id_item]);
