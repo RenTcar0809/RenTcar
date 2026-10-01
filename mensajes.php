@@ -25,7 +25,7 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Consulta para traer los mensajes y los datos del vehículo ordenados por fecha descendente
+    // Consulta para traer los mensajes, datos del vehículo y buscar la imagen en ambas tablas
     $stmt_chats = $pdo->prepare('
         SELECT 
             m.id_vehiculo, 
@@ -35,7 +35,8 @@ try {
             v.marca,
             v.modelo,
             v.tipo,
-            (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = m.id_vehiculo LIMIT 1) AS imagen
+            v.imagen AS imagen_principal_vehiculo,
+            (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = m.id_vehiculo LIMIT 1) AS imagen_fotos_tabla
         FROM mensajes_chat m
         LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
         WHERE m.destinatario = ? OR m.remitente = ?
@@ -44,7 +45,28 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agrupar chats únicos de forma segura (sin descartar nada)
+    // Función inteligente para normalizar y decidir qué ruta mostrar
+    function obtenerUrlImagen($ruta) {
+        $ruta = trim($ruta);
+        if (empty($ruta)) {
+            return 'unnamed.png';
+        }
+        // Si ya es una URL web completa (Cloudinary u otra), se usa tal cual
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
+            return $ruta;
+        }
+        // Si ya incluye la ruta local 'imagenes/'
+        if (strpos($ruta, 'imagenes/') === 0) {
+            return $ruta;
+        }
+        // Si solo guardó el nombre del archivo suelto, verificar si está en la carpeta imagenes
+        if (file_exists('imagenes/' . $ruta)) {
+            return 'imagenes/' . $ruta;
+        }
+        return 'unnamed.png';
+    }
+
+    // Agrupar chats únicos de forma segura
     foreach ($todos_mensajes as $msg) {
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
         
@@ -59,14 +81,15 @@ try {
                 $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
             }
             
-            // Se reemplaza el servicio externo por una ruta local segura
-            $imagen_cloudinary = !empty($msg['imagen']) ? $msg['imagen'] : 'unnamed.png';
+            // Obtener la ruta de la base de datos (priorizando la tabla fotos_vehiculos o la tabla vehiculo)
+            $url_foto_bruta = !empty($msg['imagen_fotos_tabla']) ? $msg['imagen_fotos_tabla'] : ($msg['imagen_principal_vehiculo'] ?? '');
+            $imagen_cloudinary = obtenerUrlImagen($url_foto_bruta);
             
             // Detectar si es moto o carro de manera flexible
             $tipo_v = strtolower($msg['tipo'] ?? 'auto');
             $tipo_formateado = (strpos($tipo_v, 'moto') !== false) ? 'moto' : 'auto';
 
-            // Solo sobrescribir si no existe o si este tiene información más detallada
+            // Solo sobrescribir si no existe
             if (!isset($contactos[$clave_contacto])) {
                 $contactos[$clave_contacto] = [
                     'interlocutor'  => $interlocutor,
