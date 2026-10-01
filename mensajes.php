@@ -45,7 +45,7 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-   // Función inteligente unificada para normalizar y decidir qué ruta mostrar
+    // Función inteligente unificada para normalizar y decidir qué ruta mostrar
     function obtenerUrlImagen($ruta) {
         $ruta = trim(str_replace('\\', '/', $ruta));
         if (empty($ruta)) {
@@ -74,6 +74,7 @@ try {
         
         return 'unnamed.png';
     }
+
     // Agrupar chats únicos de forma segura
     foreach ($todos_mensajes as $msg) {
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
@@ -89,7 +90,7 @@ try {
                 $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
             }
             
-            // Obtener la ruta de la base de datos (priorizando la tabla fotos_vehiculos o la tabla vehiculo)
+            // Obtener la ruta de la base de datos
             $url_foto_bruta = !empty($msg['imagen_fotos_tabla']) ? $msg['imagen_fotos_tabla'] : ($msg['imagen_principal_vehiculo'] ?? '');
             $imagen_cloudinary = obtenerUrlImagen($url_foto_bruta);
             
@@ -222,10 +223,14 @@ if (!empty($interlocutor_real)) {
                     <div class="contact-avatar">
                         <img src="<?php echo htmlspecialchars($imagen_vehiculo_activo); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
                     </div>
-                    <div>
+                    <div style="flex-grow: 1;">
                         <h3><?php echo htmlspecialchars($nombre_vehiculo_activo); ?></h3>
                         <small style="color: #aaa; font-size: 0.85rem;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
                     </div>
+                    <!-- Botón para terminar y eliminar chat -->
+                    <button type="button" onclick="eliminarConversacion(<?php echo $id_vehiculo_activo; ?>, '<?php echo htmlspecialchars($interlocutor_real); ?>')" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;" title="Terminar y eliminar chat">
+                        <i class="fas fa-trash-alt"></i> Terminar Chat
+                    </button>
                 </div>
 
                 <div class="chat-messages" id="chatBox">
@@ -278,6 +283,33 @@ if (!empty($interlocutor_real)) {
                 })
                 .catch(err => console.error('Error al enviar:', err));
             });
+        }
+
+        // Función para terminar y eliminar la conversación actual
+        function eliminarConversacion(idVehiculo, interlocutor) {
+            if (!confirm('¿Estás seguro de que deseas terminar y eliminar esta conversación? Se borrarán todos los mensajes de este chat.')) {
+                return;
+            }
+
+            const formData = new URLSearchParams();
+            formData.append('accion', 'eliminar_chat');
+            formData.append('id_vehiculo', idVehiculo);
+            formData.append('destinatario', interlocutor);
+
+            fetch('chat_backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.href = 'mensajes.php';
+                } else {
+                    alert('Error al eliminar: ' + (data.message || 'No se pudo completar la acción.'));
+                }
+            })
+            .catch(err => console.error('Error de red:', err));
         }
     </script>
 </body>
