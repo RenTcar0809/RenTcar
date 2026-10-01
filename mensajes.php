@@ -45,9 +45,9 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    // Función inteligente para normalizar y decidir qué ruta mostrar
+   // Función inteligente unificada para normalizar y decidir qué ruta mostrar
     function obtenerUrlImagen($ruta) {
-        $ruta = trim($ruta);
+        $ruta = trim(str_replace('\\', '/', $ruta));
         if (empty($ruta)) {
             return 'unnamed.png';
         }
@@ -55,17 +55,25 @@ try {
         if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
             return $ruta;
         }
-        // Si ya incluye la ruta local 'imagenes/'
-        if (strpos($ruta, 'imagenes/') === 0) {
+        // Si ya incluye la ruta local 'imagenes/' o 'uploads/'
+        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) {
             return $ruta;
         }
-        // Si solo guardó el nombre del archivo suelto, verificar si está en la carpeta imagenes
+        // Verificar si existe en la carpeta uploads
+        if (file_exists('uploads/' . $ruta)) {
+            return 'uploads/' . $ruta;
+        }
+        // Verificar si existe en la carpeta imagenes
         if (file_exists('imagenes/' . $ruta)) {
             return 'imagenes/' . $ruta;
         }
+        // Si el archivo existe directamente en la raíz
+        if (file_exists($ruta)) {
+            return $ruta;
+        }
+        
         return 'unnamed.png';
     }
-
     // Agrupar chats únicos de forma segura
     foreach ($todos_mensajes as $msg) {
         $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
