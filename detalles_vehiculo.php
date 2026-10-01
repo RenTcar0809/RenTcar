@@ -319,7 +319,7 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     chatContainer.dataset.id = idItem;
 
     setTimeout(() => {
-        // Texto plano limpio sin etiquetas HTML para evitar errores de renderizado
+        // CORREGIDO: Se envía texto plano limpio sin etiquetas <b> para evitar que se impriman en el chat
         enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: ${nombreVehiculo}.`);
     }, 300);
 
@@ -340,7 +340,7 @@ function enviarMensajeBot() {
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
     formData.append('tipo_vehiculo', tipo);
-    formData.append('id_item', idItem);
+    formData.append('id_vehiculo', idItem); // CORREGIDO: Cambiado de id_item a id_vehiculo para coincidir con el backend
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -370,7 +370,7 @@ function enviarMensajeAutomatico(texto) {
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
     formData.append('tipo_vehiculo', tipo);
-    formData.append('id_item', idItem);
+    formData.append('id_vehiculo', idItem); // CORREGIDO: Cambiado de id_item a id_vehiculo
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -396,7 +396,8 @@ function cargarMensajesServidor() {
     const tipo = chatContainer.dataset.tipo || 'auto';
     const idItem = chatContainer.dataset.id || 0;
 
-    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_item=${idItem}`)
+    // CORREGIDO: Se envía id_vehiculo en lugar de id_item para que el backend devuelva los mensajes correctos
+    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}`)
     .then(res => res.json())
     .then(data => {
         if(data.status === 'success') {
