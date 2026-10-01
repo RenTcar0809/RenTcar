@@ -80,7 +80,6 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
     </main>
 
 <script>
-
 function toggleDropdown() { 
     document.getElementById("myDropdown").classList.toggle("show"); 
 }
@@ -106,25 +105,30 @@ function verificarNotificacionesGlobales() {
         const badgeMenu = document.getElementById('badge-menu-mensajes');
         if (!badgeMenu) return;
 
-        // Determinamos si hay mensajes nuevos de varias formas posibles según tu backend:
+        // Imprime en la consola del navegador lo que devuelve el backend por si quieres revisarlo
+        console.log("Respuesta del backend (verificar_nuevos):", data);
+
         let hayMensajesNuevos = false;
 
-        if (data.status === 'success') {
-            // Caso A: Si el backend devuelve un número directo (ej: data.cantidad o data.total)
-            if (typeof data.cantidad !== 'undefined' && data.cantidad > 0) {
+        if (data) {
+            // Verificamos si devuelve un contador numérico directo mayor a 0
+            if (typeof data.total !== 'undefined' && Number(data.total) > 0) {
                 hayMensajesNuevos = true;
-            }
-            // Caso B: Si el backend devuelve un arreglo y queremos asegurarnos de que tenga elementos reales no leídos
-            else if (Array.isArray(data.notificaciones) && data.notificaciones.length > 0) {
-                // Filtramos por si el arreglo trae elementos pero con estado leido
-                const noLeidos = data.notificaciones.filter(n => n.leido == 0 || n.leido === false || n.estado === 'no_leido');
-                if (noLeidos.length > 0 || data.notificaciones.length > 0) {
-                    hayMensajesNuevos = true;
-                }
+            } else if (typeof data.cantidad !== 'undefined' && Number(data.cantidad) > 0) {
+                hayMensajesNuevos = true;
+            } 
+            // Si devuelve un arreglo de notificaciones/mensajes
+            else if (Array.isArray(data) && data.length > 0) {
+                // Comprobamos si alguno realmente no está leído
+                const pendientes = data.filter(item => item.leido == 0 || item.leido === false || item.estado === 'no_leido');
+                hayMensajesNuevos = pendientes.length > 0;
+            } else if (data.notificaciones && Array.isArray(data.notificaciones) && data.notificaciones.length > 0) {
+                const pendientes = data.notificaciones.filter(item => item.leido == 0 || item.leido === false || item.estado === 'no_leido');
+                hayMensajesNuevos = pendientes.length > 0;
             }
         }
 
-        // Mostramos u ocultamos según el resultado real
+        // Mostrar u ocultar el punto rojo según el estado real
         if (hayMensajesNuevos) {
             badgeMenu.style.display = 'block';
         } else {
@@ -138,7 +142,6 @@ function verificarNotificacionesGlobales() {
 setInterval(verificarNotificacionesGlobales, 5000);
 // Ejecutar inmediatamente al cargar la página
 verificarNotificacionesGlobales();
-
 </script>
 </body>
 </html>
