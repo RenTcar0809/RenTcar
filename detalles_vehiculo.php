@@ -319,7 +319,7 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     chatContainer.dataset.id = idItem;
 
     setTimeout(() => {
-        // Enviar solo el texto plano sin la etiqueta <b> aquí
+        // Texto plano limpio sin etiquetas HTML para evitar errores de renderizado
         enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: ${nombreVehiculo}.`);
     }, 300);
 
@@ -353,12 +353,17 @@ function enviarMensajeBot() {
         if(data.status === 'success') {
             input.value = '';
             cargarMensajesServidor();
+        } else {
+            console.error("Error al enviar mensaje:", data.message || data);
         }
-    });
+    })
+    .catch(err => console.error("Error de red en el chat:", err));
 }
 
 function enviarMensajeAutomatico(texto) {
     const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+    
     const tipo = chatContainer.dataset.tipo || 'auto';
     const idItem = chatContainer.dataset.id || 0;
 
@@ -372,7 +377,16 @@ function enviarMensajeAutomatico(texto) {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
-    }).then(() => cargarMensajesServidor());
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            cargarMensajesServidor();
+        } else {
+            console.error("Error en mensaje automático:", data.message || data);
+        }
+    })
+    .catch(err => console.error("Error de red en mensaje automático:", err));
 }
 
 function cargarMensajesServidor() {
@@ -398,7 +412,8 @@ function cargarMensajesServidor() {
             });
             mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
         }
-    });
+    })
+    .catch(err => console.error("Error al cargar mensajes:", err));
 }
 
 function iniciarActualizacionChat() {
