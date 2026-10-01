@@ -80,6 +80,7 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
     </main>
 
 <script>
+
 function toggleDropdown() { 
     document.getElementById("myDropdown").classList.toggle("show"); 
 }
@@ -105,7 +106,26 @@ function verificarNotificacionesGlobales() {
         const badgeMenu = document.getElementById('badge-menu-mensajes');
         if (!badgeMenu) return;
 
-        if (data.status === 'success' && data.notificaciones && data.notificaciones.length > 0) {
+        // Determinamos si hay mensajes nuevos de varias formas posibles según tu backend:
+        let hayMensajesNuevos = false;
+
+        if (data.status === 'success') {
+            // Caso A: Si el backend devuelve un número directo (ej: data.cantidad o data.total)
+            if (typeof data.cantidad !== 'undefined' && data.cantidad > 0) {
+                hayMensajesNuevos = true;
+            }
+            // Caso B: Si el backend devuelve un arreglo y queremos asegurarnos de que tenga elementos reales no leídos
+            else if (Array.isArray(data.notificaciones) && data.notificaciones.length > 0) {
+                // Filtramos por si el arreglo trae elementos pero con estado leido
+                const noLeidos = data.notificaciones.filter(n => n.leido == 0 || n.leido === false || n.estado === 'no_leido');
+                if (noLeidos.length > 0 || data.notificaciones.length > 0) {
+                    hayMensajesNuevos = true;
+                }
+            }
+        }
+
+        // Mostramos u ocultamos según el resultado real
+        if (hayMensajesNuevos) {
             badgeMenu.style.display = 'block';
         } else {
             badgeMenu.style.display = 'none';
@@ -118,6 +138,7 @@ function verificarNotificacionesGlobales() {
 setInterval(verificarNotificacionesGlobales, 5000);
 // Ejecutar inmediatamente al cargar la página
 verificarNotificacionesGlobales();
+
 </script>
 </body>
 </html>
