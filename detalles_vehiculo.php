@@ -319,7 +319,8 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     chatContainer.dataset.id = idItem;
 
     setTimeout(() => {
-        enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: <b>${nombreVehiculo}</b>.`);
+        // Enviar solo el texto plano sin la etiqueta <b> aquí
+        enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: ${nombreVehiculo}.`);
     }, 300);
 
     iniciarActualizacionChat();
