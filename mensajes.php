@@ -25,9 +25,9 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Consulta para traer los mensajes y los datos del vehículo (Carros o Motos)
+    // Consulta para traer los mensajes y los datos del vehículo ordenados por fecha descendente
     $stmt_chats = $pdo->prepare('
-        SELECT DISTINCT 
+        SELECT 
             m.id_vehiculo, 
             m.remitente, 
             m.destinatario,
@@ -39,7 +39,7 @@ try {
         FROM mensajes_chat m
         LEFT JOIN vehiculo v ON m.id_vehiculo = v.id_v
         WHERE m.destinatario = ? OR m.remitente = ?
-        ORDER BY m.id_vehiculo DESC
+        ORDER BY m.fecha DESC
     ');
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
@@ -240,6 +240,8 @@ if (!empty($interlocutor_real)) {
                 .then(data => {
                     if (data.status === 'success') {
                         location.reload(); 
+                    } else {
+                        alert(data.message || 'Ocurrió un error al enviar el mensaje.');
                     }
                 })
                 .catch(err => console.error('Error al enviar:', err));

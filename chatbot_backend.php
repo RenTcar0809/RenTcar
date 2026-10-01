@@ -1,8 +1,9 @@
 <?php
 header('Content-Type: application/json');
 
-// Recibir mensaje enviado por POST
-$mensaje = isset($_POST['mensaje']) ? strtolower(trim($_POST['mensaje'])) : '';
+// Recibir mensaje enviado por POST (soportando ambas claves por seguridad)
+$mensaje_input = $_POST['mensaje'] ?? $_POST['text'] ?? '';
+$mensaje = strtolower(trim($mensaje_input));
 
 $respuesta = "No estoy seguro de entender tu consulta. Recuerda que puedes preguntar sobre <b>requisitos</b>, <b>métodos de pago</b>, <b>pasos para reservar</b> o <b>horarios de recogida</b>.";
 
@@ -26,10 +27,8 @@ elseif (strpos($mensaje, 'contacto') !== false || strpos($mensaje, 'telefono') !
     $respuesta = "Puedes comunicarte con nuestro equipo de soporte técnico o atención al cliente directamente desde tu panel de usuario o llamando a nuestra línea de asistencia principal.";
 }
 elseif (strpos($mensaje, 'horario') !== false || strpos($mensaje, 'recogida') !== false || strpos($mensaje, 'pasar') !== false) {
-    $respuesta = "Recuerda que nuestros horarios de recogida seran acordes a la disponibilidad del arrendatario o de no ser este el caso de la empresa responsable.";
+    $respuesta = "Recuerda que nuestros horarios de recogida serán acordes a la disponibilidad del arrendatario o de no ser este el caso de la empresa responsable.";
 }
-$mensaje = strtolower($_POST['text'] ?? '');
-
 
 // Retornar la respuesta en formato JSON
 echo json_encode(['respuesta' => $respuesta]);
