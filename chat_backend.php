@@ -85,6 +85,12 @@ try {
                 }
             }
 
+            // EVITAR AUTO-MENSAJES: Si tras las comprobaciones el destinatario sigue siendo el mismo usuario actual
+            if ($usuario_actual === $destinatario_final) {
+                echo json_encode(['status' => 'error', 'message' => 'No puedes enviarte mensajes a ti mismo.']);
+                exit();
+            }
+
             $stmt = $pdo->prepare("INSERT INTO mensajes_chat (id_vehiculo, remitente, destinatario, mensaje, fecha) VALUES (?, ?, ?, ?, NOW())");
             $stmt->execute([$id_item, $usuario_actual, $destinatario_final, $mensaje]);
             
