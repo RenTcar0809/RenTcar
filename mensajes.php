@@ -102,44 +102,72 @@ try {
         }
     }
 
-} catch (PDOException $e) {$error_msg = "Error en la base de datos: " . $e->getMessage();
+} catch (PDOException $e) {
+    $error_msg = "Error en la base de datos: " . $e->getMessage();
 }
 
 $keys_contacto = array_keys($contactos);
-$contacto_activo_key =$_GET['contacto'] ?? (!empty($keys_contacto) ?$keys_contacto[0] : '');
+$contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
 
 $id_vehiculo_activo = 0;
-$nombre_vehiculo_activo = '';$imagen_vehiculo_activo = '';
-$interlocutor_real = '';$tipo_vehiculo_activo = 'auto';
+$nombre_vehiculo_activo = '';
+$imagen_vehiculo_activo = '';
+$interlocutor_real = '';
+$tipo_vehiculo_activo = 'auto';
 
-if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {$id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
-    $nombre_vehiculo_activo =$contactos[$contacto_activo_key]['nombre_auto'];$imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
-    $interlocutor_real =$contactos[$contacto_activo_key]['interlocutor'];$tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
+if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
+    $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
+    $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
+    $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
+    $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
+    $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
 }
 
-// Obtener mensajes de la conversación activa
+// Obtener mensajes de la conversación activa y marcar como leídos
 $mensajes_chat = [];
 if (!empty($interlocutor_real)) {
     try {
+        // Marcar como leídos los mensajes que este usuario recibió de este interlocutor
         if ($id_vehiculo_activo > 0) {
-            $stmt_h =$pdo->prepare('
+            $stmt_marcar = $pdo->prepare('
+                UPDATE mensajes_chat 
+                SET leido = 1 
+                WHERE destinatario = ? 
+                AND remitente = ? 
+                AND id_vehiculo = ? 
+                AND leido = 0
+            ');
+            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real, $id_vehiculo_activo]);
+
+            $stmt_h = $pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE id_vehiculo = ? 
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
+            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
         } else {
-            $stmt_h =$pdo->prepare('
+            $stmt_marcar = $pdo->prepare('
+                UPDATE mensajes_chat 
+                SET leido = 1 
+                WHERE destinatario = ? 
+                AND remitente = ? 
+                AND (id_vehiculo IS NULL OR id_vehiculo = 0) 
+                AND leido = 0
+            ');
+            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real]);
+
+            $stmt_h = $pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE (id_vehiculo IS NULL OR id_vehiculo = 0)
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
+            $stmt_h->execute([$nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
         }
-        $mensajes_chat =$stmt_h->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {$error_msg = "Error al cargar el chat: " . $e->getMessage();
+        $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $error_msg = "Error al cargar el chat: " . $e->getMessage();
     }
 }
 ?>
