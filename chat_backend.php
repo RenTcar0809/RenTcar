@@ -14,6 +14,25 @@ $tipo = $_REQUEST['tipo_vehiculo'] ?? 'auto';
 $id_item = intval($_REQUEST['id_item'] ?? $_REQUEST['id_vehiculo'] ?? 0);
 $usuario_actual = $_SESSION['usuario_nombre'];
 
+// 3. ELIMINAR / TERMINAR CONVERSACIÓN
+    if ($accion === 'eliminar_chat') {
+        $destinatario_borrar = trim($_POST['destinatario'] ?? $_GET['destinatario'] ?? '');
+
+        if ($id_item > 0 && !empty($destinatario_borrar)) {
+            $stmtDel = $pdo->prepare("
+                DELETE FROM mensajes_chat 
+                WHERE id_vehiculo = ? 
+                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
+            ");
+            $stmtDel->execute([$id_item, $usuario_actual, $destinatario_borrar, $destinatario_borrar, $usuario_actual]);
+
+            echo json_encode(['status' => 'success']);
+            exit();
+        }
+
+        echo json_encode(['status' => 'error', 'message' => 'Faltan datos para eliminar la conversación']);
+        exit();
+    }
 try {
     // 1. Obtener al dueño del vehículo de la tabla 'vehiculo'
     $dueno = '';
