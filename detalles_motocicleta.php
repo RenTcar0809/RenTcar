@@ -279,6 +279,48 @@ try {
 </div>
 
 <script>
+// Función para alternar la visibilidad del chat flotante
+function toggleChatFlotante() {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+
+    if (chatContainer.style.display === 'flex') {
+        chatContainer.style.display = 'none';
+    } else {
+        chatContainer.style.display = 'flex';
+        if (typeof cargarMensajesServidor === 'function') {
+            cargarMensajesServidor();
+        }
+    }
+}
+
+// Función que faltaba y que lanza el botón de "RESERVAR AHORA"
+function iniciarChatReserva(tipo, idVehiculo, nombreVehiculo) {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+
+    // Actualizamos los atributos de tipo e id en el contenedor del chat
+    chatContainer.dataset.tipo = tipo;
+    chatContainer.dataset.id = idVehiculo;
+
+    // Mostramos el chat
+    chatContainer.style.display = 'flex';
+
+    // Opcional: Cargamos mensajes y enviamos un saludo automático de reserva
+    cargarMensajesServidor();
+    
+    if (typeof enviarMensajeAutomatico === 'function') {
+        enviarMensajeAutomatico(`Hola, me interesa reservar la motocicleta: ${nombreVehiculo} (ID: ${idVehiculo})`);
+    }
+}
+
+// Manejar la tecla Enter en el input del chat
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        enviarMensajeBot();
+    }
+}
+
 function enviarMensajeBot() {
     const input = document.getElementById('chat-input');
     const chatContainer = document.getElementById('chat-float-container');
@@ -291,7 +333,7 @@ function enviarMensajeBot() {
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
-    formData.append('id_vehiculo', idItem); // Aseguramos que se envíe como id_vehiculo
+    formData.append('id_vehiculo', idItem);
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -317,7 +359,7 @@ function enviarMensajeAutomatico(texto) {
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
-    formData.append('id_vehiculo', idItem); // Aseguramos que se envíe como id_vehiculo
+    formData.append('id_vehiculo', idItem);
     formData.append('mensaje', texto);
 
     fetch('chat_backend.php', {
@@ -334,7 +376,6 @@ function cargarMensajesServidor() {
 
     const idItem = chatContainer.dataset.id || 0;
 
-    // Solicitamos los mensajes filtrando estrictamente por el id_vehiculo actual
     fetch(`chat_backend.php?accion=obtener&id_vehiculo=${idItem}`)
     .then(res => res.json())
     .then(data => {
