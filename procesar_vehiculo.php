@@ -3,6 +3,7 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+<<<<<<< HEAD
 $pagina_formulario = "indexV.php"; 
 
 if (!isset($_SESSION['IdUsuario'])) {
@@ -30,10 +31,34 @@ if (isset($_POST['enviar_registro_v'])) {
 
     if (!preg_match('/^[A-Z]{3}[0-9]{3}$/', $placa)) {
         $_SESSION['error_placa'] = "El formato debe ser de 3 letras y 3 números (Ej: ABC123).";
+=======
+// Incluimos tu conexión centralizada (detecta PostgreSQL en Render o MySQL local)
+require_once 'conexion.php';
+
+$pagina_formulario = "indexV.php"; 
+
+// Validar sesión activa
+if (!isset($_SESSION['IdUsuario'])) {
+    header("Location: login.php");
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v'])) {
+    
+    $cloud_name = "bsd1wma1"; 
+    $api_key    = "219554281638733"; 
+    $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; 
+    $url_imagen_matricula = "";
+
+    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
+    if (!isset($_FILES['imagen_matricula']) || $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_NO_FILE) {
+        $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         header("Location: " . $pagina_formulario);
         exit();
     }
 
+<<<<<<< HEAD
     $sql = "INSERT INTO vehiculo (id_proveedor, tipo, num_motor, num_chasis, traccion, motor, transmision, color, marca, placa, modelo, precio, asientos) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -69,6 +94,142 @@ if (isset($_POST['enviar_registro_v'])) {
     mysqli_close($conexion);
 } else {
     header("Location: dashboard.php");
+=======
+    if ($_FILES['imagen_matricula']['error'] === 1) {
+        $_SESSION['error_placa'] = "La imagen es demasiado pesada para el servidor. Por favor, selecciona una foto de menor resolución.";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    if ($_FILES['imagen_matricula']['error'] !== UPLOAD_ERR_OK) {
+        $_SESSION['error_placa'] = "Error al cargar la imagen de la matrícula (Código de error: " . $_FILES['imagen_matricula']['error'] . ").";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    // Subir a Cloudinary (carpeta de matrículas/documentos internos)
+    $fileTmpPath = $_FILES['imagen_matricula']['tmp_name'];
+    $url_cloudinary = "https://api.cloudinary.com/v1_1/" . $cloud_name . "/image/upload";
+    
+    $timestamp = time();
+    $signature = sha1("folder=rentcar_matriculas&timestamp=" . $timestamp . $api_secret);
+    
+    $data = array(
+        'file'      => new CURLFile($fileTmpPath),
+        'api_key'   => $api_key,
+        'timestamp' => $timestamp,
+        'signature' => $signature,
+        'folder'    => 'rentcar_matriculas'
+    );
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url_cloudinary);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); 
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    $resultado_cloudinary = json_decode($response, true);
+    
+    if ($http_code === 200 && isset($resultado_cloudinary['secure_url'])) {
+        $url_imagen_matricula = $resultado_cloudinary['secure_url'];
+    } else {
+        $_SESSION['error_placa'] = "Error al subir la tarjeta de propiedad a Cloudinary.";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS
+    $id_proveedor = intval($_SESSION['IdUsuario']); 
+    $tipo         = trim($_POST['tipo'] ?? '');
+    $marca        = trim($_POST['marca'] ?? '');
+    $modelo       = trim($_POST['modelo'] ?? '');
+    $color        = trim($_POST['color'] ?? '');
+    $placa        = strtoupper(trim($_POST['placa'] ?? ''));
+    $motor        = trim($_POST['motor'] ?? ''); 
+    $transmision  = trim($_POST['transmision'] ?? '');
+    
+    $traccion     = trim($_POST['traccion'] ?? ($tipo === 'Motocicleta' ? 'Cadena' : 'Delantera'));
+    
+    $asientos_raw = $_POST['asientos'] ?? '';
+    $asientos     = ($asientos_raw !== '') ? intval($asientos_raw) : (($tipo === 'Motocicleta') ? 2 : 5);
+    
+    $precio_raw   = $_POST['precio'] ?? '';
+    $precio       = ($precio_raw !== '') ? floatval($precio_raw) : 0.00;
+
+    // 4. VALIDACIÓN DE PLACA PARA COLOMBIA
+    $patron_placa = '/^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z0-9])$/';
+    if (!preg_match($patron_placa, $placa)) {
+        $_SESSION['error_placa'] = "Formato de placa inválido. Carro (ABC123) o Moto (ABC12F).";
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+    try {
+        // 5. VERIFICAR SI LA PLACA YA EXISTE EN LA TABLA 'vehiculo'
+        $stmt_check = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
+        $stmt_check->execute([$placa]);
+        
+        if ($stmt_check->rowCount() > 0) {
+            $_SESSION['error_placa'] = "La placa '$placa' ya se encuentra registrada en el sistema.";
+            header("Location: " . $pagina_formulario);
+            exit();
+        }
+
+        // 6. ASOCIAR LA MATRÍCULA AL USUARIO / PROVEEDOR
+        $stmt_user_doc = $pdo->prepare('UPDATE usuario SET licencia_transito = ? WHERE "IdUsuario" = ?');
+        $stmt_user_doc->execute([$url_imagen_matricula, $id_proveedor]);
+
+        // 7. INSERTAR DATOS EN LA TABLA 'vehiculo' (Limpio, sin la matrícula)
+        $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, asientos, precio) 
+                VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :asientos, :precio)";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':id_proveedor' => $id_proveedor,
+            ':tipo'         => $tipo,
+            ':marca'        => $marca,
+            ':modelo'       => $modelo,
+            ':color'        => $color,
+            ':placa'        => $placa,
+            ':motor'        => $motor,
+            ':transmision'  => $transmision,
+            ':traccion'     => $traccion,
+            ':asientos'     => $asientos,
+            ':precio'       => $precio
+        ]);
+
+        // 8. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y MySQL)
+        try {
+            $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculo_id_v_seq');
+        } catch (Exception $ex) {
+            $id_vehiculo_nuevo = $pdo->lastInsertId(); 
+        }
+
+        if (!$id_vehiculo_nuevo) {
+            $stmt_id = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
+            $stmt_id->execute([$placa]);
+            $vehiculo_encontrado = $stmt_id->fetch();
+            $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
+        }
+
+        // 9. REDIRECCIÓN A 'subirfoto.php' PARA LAS FOTOS COMERCIALES
+        header("Location: subirfoto.php?id=" . $id_vehiculo_nuevo);
+        exit();
+
+    } catch (PDOException $e) {
+        $_SESSION['error_placa'] = "Error en base de datos: " . $e->getMessage();
+        header("Location: " . $pagina_formulario);
+        exit();
+    }
+
+} else {
+    header("Location: indexV.php");
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     exit();
 }
 ?>

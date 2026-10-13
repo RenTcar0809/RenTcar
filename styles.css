@@ -163,7 +163,11 @@ body {
     background-color: #f2f2f2;
     border-radius: 5px;
     padding: 0 12px;
+<<<<<<< HEAD
     font-family: 'Graduate', serif;
+=======
+    font-family: 'Arial', serif;
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     font-size: 13px; 
     color: #333333;
 }
@@ -310,4 +314,22 @@ body {
         flex-direction: column;
         gap: 15px;
     }
+<<<<<<< HEAD
 }
+=======
+
+    /* Limpia y estandariza el texto que el usuario escribe dentro de los inputs */
+/* Forzar tipografía limpia en todos los campos de texto del sitio */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="date"],
+select,
+textarea {
+    font-family: Arial, sans-serif !important;
+    font-weight: normal !important;
+    text-transform: none !important;
+}
+}
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948

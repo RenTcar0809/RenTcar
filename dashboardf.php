@@ -39,6 +39,14 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
             <a href="historial_vehiculo.php" class="nav-link">
                 <i class="fa-solid fa-folder-open"></i> <span>MIS VEHÍCULOS</span>
             </a>
+<<<<<<< HEAD
+=======
+            <!-- Enlace de Mensajes con la burbuja roja de notificación -->
+            <a href="mensajes.php" class="nav-link" style="position: relative;">
+                <i class="fa-solid fa-comments"></i> <span>MENSAJES</span>
+                <span id="badge-menu-mensajes" style="display: none; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; background: #e74c3c; border-radius: 50%; box-shadow: 0 0 5px rgba(231,76,60,0.8);"></span>
+            </a>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         </nav>
     </aside>
 
@@ -53,6 +61,10 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
                 <div class="dropdown-content" id="myDropdown">
                     <a href="configuracion.php"><i class="fa-solid fa-gear"></i> Ajustes / Mi Perfil</a>
                     <a href="reservas.php"><i class="fa-solid fa-list"></i> Mis Reservas</a>
+<<<<<<< HEAD
+=======
+                    <a href="mensajes.php"><i class="fa-solid fa-comments"></i> Mensajes</a>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                     <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
                 </div>
             </div>
@@ -90,6 +102,55 @@ window.onclick = function(event) {
         }
     }
 }
+<<<<<<< HEAD
+=======
+
+// Función global para verificar mensajes nuevos y mostrar la burbuja en el menú lateral
+function verificarNotificacionesGlobales() {
+    fetch('chat_backend.php?accion=verificar_nuevos')
+    .then(res => res.json())
+    .then(data => {
+        const badgeMenu = document.getElementById('badge-menu-mensajes');
+        if (!badgeMenu) return;
+
+        // Imprime en la consola del navegador lo que devuelve el backend por si quieres revisarlo
+        console.log("Respuesta del backend (verificar_nuevos):", data);
+
+        let hayMensajesNuevos = false;
+
+        if (data) {
+            // Verificamos si devuelve un contador numérico directo mayor a 0
+            if (typeof data.total !== 'undefined' && Number(data.total) > 0) {
+                hayMensajesNuevos = true;
+            } else if (typeof data.cantidad !== 'undefined' && Number(data.cantidad) > 0) {
+                hayMensajesNuevos = true;
+            } 
+            // Si devuelve un arreglo de notificaciones/mensajes
+            else if (Array.isArray(data) && data.length > 0) {
+                // Comprobamos si alguno realmente no está leído
+                const pendientes = data.filter(item => item.leido == 0 || item.leido === false || item.estado === 'no_leido');
+                hayMensajesNuevos = pendientes.length > 0;
+            } else if (data.notificaciones && Array.isArray(data.notificaciones) && data.notificaciones.length > 0) {
+                const pendientes = data.notificaciones.filter(item => item.leido == 0 || item.leido === false || item.estado === 'no_leido');
+                hayMensajesNuevos = pendientes.length > 0;
+            }
+        }
+
+        // Mostrar u ocultar el punto rojo según el estado real
+        if (hayMensajesNuevos) {
+            badgeMenu.style.display = 'block';
+        } else {
+            badgeMenu.style.display = 'none';
+        }
+    })
+    .catch(err => console.error('Error al verificar notificaciones globales:', err));
+}
+
+// Revisar cada 5 segundos en segundo plano
+setInterval(verificarNotificacionesGlobales, 5000);
+// Ejecutar inmediatamente al cargar la página
+verificarNotificacionesGlobales();
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 </script>
 </body>
 </html>

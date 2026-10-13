@@ -24,6 +24,10 @@ $rentasActivas   = 0;
 $gananciasMes    = 0;
 $totalClientes   = 0;
 $historialRentas = [];
+<<<<<<< HEAD
+=======
+$mensajesClientes = []; // Variable para la nueva sección
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 
 try {
     // 1. Contar vehículos de la empresa
@@ -33,15 +37,25 @@ try {
 
     // 2. Contar rentas activas
     $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM reserva r 
+<<<<<<< HEAD
                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
                                   WHERE v.id_proveedor = :id AND r.estado = 'activa'");
+=======
+                                INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+                                WHERE v.id_proveedor = :id AND r.estado = 'activa'");
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
     // 3. Obtener ganancias del mes
     $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM reserva r 
+<<<<<<< HEAD
                                      INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
                                      WHERE v.id_proveedor = :id AND r.estado = 'completada'");
+=======
+                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+                                   WHERE v.id_proveedor = :id AND r.estado = 'completada'");
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     $stmtGanancias->execute([':id' => $idProveedor]);
     $gananciasMes = $stmtGanancias->fetchColumn();
 
@@ -66,8 +80,23 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
+<<<<<<< HEAD
 } catch (PDOException $e) {
     // Si ocurre un error con las consultas, las variables se mantienen en 0 o vacías
+=======
+// 6. Consultar mensajes de los clientes vinculados a los vehículos de la empresa
+    $sqlMensajes = "SELECT m.mensaje, m.fecha, m.remitente AS cliente, v.marca, v.modelo, v.placa 
+                    FROM mensajes_chat m
+                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
+                    WHERE v.id_proveedor = :id
+                    ORDER BY m.fecha DESC LIMIT 10";
+    
+    $stmtMensajes = $pdo->prepare($sqlMensajes);
+    $stmtMensajes->execute([':id' => $idProveedor]);
+    $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Si alguna tabla (como 'mensajes') no existe todavía, evita que rompa el panel completo
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 }
 ?>
 <!DOCTYPE html>
@@ -80,6 +109,19 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Estilos CSS -->
     <link rel="stylesheet" href="admindashboard.css">
+<<<<<<< HEAD
+=======
+    <style>
+        /* Estilos rápidos adicionales para la sección de mensajes */
+        .messages-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .message-card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; color: #fff; }
+        .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #2a2a2a; padding-bottom: 8px; }
+        .message-header strong { color: #fff; font-size: 1rem; }
+        .message-header small { color: #8e8e93; }
+        .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
+        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; }
+    </style>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 </head>
 <body>
 
@@ -177,8 +219,44 @@ try {
             </div>
         </section>
 
+<<<<<<< HEAD
         <!-- Registro de Usuarios y Alquileres -->
         <section class="table-container">
+=======
+        <!-- --- NUEVO APARTADO: MENSAJES DE LOS CLIENTES --- -->
+        <section class="table-container" style="margin-top: 30px;">
+            <div class="table-header-title">
+                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
+            </div>
+
+            <?php if (!empty($mensajesClientes)): ?>
+                <div class="messages-grid">
+                    <?php foreach ($mensajesClientes as $msg): ?>
+                        <div class="message-card">
+                            <div class="message-header">
+                                <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
+                                <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
+                            </div>
+                            <div class="message-vehicle">
+                                <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars($msg['marca'] . ' ' . $msg['modelo']); ?> (Placa: <?php echo htmlspecialchars($msg['placa']); ?>)
+                            </div>
+                            <div class="message-body">
+                                "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="no-data">
+                    <i class="fa-solid fa-envelope-open"></i>
+                    <p>No hay mensajes nuevos de los clientes por el momento.</p>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- Registro de Usuarios y Alquileres -->
+        <section class="table-container" style="margin-top: 30px;">
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-clock-rotate-left"></i> Registro de Usuarios y Alquileres</h3>
             </div>

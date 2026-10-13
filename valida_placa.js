@@ -4,6 +4,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const inputPlaca = document.getElementById("placa");
     const botonGuardar = document.querySelector(".btn-primary");
     
+<<<<<<< HEAD
+=======
+    // Si por alguna razón no encuentra el input de placa en esta vista, detenemos el script para evitar errores
+    if (!inputPlaca) return;
+
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     // Buscamos automáticamente el formulario donde está la placa
     const formulario = inputPlaca.closest("form");
 
@@ -23,6 +29,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // 2. BLOQUEO CRÍTICO: Interceptar el envío del formulario
+<<<<<<< HEAD
     formulario.addEventListener("submit", function(event) {
         // Si el usuario intenta enviar y la placa NO está aprobada...
         if (!placaAprobada) {
@@ -31,22 +38,48 @@ document.addEventListener("DOMContentLoaded", function() {
             inputPlaca.focus();
         }
     });
+=======
+    if (formulario) {
+        formulario.addEventListener("submit", function(event) {
+            // Si el usuario intenta enviar y la placa NO está aprobada...
+            if (!placaAprobada) {
+                event.preventDefault(); // <-- Cancela el envío a procesar_vehiculo.php
+                mostrarError("❌ No puedes registrar el vehículo hasta que la placa sea válida y esté libre.");
+                inputPlaca.focus();
+            }
+        });
+    }
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 
     // 3. Validación al salir del campo (blur)
     inputPlaca.addEventListener("blur", function() {
         let placaValor = inputPlaca.value.trim().toUpperCase();
         inputPlaca.value = placaValor;
 
+<<<<<<< HEAD
         const formatoPlaca = /^[A-Z]{3}[0-9]{3}$/;
+=======
+        // EXPRESIONES REGULARES PARA COLOMBIA:
+        // - Carro: 3 letras y 3 números (Ej: ABC123)
+        // - Moto: 3 letras, 2 números y 1 letra/número (Ej: YSR13F)
+        const formatoCarro = /^[A-Z]{3}[0-9]{3}$/;
+        const formatoMoto = /^[A-Z]{3}[0-9]{2}[A-Z0-9]$/;
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 
         if (placaValor.length === 0) {
             limpiarEstado();
             return;
         }
 
+<<<<<<< HEAD
         // Validación de Formato
         if (!formatoPlaca.test(placaValor)) {
             mostrarError("❌ Formato inválido. Debe ser de 3 letras y 3 números (Ej: ABC123).");
+=======
+        // Validación de Formato (Carro o Moto)
+        if (!formatoCarro.test(placaValor) && !formatoMoto.test(placaValor)) {
+            mostrarError("❌ Formato inválido. Carro (ABC123) o Moto (ABC12F).");
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             return;
         }
 
@@ -82,8 +115,15 @@ document.addEventListener("DOMContentLoaded", function() {
         msgError.style.color = "#ff4444"; 
         inputPlaca.style.borderColor = "#ff4444";
         inputPlaca.style.boxShadow = "0 0 5px rgba(255, 68, 68, 0.5)";
+<<<<<<< HEAD
         botonGuardar.disabled = true;
         botonGuardar.style.opacity = "0.5";
+=======
+        if (botonGuardar) {
+            botonGuardar.disabled = true;
+            botonGuardar.style.opacity = "0.5";
+        }
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     }
 
     function mostrarExito(mensaje) {
@@ -92,8 +132,15 @@ document.addEventListener("DOMContentLoaded", function() {
         msgError.style.color = "#28a745"; 
         inputPlaca.style.borderColor = "#28a745";
         inputPlaca.style.boxShadow = "0 0 5px rgba(40, 167, 69, 0.5)";
+<<<<<<< HEAD
         botonGuardar.disabled = false;
         botonGuardar.style.opacity = "1";
+=======
+        if (botonGuardar) {
+            botonGuardar.disabled = false;
+            botonGuardar.style.opacity = "1";
+        }
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     }
 
     function limpiarEstado() {
@@ -101,6 +148,7 @@ document.addEventListener("DOMContentLoaded", function() {
         msgError.textContent = "";
         inputPlaca.style.borderColor = "";
         inputPlaca.style.boxShadow = "";
+<<<<<<< HEAD
         botonGuardar.disabled = false;
         botonGuardar.style.opacity = "1";
     }
@@ -153,4 +201,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Escuchamos cada vez que el usuario cambia la opción en el select
     selectTipo.addEventListener("change", adaptarFormulario);
+=======
+        if (botonGuardar) {
+            botonGuardar.disabled = false;
+            botonGuardar.style.opacity = "1";
+        }
+    }
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 });

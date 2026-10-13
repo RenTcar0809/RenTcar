@@ -9,14 +9,44 @@ if (!isset($_SESSION['IdUsuario'])) {
 }
 
 $id_usuario = $_SESSION['IdUsuario'];
+<<<<<<< HEAD
 
 try {
+=======
+$mensajes_no_leidos = 0; // Inicializamos la variable para evitar advertencias
+
+try {
+    // 1. Obtener el nombre o empresa del proveedor actual usando comillas dobles para respetar el case de PostgreSQL
+    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
+    $stmtU->execute([$id_usuario]);
+    $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
+    
+    $nombre_usuario = '';
+    if ($uData) {
+        $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
+    }
+
+    // 2. Consultar los vehículos del proveedor (verificando también si id_proveedor o id_usuario aplica)
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
     $stmt->execute([':id_usuario' => $id_usuario]);
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+<<<<<<< HEAD
 } catch (PDOException $e) {
     $error_msg = "Error al cargar los vehículos: " . $e->getMessage();
+=======
+    // 3. Contar los mensajes en la tabla mensajes_chat destinados a este usuario
+    if (!empty($nombre_usuario)) {
+        $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total FROM mensajes_chat WHERE destinatario = ?');
+        $stmt_msg->execute([$nombre_usuario]);
+        $res_msg = $stmt_msg->fetch(PDO::FETCH_ASSOC);
+        $mensajes_no_leidos = $res_msg['total'] ?? 0;
+    }
+
+} catch (PDOException $e) {
+    $error_msg = "Error al cargar los datos: " . $e->getMessage();
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 }
 ?>
 <!DOCTYPE html>
@@ -39,9 +69,29 @@ try {
         .btn-volver { text-decoration: none; color: #aaa; font-weight: 600; display: flex; align-items: center; gap: 5px; }
         .btn-volver:hover { color: white; }
         
+<<<<<<< HEAD
         .btn-accion { background: var(--rojo); padding: 12px 25px; border-radius: 8px; text-decoration: none; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
         .btn-accion:hover { background: #b20710; }
 
+=======
+        .grupo-acciones-derecha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        .btn-accion { background: var(--rojo); padding: 12px 25px; border-radius: 8px; text-decoration: none; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-accion:hover { background: #b20710; }
+
+        .btn-mensajes { 
+            background: #222; border: 1px solid #333; padding: 12px 20px; border-radius: 8px; 
+            text-decoration: none; color: white; font-weight: bold; display: inline-flex; 
+            align-items: center; gap: 8px; transition: 0.2s; position: relative; 
+        }
+        .btn-mensajes:hover { background: #333; border-color: #555; }
+        
+        .badge-msg { 
+            background: var(--rojo); color: white; font-size: 0.75rem; padding: 2px 6px; 
+            border-radius: 50%; position: absolute; top: -8px; right: -8px; font-weight: bold; 
+        }
+
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         .vehiculos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
         
         .vehiculo-card { 
@@ -92,10 +142,29 @@ try {
             <a href="dashboardf.php" class="btn-volver">
                 <i class="fas fa-chevron-left"></i> Volver
             </a>
+<<<<<<< HEAD
             <h1 class="titulo-principal">GESTIÓN DE FLOTA</h1>
             <a href="indexV.php" class="btn-accion">
                 <i class="fas fa-plus"></i> NUEVA UNIDAD
             </a>
+=======
+            
+            <h1 class="titulo-principal">GESTIÓN DE FLOTA</h1>
+            
+            <div class="grupo-acciones-derecha">
+                <!-- BOTÓN DE MENSAJES -->
+                <a href="mensajes.php" class="btn-mensajes">
+                    <i class="fas fa-envelope"></i> Mensajes
+                    <?php if ($mensajes_no_leidos > 0): ?>
+                        <span class="badge-msg"><?php echo $mensajes_no_leidos; ?></span>
+                    <?php endif; ?>
+                </a>
+
+                <a href="indexV.php" class="btn-accion">
+                    <i class="fas fa-plus"></i> NUEVA UNIDAD
+                </a>
+            </div>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         </div>
 
         <?php if (isset($error_msg)): ?>

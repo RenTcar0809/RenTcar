@@ -45,9 +45,35 @@ try {
     die("Error: " . $e->getMessage());
 }
 
+<<<<<<< HEAD
 // Lógica de imagen para la cabecera
 $fotosFisicas = glob("imagenes/*" . $id_v . "_*");
 $imgCabecera = !empty($fotosFisicas) ? $fotosFisicas[0] : 'unnamed.png';
+=======
+// Lógica de imagen utilizando la tabla correcta: fotos_vehiculos
+$imgCabecera = 'unnamed.png'; 
+
+try {
+    $stmtImg = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC LIMIT 1");
+    $stmtImg->execute([$id_v]);
+    $fotoData = $stmtImg->fetch(PDO::FETCH_ASSOC);
+
+    if ($fotoData && !empty($fotoData['ruta_imagen'])) {
+        $ruta = trim($fotoData['ruta_imagen']);
+        
+        // Si es una URL de Cloudinary (empieza con http), la usa directamente
+        if (strpos($ruta, 'http') === 0) {
+            $imgCabecera = $ruta;
+        } else {
+            // Si es una ruta local vieja, la mantiene
+            $imgCabecera = $ruta;
+        }
+    }
+} catch (PDOException $e) {
+    // Manejo de error si ocurre algún inconveniente con la consulta
+    $imgCabecera = 'unnamed.png';
+}
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 ?>
 
 <!DOCTYPE html>

@@ -2,13 +2,21 @@
 session_start();
 require_once 'conexion.php';
 
+<<<<<<< HEAD
 // 1. Verificar sesión
+=======
+// 1. Verificar sesión activa
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 if (!isset($_SESSION['usuario_nombre'])) {
     header("Location: inicioSesion.php");
     exit();
 }
 
+<<<<<<< HEAD
 $id_vehiculo = isset($_GET['id']) ? intval($_GET['id']) : 0;
+=======
+$id_moto = isset($_GET['id']) ? intval($_GET['id']) : 0;
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 $error_msg = ""; 
 
 function limpiarInsultos($texto) {
@@ -22,9 +30,15 @@ function limpiarInsultos($texto) {
     return preg_replace($patron, '****', $texto);
 }
 
+<<<<<<< HEAD
 // 3. Procesar NUEVO comentario al presionar el botón
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {
     $comentario_bruto = trim($_POST['comentario']);
+=======
+// 3. Procesar NUEVO comentario al presionar el botón (Tabla corregida)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {
+    $comentario_bruto = trim($_POST['comentario'] ?? '');
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     $puntuacion = isset($_POST['rating']) ? intval($_POST['rating']) : 5;
     $comentario_final = limpiarInsultos($comentario_bruto);
 
@@ -32,9 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
         try {
             $sql = "INSERT INTO comentarios_vehiculos (id_vehiculo, usuario_nombre, comentario, puntuacion) VALUES (?, ?, ?, ?)";
             $ins = $pdo->prepare($sql);
+<<<<<<< HEAD
             $ins->execute([$id_vehiculo, $_SESSION['usuario_nombre'], $comentario_final, $puntuacion]);
             
             header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=ok#comentarios");
+=======
+            $ins->execute([$id_moto, $_SESSION['usuario_nombre'], $comentario_final, $puntuacion]);
+            
+            header("Location: detalles_motocicleta.php?id=$id_moto&msg=ok#comentarios");
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             exit();
         } catch (PDOException $e) { 
             $error_msg = "Error en la base de datos: " . $e->getMessage();
@@ -44,10 +64,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
     }
 }
 
+<<<<<<< HEAD
 // 3.1. Procesar ACTUALIZACIÓN de comentario (Edición en la misma página)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
     $id_com = intval($_POST['id_comentario']);
     $comentario_edit_bruto = trim($_POST['comentario_edit']);
+=======
+// 3.1. Procesar ACTUALIZACIÓN de comentario (Tabla corregida)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
+    $id_com = intval($_POST['id_comentario'] ?? 0);
+    $comentario_edit_bruto = trim($_POST['comentario_edit'] ?? '');
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     $puntuacion_edit = isset($_POST['rating_edit']) ? intval($_POST['rating_edit']) : 5;
     $comentario_edit_final = limpiarInsultos($comentario_edit_bruto);
 
@@ -61,7 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
                 $upd = $pdo->prepare("UPDATE comentarios_vehiculos SET comentario = ?, puntuacion = ? WHERE id_comentario = ?");
                 $upd->execute([$comentario_edit_final, $puntuacion_edit, $id_com]);
             }
+<<<<<<< HEAD
             header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=updated#comentarios");
+=======
+            header("Location: detalles_motocicleta.php?id=$id_moto&msg=updated#comentarios");
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             exit();
         } catch (PDOException $e) {
             $error_msg = "Error al actualizar: " . $e->getMessage();
@@ -71,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
+<<<<<<< HEAD
 // 4. Obtener datos para la página
 try {
     $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
@@ -81,6 +113,40 @@ try {
 
     $stmtCom = $pdo->prepare("SELECT * FROM comentarios_vehiculos WHERE id_vehiculo = ? ORDER BY fecha DESC");
     $stmtCom->execute([$id_vehiculo]);
+=======
+// 4. Obtener datos de la motocicleta (Tabla unificada 'vehiculo')
+try {
+    $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ? AND LOWER(tipo) LIKE '%moto%'");
+    $stmt->execute([$id_moto]);
+    $motocicleta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$motocicleta) { 
+        header("Location: motocicletas.php"); 
+        exit(); 
+    }
+
+    // Consulta de fotos usando la tabla correcta 'fotos_vehiculos'
+    $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
+    $stmtFotos->execute([$id_moto]);
+    $fotosBD = $stmtFotos->fetchAll(PDO::FETCH_COLUMN);
+
+    $fotosFinales = [];
+    function normalizarRuta($ruta) {
+        $ruta = str_replace('\\', '/', trim($ruta));
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
+        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
+        if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
+        return 'imagenes/' . $ruta;
+    }
+    
+    foreach ($fotosBD as $f) { $fotosFinales[] = normalizarRuta($f); }
+    if (empty($fotosFinales) && !empty($motocicleta['imagen'])) { $fotosFinales[] = normalizarRuta($motocicleta['imagen']); }
+    $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
+
+    // Obtener comentarios (Tabla corregida a comentarios_vehiculos)
+    $stmtCom = $pdo->prepare("SELECT * FROM comentarios_vehiculos WHERE id_vehiculo = ? ORDER BY fecha DESC");
+    $stmtCom->execute([$id_moto]);
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     $comentarios = $stmtCom->fetchAll(PDO::FETCH_ASSOC);
 
     $total_p = 0;
@@ -90,46 +156,74 @@ try {
 } catch (PDOException $e) { 
     die("Error crítico: " . $e->getMessage()); 
 }
+<<<<<<< HEAD
 
 $fotosFinales = glob("imagenes/*" . $id_vehiculo . "_*");
 $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
+=======
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>RentCar | Detalle de Vehículo</title>
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="detalles_vehiculo.css">
+=======
+    <title>RentCar | Detalle de Motocicleta</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="detalles_vehiculo.css">
+    <link rel="stylesheet" href="chatbot.css">
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 </head>
 <body>
 
 <nav class="top-nav">
     <div class="nav-container">
         <a href="dashboardf.php" class="logo">REN<span>T</span>CAR</a>
+<<<<<<< HEAD
         <a href="automoviles.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+=======
+        <a href="Motocicletas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     </div>
 </nav>
 
 <main class="main-wrapper">
+<<<<<<< HEAD
     <!-- SECCIÓN 1: FICHA TÉCNICA -->
     <section class="hero-section">
         <div class="gallery-side">
             <div class="main-img-wrap">
                 <img id="mainImage" src="<?php echo $imagenPrincipal; ?>" onerror="this.src='unnamed.png'">
+=======
+    <!-- SECCIÓN 1: FICHA TÉCNICA PRINCIPAL -->
+    <section class="hero-section">
+        <div class="gallery-side">
+            <div class="main-img-wrap">
+                <img id="mainImage" src="<?php echo htmlspecialchars($imagenPrincipal); ?>" onerror="this.src='unnamed.png'">
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             </div>
             <?php if (count($fotosFinales) > 1): ?>
             <div class="thumbs-grid">
                 <?php foreach ($fotosFinales as $index => $ruta): ?>
+<<<<<<< HEAD
                     <img src="<?php echo $ruta; ?>" class="thumb <?php echo ($index===0)?'active':''; ?>" onclick="cambiarImagen(this, '<?php echo $ruta; ?>')">
+=======
+                    <img src="<?php echo htmlspecialchars($ruta); ?>" class="thumb <?php echo ($index===0)?'active':''; ?>" onclick="cambiarImagen(this, '<?php echo htmlspecialchars($ruta); ?>')" onerror="this.src='unnamed.png'">
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
         </div>
 
         <div class="info-side">
+<<<<<<< HEAD
             <h1 class="v-title"><?php echo strtoupper(htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo'])); ?></h1>
             <div class="v-price">$<?php echo number_format($vehiculo['precio'], 2); ?> <span>/ día</span></div>
             
@@ -144,6 +238,22 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
 
             <button class="main-btn" onclick="location.href='reservar.php?id=<?php echo $id_vehiculo; ?>'">
                 RESERVAR AHORA <i class="fas fa-key"></i>
+=======
+            <h1 class="v-title"><?php echo strtoupper(htmlspecialchars(($motocicleta['marca'] ?? '') . ' ' . ($motocicleta['modelo'] ?? ''))); ?></h1>
+            <div class="v-price">$<?php echo number_format($motocicleta['precio'] ?? 0, 2); ?> <span>/ día</span></div>
+            
+            <div class="specs-box">
+                <div class="s-item"><i class="fas fa-motorcycle"></i> <div><span>Cilindrada</span><strong><?php echo htmlspecialchars($motocicleta['cilindrada'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-bolt"></i> <div><span>Motor</span><strong><?php echo htmlspecialchars($motocicleta['motor'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-id-card"></i> <div><span>Placa</span><strong><?php echo htmlspecialchars($motocicleta['placa'] ?? 'S/N'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-palette"></i> <div><span>Color</span><strong><?php echo htmlspecialchars($motocicleta['color'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-cog"></i> <div><span>Transmisión</span><strong><?php echo htmlspecialchars($motocicleta['transmision'] ?? 'N/A'); ?></strong></div></div>
+                <div class="s-item"><i class="fas fa-gas-pump"></i> <div><span>Combustible</span><strong><?php echo ucfirst(htmlspecialchars($motocicleta['combustible'] ?? 'N/A')); ?></strong></div></div>
+            </div>
+
+            <button class="main-btn" onclick="iniciarChatReserva('moto', <?php echo $motocicleta['id_v']; ?>, '<?php echo htmlspecialchars(($motocicleta['marca'] ?? '') . ' ' . ($motocicleta['modelo'] ?? '')); ?>')">
+                RESERVAR AHORA <i class="fas fa-comments"></i>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             </button>
         </div>
     </section>
@@ -154,7 +264,11 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
             <div class="b-header"><i class="fas fa-info-circle"></i> IMPORTANTE PARA TU RECOGIDA</div>
             <div class="b-items">
                 <div class="b-item"><i class="fas fa-id-badge"></i> Pasaporte o DNI</div>
+<<<<<<< HEAD
                 <div class="b-item"><i class="fas fa-address-card"></i> Licencia Vigente</div>
+=======
+                <div class="b-item"><i class="fas fa-address-card"></i> Licencia Vigente (Moto)</div>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                 <div class="b-item"><i class="fas fa-credit-card"></i> Tarjeta de Crédito</div>
             </div>
         </div>
@@ -171,9 +285,15 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
                 </div>
             </div>
             <div class="write-box">
+<<<<<<< HEAD
                 <h3>¿Qué te pareció este vehículo?</h3>
                 <?php if(!empty($error_msg)): ?>
                     <p style="color: var(--rojo); font-size: 0.85rem; margin-bottom: 10px;"><?php echo $error_msg; ?></p>
+=======
+                <h3>¿Qué te pareció esta motocicleta?</h3>
+                <?php if(!empty($error_msg)): ?>
+                    <p style="color: var(--rojo); font-size: 0.85rem; margin-bottom: 10px;"><?php echo htmlspecialchars($error_msg); ?></p>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                 <?php endif; ?>
                 <form method="POST">
                     <div class="rating-selector">
@@ -190,14 +310,21 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
 
         <div class="reviews-feed">
             <?php if (empty($comentarios)): ?>
+<<<<<<< HEAD
                 <p style="color: var(--texto-gris); text-align: center; padding: 20px;">Sé el primero en dejar una opinión sobre este vehículo.</p>
+=======
+                <p style="color: var(--texto-gris); text-align: center; padding: 20px;">Sé el primero en dejar una opinión sobre esta motocicleta.</p>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             <?php else: ?>
                 <?php foreach ($comentarios as $c): ?>
                     <div class="review-card">
                         <div class="r-avatar"><?php echo strtoupper(substr($c['usuario_nombre'], 0, 1)); ?></div>
                         <div class="r-body">
+<<<<<<< HEAD
                             
                             <!-- VISTA NORMAL DEL COMENTARIO -->
+=======
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                             <div id="view-mode-<?php echo $c['id_comentario']; ?>">
                                 <div class="r-meta">
                                     <strong><?php echo htmlspecialchars($c['usuario_nombre']); ?></strong>
@@ -210,6 +337,7 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
                                 
                                 <div class="r-footer-card">
                                     <span style="font-size: 0.8rem; color: var(--texto-gris);">RentCar Review</span>
+<<<<<<< HEAD
                                     
                                     <?php if(isset($_SESSION['usuario_nombre']) && $_SESSION['usuario_nombre'] === $c['usuario_nombre']): ?>
                                         <div class="r-actions">
@@ -219,11 +347,18 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
                                             <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo $id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');">
                                                 <i class="fas fa-trash"></i> Borrar
                                             </a>
+=======
+                                    <?php if(isset($_SESSION['usuario_nombre']) && $_SESSION['usuario_nombre'] === $c['usuario_nombre']): ?>
+                                        <div class="r-actions">
+                                            <button type="button" class="btn-action edit" onclick="mostrarEditor(<?php echo $c['id_comentario']; ?>)"><i class="fas fa-pen"></i> Editar</button>
+                                            <a href="eliminar_comentario_moto.php?id=<?php echo $c['id_comentario']; ?>&moto=<?php echo $id_moto; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');"><i class="fas fa-trash"></i> Borrar</a>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                                         </div>
                                     <?php endif; ?>
                                 </div>
                             </div>
 
+<<<<<<< HEAD
                             <!-- FORMULARIO DE EDICIÓN (OCULTO POR DEFECTO) -->
                             <div id="edit-mode-<?php echo $c['id_comentario']; ?>" style="display: none;">
                                 <div class="r-meta">
@@ -233,22 +368,35 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
                                 <form method="POST" class="edit-form-box">
                                     <input type="hidden" name="id_comentario" value="<?php echo $c['id_comentario']; ?>">
                                     
+=======
+                            <div id="edit-mode-<?php echo $c['id_comentario']; ?>" style="display: none;">
+                                <div class="r-meta"><strong>Editando tu opinión</strong><span><?php echo date('d M, Y', strtotime($c['fecha'])); ?></span></div>
+                                <form method="POST" class="edit-form-box">
+                                    <input type="hidden" name="id_comentario" value="<?php echo $c['id_comentario']; ?>">
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                                     <div class="rating-selector-edit">
                                         <?php for($i=5; $i>=1; $i--): ?>
                                             <input type="radio" id="edit_r<?php echo $c['id_comentario'] . '_' . $i; ?>" name="rating_edit" value="<?php echo $i; ?>" <?php echo ($i == ($c['puntuacion'] ?? 5)) ? 'checked' : ''; ?>>
                                             <label for="edit_r<?php echo $c['id_comentario'] . '_' . $i; ?>"><i class="fas fa-star"></i></label>
                                         <?php endfor; ?>
                                     </div>
+<<<<<<< HEAD
 
                                     <textarea name="comentario_edit" required><?php echo htmlspecialchars($c['comentario']); ?></textarea>
                                     
+=======
+                                    <textarea name="comentario_edit" required><?php echo htmlspecialchars($c['comentario']); ?></textarea>
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                                     <div class="edit-actions">
                                         <button type="submit" name="actualizar_comentario" class="btn-save">Guardar Cambios</button>
                                         <button type="button" class="btn-cancel" onclick="ocultarEditor(<?php echo $c['id_comentario']; ?>)">Cancelar</button>
                                     </div>
                                 </form>
                             </div>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -257,6 +405,7 @@ $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
     </section>
 </main>
 
+<<<<<<< HEAD
 <script>
 function cambiarImagen(el, ruta) {
     document.getElementById('mainImage').src = ruta;
@@ -272,6 +421,139 @@ function mostrarEditor(id) {
 function ocultarEditor(id) {
     document.getElementById('view-mode-' + id).style.display = 'block';
     document.getElementById('edit-mode-' + id).style.display = 'none';
+=======
+<button class="chat-float-btn" onclick="toggleChatFlotante()">
+    <i class="fas fa-comment-dots"></i> Chat con Arrendatario
+</button>
+
+<div id="chat-float-container" data-tipo="moto" data-id="<?php echo $id_moto; ?>">
+    <div class="chat-float-header">
+        <h3><i class="fas fa-comments"></i> Negociación RentCar</h3>
+        <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
+    </div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
+        <button onclick="enviarMensajeBot()">Enviar</button>
+    </div>
+</div>
+
+<script>
+// Función para alternar la visibilidad del chat flotante
+function toggleChatFlotante() {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+
+    if (chatContainer.style.display === 'flex') {
+        chatContainer.style.display = 'none';
+    } else {
+        chatContainer.style.display = 'flex';
+        if (typeof cargarMensajesServidor === 'function') {
+            cargarMensajesServidor();
+        }
+    }
+}
+
+// Función que faltaba y que lanza el botón de "RESERVAR AHORA"
+function iniciarChatReserva(tipo, idVehiculo, nombreVehiculo) {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+
+    // Actualizamos los atributos de tipo e id en el contenedor del chat
+    chatContainer.dataset.tipo = tipo;
+    chatContainer.dataset.id = idVehiculo;
+
+    // Mostramos el chat
+    chatContainer.style.display = 'flex';
+
+    // Opcional: Cargamos mensajes y enviamos un saludo automático de reserva
+    cargarMensajesServidor();
+    
+    if (typeof enviarMensajeAutomatico === 'function') {
+        enviarMensajeAutomatico(`Hola, me interesa reservar la motocicleta: ${nombreVehiculo} (ID: ${idVehiculo})`);
+    }
+}
+
+// Manejar la tecla Enter en el input del chat
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        enviarMensajeBot();
+    }
+}
+
+function enviarMensajeBot() {
+    const input = document.getElementById('chat-input');
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!input || !chatContainer) return;
+
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    const idItem = chatContainer.dataset.id || 0;
+
+    const formData = new URLSearchParams();
+    formData.append('accion', 'enviar');
+    formData.append('id_vehiculo', idItem);
+    formData.append('mensaje', texto);
+
+    fetch('chat_backend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            input.value = '';
+            cargarMensajesServidor();
+        } else {
+            console.error("Error del servidor:", data.message);
+        }
+    })
+    .catch(err => console.error("Error de red:", err));
+}
+
+function enviarMensajeAutomatico(texto) {
+    const chatContainer = document.getElementById('chat-float-container');
+    const idItem = chatContainer.dataset.id || 0;
+
+    const formData = new URLSearchParams();
+    formData.append('accion', 'enviar');
+    formData.append('id_vehiculo', idItem);
+    formData.append('mensaje', texto);
+
+    fetch('chat_backend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+    })
+    .then(() => cargarMensajesServidor());
+}
+
+function cargarMensajesServidor() {
+    const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer || chatContainer.style.display !== 'flex') return;
+
+    const idItem = chatContainer.dataset.id || 0;
+
+    fetch(`chat_backend.php?accion=obtener&id_vehiculo=${idItem}`)
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            const mensajesContainer = document.getElementById('chat-messages');
+            mensajesContainer.innerHTML = '';
+
+            data.mensajes.forEach(m => {
+                const div = document.createElement('div');
+                const esMio = m.remitente === data.usuario_actual;
+                div.className = 'message ' + (esMio ? 'user' : 'bot');
+                div.innerHTML = `<strong>${esMio ? 'Tú' : m.remitente}:</strong> ${m.mensaje}`;
+                mensajesContainer.appendChild(div);
+            });
+            mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
+        }
+    });
+>>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 }
 </script>
 </body>
