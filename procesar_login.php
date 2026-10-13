@@ -4,7 +4,7 @@ require_once 'conexion.php'; // Usa tu archivo de conexión PDO
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Recibe los datos del formulario de inicioSesion.php
+    // Recibe los datos del formulario
     $identificador = trim($_POST['usuario_identificador'] ?? '');
     $password      = $_POST['password'] ?? '';
 
@@ -14,39 +14,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // BÚSQUEDA ESPECÍFICA: 
-        // - Si es usuario normal, buscamos por correo.
-        // - Si es empresa, buscamos por NIT (o correo de la empresa).
         $sql = "SELECT * FROM usuario WHERE correo = :login OR nit = :login LIMIT 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':login' => $identificador]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($usuario) {
-            // Lee la contraseña (independientemente de cómo se llame la columna en la BD)
+            // 1. Buscamos la contraseña de forma flexible
             $hashGuardado = $usuario['contraseña'] ?? $usuario['contrasena'] ?? '';
             
             // Compara contraseña encriptada o en texto plano
             if (password_verify($password, $hashGuardado) || $password === $hashGuardado) {
                 session_regenerate_id(true);
 
-                // Asignamos las variables de sesión unificadas
-                $_SESSION['IdUsuario']      = $usuario['IdUsuario'];
-                $_SESSION['id_proveedor']   = $usuario['IdUsuario']; // Para compatibilidad antigua
-                $_SESSION['tipo']           = $usuario['tipo'];      // 1 = Empresa, 2 = Usuario
+                // 2. Buscamos el ID del usuario de forma flexible por si en tu BD se llama diferente
+                $idUsuarioEncontrado = $usuario['IdUsuario'] ?? $usuario['idusuario'] ?? $usuario['id_usuario'] ?? $usuario['id'] ?? null;
+
+                if (!$idUsuarioEncontrado) {
+                    echo "<script>alert('Error: No se encontró la columna de identificación del usuario en la base de datos.'); window.history.back();</script>";
+                    exit();
+                }
+
+                // Asignamos las variables de sesión unificadas de forma segura
+                $_SESSION['IdUsuario']      = $idUsuarioEncontrado;
+                $_SESSION['id_proveedor']   = $idUsuarioEncontrado; // Para compatibilidad antigua
+                $_SESSION['tipo']           = $usuario['tipo'];     // 1 = Empresa, 2 = Usuario
 
                 // Validamos según el tipo guardado en la tabla unificada
                 if ($usuario['tipo'] == 1) {
-                    // Es Empresa -> Validamos que se haya logueado por NIT o correo de empresa
-                    $_SESSION['nombre_empresa'] = $usuario['empresa'];
-                    $_SESSION['usuario_nombre'] = $usuario['empresa'];
+                    // Es Empresa
+                    $_SESSION['nombre_empresa'] = $usuario['empresa'] ?? '';
+                    $_SESSION['usuario_nombre'] = $usuario['empresa'] ?? '';
                     $_SESSION['rol']            = 'proveedor';
 
                     header("Location: dashboardE.php");
                     exit();
                 } else {
-                    // Es Usuario normal -> Validamos por correo
-                    $_SESSION['usuario_nombre'] = $usuario['nombre'];
+                    // Es Usuario normal
+                    $_SESSION['usuario_nombre'] = $usuario['nombre'] ?? '';
                     $_SESSION['rol']            = 'cliente';
 
                     header("Location: dashboardf.php");
