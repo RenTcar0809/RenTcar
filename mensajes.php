@@ -10,26 +10,24 @@ if (!isset($_SESSION['IdUsuario'])) {
     exit();
 }
 
-$id_usuario = $_SESSION['IdUsuario'];
-$nombre_usuario = '';
-$error_msg = '';
-$contactos = []; 
+$id_usuario = $_SESSION['IdUsuario'];$nombre_usuario = '';
+$error_msg = '';$contactos = []; 
 
 try {
-    // Obtener la identidad del usuario actual
-    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
+    // Consulta para obtener la identidad del usuario actual
+    $stmtU =$pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
     $stmtU->execute([$id_usuario]);
-    $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
+    $uData =$stmtU->fetch(PDO::FETCH_ASSOC);
     
     if ($uData) {
-        $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
+        $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] :$uData['nombre'];
     }
 
     // Guardar el nombre en sesión para compatibilidad con chat_backend.php
-    $_SESSION['usuario_nombre'] = $nombre_usuario;
+    $_SESSION['usuario_nombre'] =$nombre_usuario;
 
     // Consulta para traer los mensajes
-    $stmt_chats = $pdo->prepare('
+    $stmt_chats =$pdo->prepare('
         SELECT 
             m.id_vehiculo, 
             m.remitente, 
@@ -45,18 +43,18 @@ try {
         WHERE m.destinatario = ? OR m.remitente = ?
         ORDER BY m.fecha DESC
     ');
-    $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
-    $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
+    $stmt_chats->execute([$nombre_usuario,$nombre_usuario]);
+    $todos_mensajes =$stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
     function obtenerUrlImagen($ruta) {
-        $ruta = trim(str_replace('\\', '/', $ruta));
+        $ruta = trim(str_replace('\\', '/',$ruta));
         if (empty($ruta)) {
             return 'unnamed.png';
         }
-        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
+        if (strpos($ruta, 'http://') === 0 \vert{}\vert{} strpos($ruta, 'https://') === 0) {
             return $ruta;
         }
-        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) {
+        if (strpos($ruta, 'imagenes/') === 0 \vert{}\vert{} strpos($ruta, 'uploads/') === 0) {
             return $ruta;
         }
         if (file_exists('uploads/' . $ruta)) {
@@ -71,15 +69,12 @@ try {
         return 'unnamed.png';
     }
 
-    foreach ($todos_mensajes as $msg) {
-        $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
+    foreach ($todos_mensajes as $msg) {$interlocutor = ($msg['remitente'] ===$nombre_usuario) ? $msg['destinatario'] :$msg['remitente'];
         
-        if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
-            $id_v_val = !empty($msg['id_vehiculo']) ? $msg['id_vehiculo'] : 0;
-            $clave_contacto = $id_v_val . '_' . $interlocutor;
+        if (!empty($interlocutor) &&$interlocutor !== $nombre_usuario) {$id_v_val = !empty($msg['id_vehiculo']) ?$msg['id_vehiculo'] : 0;
+            $clave_contacto = $id_v_val . '_' .$interlocutor;
             
-            if (!empty($msg['marca']) || !empty($msg['modelo'])) {
-                $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? ''));
+            if (!empty($msg['marca']) || !empty($msg['modelo'])) {$nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? ''));
             } else {
                 $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
             }
@@ -102,34 +97,27 @@ try {
         }
     }
 
-} catch (PDOException $e) {
-    $error_msg = "Error en la base de datos: " . $e->getMessage();
+} catch (PDOException $e) {$error_msg = "Error en la base de datos: " . $e->getMessage();
 }
 
 $keys_contacto = array_keys($contactos);
-$contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
+$contacto_activo_key =$_GET['contacto'] ?? (!empty($keys_contacto) ?$keys_contacto[0] : '');
 
 $id_vehiculo_activo = 0;
-$nombre_vehiculo_activo = '';
-$imagen_vehiculo_activo = '';
-$interlocutor_real = '';
-$tipo_vehiculo_activo = 'auto';
+$nombre_vehiculo_activo = '';$imagen_vehiculo_activo = '';
+$interlocutor_real = '';$tipo_vehiculo_activo = 'auto';
 
-if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
-    $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
-    $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
-    $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
-    $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
-    $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
+if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {$id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
+    $nombre_vehiculo_activo =$contactos[$contacto_activo_key]['nombre_auto'];$imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
+    $interlocutor_real =$contactos[$contacto_activo_key]['interlocutor'];$tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
 }
 
 // Obtener mensajes de la conversación activa y marcar como leídos
 $mensajes_chat = [];
 if (!empty($interlocutor_real)) {
     try {
-        // Marcar como leídos los mensajes que este usuario recibió de este interlocutor
         if ($id_vehiculo_activo > 0) {
-            $stmt_marcar = $pdo->prepare('
+            $stmt_marcar =$pdo->prepare('
                 UPDATE mensajes_chat 
                 SET leido = 1 
                 WHERE destinatario = ? 
@@ -137,17 +125,17 @@ if (!empty($interlocutor_real)) {
                 AND id_vehiculo = ? 
                 AND leido = 0
             ');
-            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real, $id_vehiculo_activo]);
+            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real,$id_vehiculo_activo]);
 
-            $stmt_h = $pdo->prepare('
+            $stmt_h =$pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE id_vehiculo = ? 
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
         } else {
-            $stmt_marcar = $pdo->prepare('
+            $stmt_marcar =$pdo->prepare('
                 UPDATE mensajes_chat 
                 SET leido = 1 
                 WHERE destinatario = ? 
@@ -155,19 +143,18 @@ if (!empty($interlocutor_real)) {
                 AND (id_vehiculo IS NULL OR id_vehiculo = 0) 
                 AND leido = 0
             ');
-            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real]);
+            $stmt_marcar->execute([$nombre_usuario,$interlocutor_real]);
 
-            $stmt_h = $pdo->prepare('
+            $stmt_h =$pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE (id_vehiculo IS NULL OR id_vehiculo = 0)
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
+            $stmt_h->execute([$nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
         }
-        $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        $error_msg = "Error al cargar el chat: " . $e->getMessage();
+        $mensajes_chat =$stmt_h->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {$error_msg = "Error al cargar el chat: " . $e->getMessage();
     }
 }
 ?>
@@ -206,7 +193,6 @@ if (!empty($interlocutor_real)) {
                            data-key="<?php echo htmlspecialchars($key); ?>">
                             <div class="contact-avatar" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
-                                <!-- Indicador de mensaje nuevo -->
                                 <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #e74c3c; border-radius: 50%; border: 2px solid #1a1a1a; box-shadow: 0 0 5px rgba(231,76,60,0.8);"></span>
                             </div>
                             <div class="contact-info">
@@ -248,8 +234,7 @@ if (!empty($interlocutor_real)) {
                 </div>
 
                 <div class="chat-messages" id="chatBox">
-                    <?php foreach ($mensajes_chat as $msg):$es_mio = ($msg['remitente'] ===$nombre_usuario);
-                    ?>
+                    <?php foreach ($mensajes_chat as $msg):$es_mio = ($msg['remitente'] ===$nombre_usuario); ?>
                         <div class="message-bubble <?php echo $es_mio ? 'sent' : 'received'; ?>">
                             <p><?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?></p>
                             <span class="msg-time"><?php echo date('H:i', strtotime($msg['fecha'] ?? 'now')); ?></span>
@@ -324,7 +309,6 @@ if (!empty($interlocutor_real)) {
             .catch(err => console.error('Error de red:', err));
         }
 
-        // Revisar si hay nuevos mensajes periódicamente (polling)
         function revisarNotificaciones() {
             fetch('chat_backend.php?accion=verificar_nuevos')
             .then(res => res.json())
@@ -346,9 +330,7 @@ if (!empty($interlocutor_real)) {
             .catch(err => console.error('Error al revisar notificaciones:', err));
         }
 
-        // Ejecutar cada 5 segundos
         setInterval(revisarNotificaciones, 5000);
-        // Primera ejecución inmediata
         revisarNotificaciones();
     </script>
 </body>
