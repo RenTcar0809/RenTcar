@@ -45,12 +45,7 @@ try {
     die("Error: " . $e->getMessage());
 }
 
-<<<<<<< HEAD
-// Lógica de imagen para la cabecera
-$fotosFisicas = glob("imagenes/*" . $id_v . "_*");
-$imgCabecera = !empty($fotosFisicas) ? $fotosFisicas[0] : 'unnamed.png';
-=======
-// Lógica de imagen utilizando la tabla correcta: fotos_vehiculos
+// Lógica de imagen utilizando la tabla correcta: fotos_vehiculos (Compatible con Cloudinary y rutas locales)
 $imgCabecera = 'unnamed.png'; 
 
 try {
@@ -61,26 +56,23 @@ try {
     if ($fotoData && !empty($fotoData['ruta_imagen'])) {
         $ruta = trim($fotoData['ruta_imagen']);
         
-        // Si es una URL de Cloudinary (empieza con http), la usa directamente
+        // Si es una URL de Cloudinary o ruta local, la asigna directamente
         if (strpos($ruta, 'http') === 0) {
             $imgCabecera = $ruta;
         } else {
-            // Si es una ruta local vieja, la mantiene
             $imgCabecera = $ruta;
         }
     }
 } catch (PDOException $e) {
-    // Manejo de error si ocurre algún inconveniente con la consulta
     $imgCabecera = 'unnamed.png';
 }
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Opiniones - <?php echo $vehiculo['marca']; ?></title>
+    <title>Opiniones - <?php echo htmlspecialchars($vehiculo['marca'] ?? ''); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -136,10 +128,10 @@ try {
 <div class="container">
     <!-- Cabecera del Vehículo -->
     <div class="vehicle-header">
-        <img src="<?php echo $imgCabecera; ?>" class="img-mini" onerror="this.src='unnamed.png'">
+        <img src="<?php echo htmlspecialchars($imgCabecera); ?>" class="img-mini" onerror="this.src='unnamed.png'">
         <div>
-            <h1><?php echo strtoupper($vehiculo['marca'] . " " . $vehiculo['modelo']); ?></h1>
-            <p style="color: #666; margin: 5px 0 0 0;">Placa: <?php echo $vehiculo['placa']; ?></p>
+            <h1><?php echo strtoupper(htmlspecialchars(($vehiculo['marca'] ?? '') . " " . ($vehiculo['modelo'] ?? ''))); ?></h1>
+            <p style="color: #666; margin: 5px 0 0 0;">Placa: <?php echo htmlspecialchars($vehiculo['placa'] ?? ''); ?></p>
         </div>
         <a href="historial_vehiculo.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
     </div>
@@ -182,10 +174,10 @@ try {
                 <div class="comment-card">
                     <div class="comment-header">
                         <div class="user-info">
-                            <div class="avatar"><?php echo strtoupper(substr($c['usuario_nombre'], 0, 1)); ?></div>
+                            <div class="avatar"><?php echo strtoupper(substr($c['usuario_nombre'] ?? 'U', 0, 1)); ?></div>
                             <div class="user-name">
-                                <b><?php echo htmlspecialchars($c['usuario_nombre']); ?></b>
-                                <small><?php echo date('d M, Y', strtotime($c['fecha'])); ?></small>
+                                <b><?php echo htmlspecialchars($c['usuario_nombre'] ?? 'Usuario'); ?></b>
+                                <small><?php echo isset($c['fecha']) ? date('d M, Y', strtotime($c['fecha'])) : ''; ?></small>
                             </div>
                         </div>
                         <div class="comment-stars">
@@ -195,7 +187,7 @@ try {
                             ?>
                         </div>
                     </div>
-                    <p class="comment-text">"<?php echo nl2br(htmlspecialchars($c['comentario'])); ?>"</p>
+                    <p class="comment-text">"<?php echo nl2br(htmlspecialchars($c['comentario'] ?? '')); ?>"</p>
                 </div>
                 <?php endforeach; ?>
             <?php endif; ?>

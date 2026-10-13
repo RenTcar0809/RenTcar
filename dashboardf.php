@@ -102,9 +102,6 @@ window.onclick = function(event) {
         }
     }
 }
-<<<<<<< HEAD
-=======
-
 // Función global para verificar mensajes nuevos y mostrar la burbuja en el menú lateral
 function verificarNotificacionesGlobales() {
     fetch('chat_backend.php?accion=verificar_nuevos')
@@ -150,7 +147,6 @@ function verificarNotificacionesGlobales() {
 setInterval(verificarNotificacionesGlobales, 5000);
 // Ejecutar inmediatamente al cargar la página
 verificarNotificacionesGlobales();
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 </script>
 </body>
 </html>

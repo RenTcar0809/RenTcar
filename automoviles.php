@@ -9,22 +9,12 @@ if (!isset($_SESSION['usuario_nombre'])) {
 }
 
 try {
-<<<<<<< HEAD
-    // Consulta mejorada: Intenta traer la primera foto de la tabla 'fotos_vehiculos' 
-    // y si no hay, usaremos la de la tabla 'vehiculo'.
-    $sql = "SELECT v.*, 
-                   (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
-            FROM vehiculo v 
-            WHERE tipo != 'Motocicleta' 
-            ORDER BY id_v DESC";
-=======
-    // Consulta con el filtro restaurado para excluir motocicletas
+    // Consulta con el filtro robusto para excluir motocicletas (tanto 'Motocicleta' como variaciones)
     $sql = "SELECT v.*, 
                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
             FROM vehiculo v 
             WHERE LOWER(v.tipo) NOT LIKE '%moto%' 
             ORDER BY v.id_v DESC";
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
             
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
@@ -67,25 +57,7 @@ try {
         <?php if (!empty($vehiculos)): ?>
             <?php foreach ($vehiculos as $carro): ?>
                 <?php 
-                    // --- LÓGICA DE DETECCIÓN DE IMAGEN ---
-<<<<<<< HEAD
-                    
-                    // 1. Prioridad: Foto de la galería, si no, foto de la tabla vehículo
-                    $nombreImagen = !empty($carro['foto_galeria']) ? $carro['foto_galeria'] : (!empty($carro['imagen']) ? $carro['imagen'] : '');
-                    
-                    // 2. Limpiar la ruta (quitar espacios y corregir barras de Windows)
-                    $nombreImagen = str_replace('\\', '/', trim($nombreImagen));
-                    
-                    $srcFinal = "nissan.png"; // Imagen por defecto
-
-                    if (!empty($nombreImagen)) {
-                        // Caso A: La ruta ya viene con carpeta (ej: "uploads/carro.jpg" o "imagenes/carro.jpg")
-                        if (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
-                            $srcFinal = $nombreImagen;
-                        } 
-                        // Caso B: Es solo el nombre del archivo, buscamos en qué carpeta existe
-                        else {
-=======
+                    // --- LÓGICA DE DETECCIÓN DE IMAGEN (Cloudinary / Local) ---
                     $nombreImagen = !empty($carro['foto_galeria']) ? $carro['foto_galeria'] : (!empty($carro['imagen']) ? $carro['imagen'] : '');
                     
                     $srcFinal = "nissan.png"; // Imagen por defecto
@@ -97,14 +69,13 @@ try {
                         if (strpos($nombreImagen, 'http://') === 0 || strpos($nombreImagen, 'https://') === 0) {
                             $srcFinal = $nombreImagen;
                         } 
-                        // Caso 2: Ruta local con carpeta
+                        // Caso 2: Ruta local con carpeta explícita
                         elseif (strpos($nombreImagen, 'uploads/') === 0 || strpos($nombreImagen, 'imagenes/') === 0) {
                             $srcFinal = $nombreImagen;
                         } 
-                        // Caso 3: Archivo local antiguo
+                        // Caso 3: Archivo local antiguo o solo nombre de archivo
                         else {
                             $nombreImagen = str_replace('\\', '/', $nombreImagen);
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                             if (file_exists('uploads/' . $nombreImagen)) {
                                 $srcFinal = 'uploads/' . $nombreImagen;
                             } else {
@@ -115,14 +86,8 @@ try {
                 ?>
                 <article class="product-card-vertical">
                     <div class="image-wrapper">
-<<<<<<< HEAD
-                        <!-- Usamos srcFinal que ya tiene la ruta corregida -->
-                        <img src="<?php echo htmlspecialchars($srcFinal); ?>" 
-                             alt="<?php echo htmlspecialchars($carro['marca']); ?>"
-=======
                         <img src="<?php echo htmlspecialchars($srcFinal); ?>" 
                              alt="<?php echo htmlspecialchars($carro['marca'] ?? 'Vehículo'); ?>"
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
                              onerror="this.src='nissan.png';">
                     </div>
                     <div class="info-wrapper">

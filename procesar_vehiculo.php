@@ -3,35 +3,6 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-<<<<<<< HEAD
-$pagina_formulario = "indexV.php"; 
-
-if (!isset($_SESSION['IdUsuario'])) {
-    die("❌ ERROR: No hay una sesión activa.");
-}
-
-if (isset($_POST['enviar_registro_v'])) {
-    
-    $conexion = mysqli_connect("localhost", "root", "", "rentcar");
-    if (!$conexion) { die("Fallo de conexión: " . mysqli_connect_error()); }
-
-    $id_proveedor = $_SESSION['IdUsuario']; 
-    $marca        = trim($_POST['marca']);
-    $modelo       = trim($_POST['modelo']);
-    $tipo         = $_POST['tipo'];         
-    $color        = trim($_POST['color']);
-    $placa        = strtoupper(trim($_POST['placa']));
-    $motor        = trim($_POST['motor']);
-    $transmision  = $_POST['transmision']; 
-    $traccion     = trim($_POST['traccion']);
-    $num_motor    = intval($_POST['num_motor']);  
-    $num_chasis   = intval($_POST['num_chasis']); 
-    $asientos     = intval($_POST['asientos']);   
-    $precio       = floatval($_POST['precio']);   
-
-    if (!preg_match('/^[A-Z]{3}[0-9]{3}$/', $placa)) {
-        $_SESSION['error_placa'] = "El formato debe ser de 3 letras y 3 números (Ej: ABC123).";
-=======
 // Incluimos tu conexión centralizada (detecta PostgreSQL en Render o MySQL local)
 require_once 'conexion.php';
 
@@ -50,51 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $api_secret = "RTx7SRXjxf0eBi5nWoqQMrxkuv8"; 
     $url_imagen_matricula = "";
 
-    // 2. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
+    // 1. PROCESAR Y VALIDAR LA FOTO DE LA MATRÍCULA
     if (!isset($_FILES['imagen_matricula']) || $_FILES['imagen_matricula']['error'] === UPLOAD_ERR_NO_FILE) {
         $_SESSION['error_placa'] = "La foto de la tarjeta de propiedad / matrícula es obligatoria.";
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         header("Location: " . $pagina_formulario);
         exit();
     }
 
-<<<<<<< HEAD
-    $sql = "INSERT INTO vehiculo (id_proveedor, tipo, num_motor, num_chasis, traccion, motor, transmision, color, marca, placa, modelo, precio, asientos) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-    $stmt = mysqli_prepare($conexion, $sql);
-
-    if ($stmt) {
-        mysqli_stmt_bind_param($stmt, "isiisssssssdi", 
-            $id_proveedor, $tipo, $num_motor, $num_chasis, $traccion, $motor, $transmision, $color, $marca, $placa, $modelo, $precio, $asientos
-        );
-
-        try {
-            if (mysqli_stmt_execute($stmt)) {
-                // Capturamos el ID generado antes de salir
-                $id_nuevo_vehiculo = mysqli_insert_id($conexion);
-                
-                // Redirigimos a la carga de fotos en lugar de directo al dashboard
-                header("Location: subirfoto.php?id=" . $id_nuevo_vehiculo);
-                exit();
-            }
-        } catch (mysqli_sql_exception $e) {
-            if ($e->getCode() == 1062) {
-                $_SESSION['error_placa'] = "Esta placa ya se encuentra registrada en el sistema.";
-                header("Location: " . $pagina_formulario);
-                exit();
-            } else {
-                $_SESSION['error_placa'] = "Error inesperado en la BD: " . $e->getMessage();
-                header("Location: " . $pagina_formulario);
-                exit();
-            }
-        }
-        mysqli_stmt_close($stmt);
-    }
-    mysqli_close($conexion);
-} else {
-    header("Location: dashboard.php");
-=======
     if ($_FILES['imagen_matricula']['error'] === 1) {
         $_SESSION['error_placa'] = "La imagen es demasiado pesada para el servidor. Por favor, selecciona una foto de menor resolución.";
         header("Location: " . $pagina_formulario);
@@ -143,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
         exit();
     }
 
-    // 3. RECOGER Y LIMPIAR DATOS TÉCNICOS
+    // 2. RECOGER Y LIMPIAR DATOS TÉCNICOS
     $id_proveedor = intval($_SESSION['IdUsuario']); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
@@ -161,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     $precio_raw   = $_POST['precio'] ?? '';
     $precio       = ($precio_raw !== '') ? floatval($precio_raw) : 0.00;
 
-    // 4. VALIDACIÓN DE PLACA PARA COLOMBIA
+    // 3. VALIDACIÓN DE PLACA PARA COLOMBIA (Carro: ABC123 / Moto: ABC12F o ABC123)
     $patron_placa = '/^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z0-9])$/';
     if (!preg_match($patron_placa, $placa)) {
         $_SESSION['error_placa'] = "Formato de placa inválido. Carro (ABC123) o Moto (ABC12F).";
@@ -170,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     }
 
     try {
-        // 5. VERIFICAR SI LA PLACA YA EXISTE EN LA TABLA 'vehiculo'
+        // 4. VERIFICAR SI LA PLACA YA EXISTE EN LA TABLA 'vehiculo'
         $stmt_check = $pdo->prepare("SELECT id_v FROM vehiculo WHERE placa = ?");
         $stmt_check->execute([$placa]);
         
@@ -180,11 +113,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 6. ASOCIAR LA MATRÍCULA AL USUARIO / PROVEEDOR
+        // 5. ASOCIAR LA MATRÍCULA AL USUARIO / PROVEEDOR
         $stmt_user_doc = $pdo->prepare('UPDATE usuario SET licencia_transito = ? WHERE "IdUsuario" = ?');
         $stmt_user_doc->execute([$url_imagen_matricula, $id_proveedor]);
 
-        // 7. INSERTAR DATOS EN LA TABLA 'vehiculo' (Limpio, sin la matrícula)
+        // 6. INSERTAR DATOS EN LA TABLA 'vehiculo'
         $sql = "INSERT INTO vehiculo (id_proveedor, tipo, marca, modelo, color, placa, motor, transmision, traccion, asientos, precio) 
                 VALUES (:id_proveedor, :tipo, :marca, :modelo, :color, :placa, :motor, :transmision, :traccion, :asientos, :precio)";
         
@@ -203,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             ':precio'       => $precio
         ]);
 
-        // 8. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y MySQL)
+        // 7. CAPTURAR EL ID RECIÉN CREADO (Compatible con PostgreSQL y MySQL)
         try {
             $id_vehiculo_nuevo = $pdo->lastInsertId('vehiculo_id_v_seq');
         } catch (Exception $ex) {
@@ -217,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             $id_vehiculo_nuevo = $vehiculo_encontrado['id_v'] ?? 0;
         }
 
-        // 9. REDIRECCIÓN A 'subirfoto.php' PARA LAS FOTOS COMERCIALES
+        // 8. REDIRECCIÓN A 'subirfoto.php' PARA LAS FOTOS COMERCIALES
         header("Location: subirfoto.php?id=" . $id_vehiculo_nuevo);
         exit();
 
@@ -229,7 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
 
 } else {
     header("Location: indexV.php");
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
     exit();
 }
 ?>

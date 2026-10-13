@@ -9,10 +9,6 @@ if (!isset($_SESSION['IdUsuario'])) {
 }
 
 $id_usuario = $_SESSION['IdUsuario'];
-<<<<<<< HEAD
-
-try {
-=======
 $mensajes_no_leidos = 0; // Inicializamos la variable para evitar advertencias
 
 try {
@@ -26,16 +22,11 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // 2. Consultar los vehículos del proveedor (verificando también si id_proveedor o id_usuario aplica)
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
+    // 2. Consultar los vehículos del proveedor
     $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
     $stmt->execute([':id_usuario' => $id_usuario]);
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-<<<<<<< HEAD
-} catch (PDOException $e) {
-    $error_msg = "Error al cargar los vehículos: " . $e->getMessage();
-=======
     // 3. Contar los mensajes en la tabla mensajes_chat destinados a este usuario
     if (!empty($nombre_usuario)) {
         $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total FROM mensajes_chat WHERE destinatario = ?');
@@ -46,7 +37,6 @@ try {
 
 } catch (PDOException $e) {
     $error_msg = "Error al cargar los datos: " . $e->getMessage();
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 }
 ?>
 <!DOCTYPE html>
@@ -69,11 +59,6 @@ try {
         .btn-volver { text-decoration: none; color: #aaa; font-weight: 600; display: flex; align-items: center; gap: 5px; }
         .btn-volver:hover { color: white; }
         
-<<<<<<< HEAD
-        .btn-accion { background: var(--rojo); padding: 12px 25px; border-radius: 8px; text-decoration: none; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
-        .btn-accion:hover { background: #b20710; }
-
-=======
         .grupo-acciones-derecha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
         .btn-accion { background: var(--rojo); padding: 12px 25px; border-radius: 8px; text-decoration: none; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
@@ -91,7 +76,6 @@ try {
             border-radius: 50%; position: absolute; top: -8px; right: -8px; font-weight: bold; 
         }
 
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         .vehiculos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
         
         .vehiculo-card { 
@@ -142,12 +126,6 @@ try {
             <a href="dashboardf.php" class="btn-volver">
                 <i class="fas fa-chevron-left"></i> Volver
             </a>
-<<<<<<< HEAD
-            <h1 class="titulo-principal">GESTIÓN DE FLOTA</h1>
-            <a href="indexV.php" class="btn-accion">
-                <i class="fas fa-plus"></i> NUEVA UNIDAD
-            </a>
-=======
             
             <h1 class="titulo-principal">GESTIÓN DE FLOTA</h1>
             
@@ -164,7 +142,6 @@ try {
                     <i class="fas fa-plus"></i> NUEVA UNIDAD
                 </a>
             </div>
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
         </div>
 
         <?php if (isset($error_msg)): ?>

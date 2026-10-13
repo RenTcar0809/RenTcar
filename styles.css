@@ -63,7 +63,6 @@ body {
     justify-content: center;
     align-items: center;
     padding: 20px; 
-   
 }
 
 .register-form {
@@ -74,7 +73,6 @@ body {
     padding: 22px;
     display: flex;
     flex-direction: column;
-
     box-shadow:
         0 0 30px rgba(230, 0, 0, 0.5),
         0 0 50px rgba(230, 0, 0, 0.4),
@@ -100,14 +98,14 @@ body {
 .form-split {
     display: flex;
     background: linear-gradient(103deg, #e60000 0%, #e60000 50%, #ffffff 50%, #ffffff 52%, #111111 52%, #111111 100%);
-    padding: 28px 18px; /* Altura del bloque diagonal calibrada */
+    padding: 28px 18px;
 }
 
 .form-column {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 14px; /* Separación intermedia ideal entre campos */
+    gap: 14px;
     padding: 0 32px; 
 }
 
@@ -159,15 +157,11 @@ body {
 
 .input-group input {
     width: 100%;
-    height: 35px; /* PUNTO MEDIO: Cajas estilizadas de 35px (ni 31px ni 42px) */
+    height: 35px;
     background-color: #f2f2f2;
     border-radius: 5px;
     padding: 0 12px;
-<<<<<<< HEAD
-    font-family: 'Graduate', serif;
-=======
-    font-family: 'Arial', serif;
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
+    font-family: Arial, sans-serif;
     font-size: 13px; 
     color: #333333;
 }
@@ -190,7 +184,7 @@ body {
     display: flex;
     background-color: #f2f2f2;
     border-radius: 5px;
-    height: 35px; /* Sincronizado a 35px */
+    height: 35px;
     overflow: hidden;
     align-items: center;
     padding-left: 10px;
@@ -278,7 +272,7 @@ body {
     background-color: #aa0000;
 }
 
-/* LINKS CENTRALES (Se mantienen en Bangers) */
+/* LINKS CENTRALES */
 .footer-links {
     font-family: 'Bangers', cursive;
     text-align: center;
@@ -293,6 +287,19 @@ body {
 
 .terms-link {
     margin-top: 5px;
+}
+
+/* NORMALIZACIÓN GLOBAL DE INPUTS Y TEXTOS */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="date"],
+select,
+textarea {
+    font-family: Arial, sans-serif !important;
+    font-weight: normal !important;
+    text-transform: none !important;
 }
 
 /* RESPONSIVO BÁSICO */
@@ -314,22 +321,4 @@ body {
         flex-direction: column;
         gap: 15px;
     }
-<<<<<<< HEAD
 }
-=======
-
-    /* Limpia y estandariza el texto que el usuario escribe dentro de los inputs */
-/* Forzar tipografía limpia en todos los campos de texto del sitio */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="tel"],
-input[type="date"],
-select,
-textarea {
-    font-family: Arial, sans-serif !important;
-    font-weight: normal !important;
-    text-transform: none !important;
-}
-}
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948

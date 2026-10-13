@@ -1,46 +1,8 @@
 <?php
 // verificar_placa.php
-<<<<<<< HEAD
-header('Content-Type: application/json');
-
-// Conexión a la base de datos
-$conexion = mysqli_connect("localhost", "root", "", "rentcar");
-
-if (!$conexion) {
-    echo json_encode(['error' => 'Error de conexión']);
-    exit;
-}
-
-// Recibir la placa enviada por JavaScript
-$data = json_decode(file_get_contents("php://input"), true);
-
-if (isset($data['placa'])) {
-    $placa = $data['placa'];
-
-    // Buscar si la placa ya existe en la tabla vehiculo
-    $sql = "SELECT id_v FROM vehiculo WHERE placa = ?";
-    $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "s", $placa);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_store_result($stmt);
-
-    // Si hay más de 0 filas, la placa existe
-    if (mysqli_stmt_num_rows($stmt) > 0) {
-        echo json_encode(['existe' => true]);
-    } else {
-        echo json_encode(['existe' => false]);
-    }
-
-    mysqli_stmt_close($stmt);
-} else {
-    echo json_encode(['error' => 'No se recibió la placa']);
-}
-
-mysqli_close($conexion);
-=======
 header('Content-Type: application/json; charset=utf-8');
 
-// Desactivar la visualización directa de errores HTML para proteger el JSON
+// Desactivar la visualización directa de errores HTML para proteger la respuesta JSON
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
@@ -74,5 +36,4 @@ try {
     // Capturar cualquier error de base de datos de forma limpia en JSON
     echo json_encode(['existe' => false, 'error' => $e->getMessage()]);
 }
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
 ?>
