@@ -1,0 +1,79 @@
+/* Variables para mantener la consistencia con tu dashboard */
+:root {
+    --primary-red: #E50914;
+    --black-bg: #0d0d0d;
+    --dark-grey: #1a1a1a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background-color: var(--black-bg); color: #fff; }
+
+.settings-layout { display: flex; min-height: 100vh; }
+
+/* Sidebar de Ajustes */
+.settings-sidebar { 
+    width: 280px; 
+    padding: 40px; 
+    border-right: 1px solid #333; 
+    background: #050505;
+}
+
+.settings-sidebar h2 { margin-bottom: 20px; font-family: 'Bangers', cursive; color: var(--primary-red); }
+
+.back-link { display: block; margin-bottom: 30px; color: #888; text-decoration: none; }
+.back-link:hover { color: #fff; }
+
+.settings-nav a { 
+    display: block; 
+    padding: 15px; 
+    color: #ccc; 
+    text-decoration: none; 
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: 0.3s;
+}
+
+.settings-nav a:hover, .settings-nav a.active { 
+    background: var(--primary-red); 
+    color: #fff;
+}
+
+/* Panel Principal */
+.settings-main { padding: 60px; flex-grow: 1; }
+
+.settings-main h1 { margin-bottom: 40px; }
+
+.form-group { margin-bottom: 25px; }
+
+.form-group label { display: block; margin-bottom: 8px; color: #aaa; }
+
+.form-group input { 
+    width: 100%; 
+    max-width: 500px;
+    padding: 12px; 
+    background: var(--dark-grey); 
+    border: 1px solid #333; 
+    color: #fff; 
+    border-radius: 5px;
+}
+
+.btn-save { 
+    background: var(--primary-red); 
+    color: white; 
+    padding: 12px 30px; 
+    border: none; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.btn-save:hover { background: #b3070f; }
+#card-element {
+    width: 100%;
+    max-width: 500px;
+    height: 45px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+}

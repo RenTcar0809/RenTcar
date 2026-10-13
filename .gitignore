@@ -1,0 +1,17 @@
+# Dependencias
+/vendor/
+
+# Archivos de configuración local y credenciales
+.env
+.env.local
+.env.*.local
+
+# Entornos virtuales o configuraciones de IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db

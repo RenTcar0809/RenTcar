@@ -1,0 +1,164 @@
+:root {
+    --bg-color: #050505;
+    --card-bg: #0d0d0d;
+    --primary-red: #cc0000;
+    --bright-red: #ff0000;
+    --neon-red: rgba(255, 0, 0, 0.4);
+    --text-color: #f0f0f0;
+    --accent-color: #1a1a1a;
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    /* Fondo oscuro con un ligero destello rojo superior */
+    background-image: radial-gradient(circle at top center, rgba(204, 0, 0, 0.08) 0%, transparent 60%);
+}
+
+.premium-container { 
+    width: 100%; 
+    max-width: 550px; 
+    padding: 20px; 
+}
+
+/* --- CONTENEDOR PRINCIPAL CON NEÓN ROJO --- */
+.form-card {
+    background: var(--card-bg);
+    padding: 45px 40px;
+    border-radius: 12px;
+    border: 1px solid var(--primary-red);
+    /* Efecto de luz neón roja */
+    box-shadow: 
+        0 0 15px var(--neon-red), 
+        0 0 30px rgba(255, 0, 0, 0.1),
+        inset 0 0 10px rgba(255, 0, 0, 0.05);
+    text-align: center;
+}
+
+.card-header {
+    margin-bottom: 40px;
+}
+
+.main-title {
+    font-family: 'Bangers', cursive;
+    font-size: 3rem;
+    color: var(--primary-red);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
+}
+
+.subtitle {
+    margin-top: 12px;    /* Separa hacia arriba del título */
+    margin-bottom: 12px; /* Separa hacia abajo del texto rojo */
+    display: block;      /* Asegura que el margen funcione correctamente */
+}
+.vehicle-id-badge {
+    background: rgba(255, 0, 0, 0.1);
+    color: var(--bright-red);
+    border: 1px solid var(--primary-red);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 800;
+    margin-left: 6px;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.2);
+}
+
+/* --- ZONA DE CARGA DE ARCHIVOS --- */
+.hidden-file-input {
+    display: none; /* Oculta el input original */
+}
+
+.upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: var(--accent-color);
+    border: 2px dashed #444;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+}
+
+.upload-label:hover {
+    border-color: var(--bright-red);
+    background: #111;
+    box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.1);
+}
+
+.upload-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--primary-red);
+    margin-bottom: 12px;
+}
+
+.upload-text {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #ddd;
+    margin-bottom: 6px;
+}
+
+.upload-hint {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* --- BOTÓN DE ENVÍO --- */
+.btn-submit-premium {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    background: var(--primary-red);
+    color: white;
+    padding: 16px 40px;
+    border-radius: 8px;
+    border: 1px solid var(--bright-red);
+    font-size: 1.1rem;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-submit-premium:hover {
+    background: var(--bright-red);
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+    transform: translateY(-2px);
+}
+
+.preview-list {
+    margin-top: 20px;
+    margin-bottom: 20px; /* Esto separará la lista del botón */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.preview-item {
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    color: #fff;
+    font-size: 0.9rem;
+    text-align: left;
+}

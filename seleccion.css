@@ -1,0 +1,270 @@
+:root {
+    --primary-red: #E50914; 
+    --dark-red: #8B0000;
+    --black-bg: #0d0d0d;
+    --dark-grey: #1a1a1a;
+    --light-grey: #262626;
+    --text-main: #e0e0e0;
+    --text-muted: #a0a0a0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background-color: var(--black-bg);
+    color: var(--text-main);
+    font-family: 'Roboto', sans-serif;
+    background-image: radial-gradient(circle at 15% 50%, rgba(229, 9, 20, 0.05), transparent 25%);
+    background-attachment: fixed;
+}
+
+/* Botón Volver Fijo */
+.back-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 2000;
+    font-family: 'Bangers', sans-serif;
+    background-color: var(--black-bg);
+    color: var(--primary-red);
+    padding: 10px 20px;
+    border: 2px solid var(--primary-red);
+    text-decoration: none;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    border-radius: 5px;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+    background-color: var(--primary-red);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(229, 9, 20, 0.6);
+}
+
+/* Header */
+.hero-header {
+    text-align: center;
+    padding: 80px 20px 40px;
+    background: linear-gradient(180deg, var(--dark-red) 0%, var(--black-bg) 100%);
+    border-bottom: 2px solid var(--primary-red);
+}
+
+.logo { font-family: 'Bangers', sans-serif; font-size: 3.5rem; margin-bottom: 15px; }
+.logo .ren, .logo .car { color: var(--primary-red); text-shadow: 2px 2px 0px #000; }
+.logo .t { color: #000; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 3px 3px 0px rgba(0,0,0,0.8); }
+
+.hero-header h1 {
+    font-family: 'Bangers', sans-serif;
+    font-size: 4rem;
+    color: #fff;
+    text-transform: uppercase;
+    text-shadow: 3px 3px 0px var(--primary-red);
+}
+
+/* Contenido */
+.terms-container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+.intro-box { background-color: var(--dark-grey); padding: 25px; border-left: 5px solid var(--primary-red); margin-bottom: 40px; }
+
+.term-card {
+    display: flex;
+    background-color: var(--dark-grey);
+    margin-bottom: 30px;
+    border-radius: 12px;
+    border: 1px solid var(--light-grey);
+}
+
+.term-number {
+    font-family: 'Bangers', sans-serif;
+    background-color: var(--light-grey);
+    color: var(--primary-red);
+    font-size: 3rem;
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    border-right: 2px solid var(--black-bg);
+}
+
+.term-content { padding: 25px; flex-grow: 1; }
+.term-content h2 { font-family: 'Bangers', sans-serif; color: #fff; font-size: 2rem; margin-bottom: 10px; }
+.term-content ul li { list-style: none; padding-left: 20px; margin-bottom: 8px; }
+
+.alert-card { border: 2px solid var(--primary-red); }
+footer { text-align: center; padding: 30px; background-color: var(--dark-grey); color: var(--text-muted); }
+
+
+
+.selection-page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+}
+
+.selection-wrapper {
+    text-align: center;
+    width: 100%;
+    max-width: 1000px;
+    padding: 20px;
+}
+
+.main-title {
+    font-family: 'Bangers', sans-serif;
+    font-size: 4rem;
+    color: white;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+}
+
+.main-title span { color: var(--primary-red); }
+
+.subtitle {
+    color: var(--text-muted);
+    margin-bottom: 60px;
+    font-size: 1.2rem;
+}
+
+.grid-container {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+}
+
+.vehicle-option {
+    width: 350px;
+    height: 400px;
+    background: var(--dark-grey);
+    border: 2px solid #333;
+    border-radius: 25px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efecto de borde al pasar mouse */
+.vehicle-option:hover {
+    border-color: var(--primary-red);
+    transform: translateY(-20px);
+    box-shadow: 0 20px 40px rgba(229, 9, 20, 0.3);
+}
+
+.vehicle-option h2 {
+    font-family: 'Bangers', sans-serif;
+    color: white;
+    font-size: 2.5rem;
+    margin-top: 20px;
+}
+
+.cta {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: var(--primary-red);
+    color: white;
+    border-radius: 50px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+/* Aquí pones tus imágenes */
+.motorcycle .icon-box {
+    width: 200px; height: 150px;
+    background: url('tu-moto.png') center/contain no-repeat;
+}
+
+.car .icon-box {
+    width: 200px; height: 150px;
+    background: url('tu-auto.png') center/contain no-repeat;
+}
+
+/* Responsivo para móviles */
+@media (max-width: 768px) {
+    .grid-container { flex-direction: column; align-items: center; }
+    .vehicle-option { width: 90%; height: 250px; }
+}
+
+
+
+:root {
+    --primary-red: #E50914; 
+    --black-bg: #0d0d0d;
+    --dark-grey: #1a1a1a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background-color: var(--black-bg); font-family: 'Roboto', sans-serif; }
+
+/* Header */
+.catalog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 50px;
+    background: var(--black-bg);
+    border-bottom: 2px solid var(--primary-red);
+}
+
+.logo-link { text-decoration: none; }
+.logo { font-family: 'Bangers', sans-serif; font-size: 2rem; cursor: pointer; }
+.logo .ren, .logo .car { color: var(--primary-red); text-shadow: 2px 2px 0px #000; }
+.logo .t { color: #fff; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+
+.page-title { font-family: 'Bangers', sans-serif; font-size: 3rem; }
+.auto { color: #fff; }
+.movil { color: var(--primary-red); }
+
+.filter-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 15px; background: transparent;
+    border: 2px solid var(--primary-red); color: #fff;
+    font-family: 'Bangers', sans-serif; font-size: 1rem;
+    border-radius: 5px; cursor: pointer; transition: 0.3s;
+}
+.filter-btn:hover { background: var(--primary-red); }
+
+/* Lista de Productos Vertical */
+.list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 40px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.product-card-vertical {
+    display: flex;
+    align-items: center;
+    background: var(--dark-grey);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid #333;
+    transition: 0.3s;
+}
+.product-card-vertical:hover { border-color: var(--primary-red); }
+
+.image-wrapper {
+    width: 250px; height: 160px;
+    overflow: hidden; border-radius: 10px;
+    flex-shrink: 0;
+}
+.product-card-vertical img { width: 100%; height: 100%; object-fit: cover; }
+
+.info-wrapper { padding-left: 30px; flex-grow: 1; }
+.info-wrapper h3 { color: #fff; font-size: 1.4rem; margin-bottom: 10px; }
+.price { color: var(--primary-red); font-family: 'Bangers', sans-serif; font-size: 1.5rem; margin-bottom: 15px; }
+
+.view-btn {
+    display: inline-block; background: #fff; color: #000; 
+    padding: 10px 25px; text-decoration: none; 
+    font-family: 'Bangers', sans-serif; border-radius: 5px; 
+    transition: 0.3s;
+}
+.view-btn:hover { background: var(--primary-red); color: #fff; }

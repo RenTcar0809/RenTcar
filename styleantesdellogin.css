@@ -1,0 +1,77 @@
+/* Estilos para los botones de autenticación */
+.auth-container {
+    display: flex;
+    gap: 15px;
+}
+
+.btn-login {
+    background: transparent;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 10px 25px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.btn-login:hover {
+    background: #1a1a1a;
+    border-color: #555;
+}
+
+.btn-register {
+    background: var(--primary-red);
+    color: #fff;
+    padding: 10px 25px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.btn-register:hover {
+    background: #c51818;
+}
+/* --- BOTONES DE AUTENTICACIÓN (PREMIUM) --- */
+.auth-container {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+/* Botón Iniciar Sesión (Estilo Ghost) */
+.btn-login {
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 10px 25px;
+    border-radius: 50px;
+    border: 1px solid #333;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.btn-login:hover {
+    background: #1a1a1a;
+    border-color: #555;
+}
+
+/* Botón Registrarse (Estilo Llamativo/CTA) */
+.btn-register {
+    background: linear-gradient(135deg, #e61e1e 0%, #a01515 100%);
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 10px 25px;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 15px rgba(230, 30, 30, 0.3);
+}
+
+.btn-register:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(230, 30, 30, 0.5);
+    background: linear-gradient(135deg, #ff2a2a 0%, #b31919 100%);
+}

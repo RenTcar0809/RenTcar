@@ -1,0 +1,144 @@
+:root {
+    --bg-dark: #0a0a0a;
+    --card-bg: #121212;
+    --accent-red: #e60000;
+    --text-muted: #888;
+    --white: #ffffff;
+    --status-active: #00e676; /* Verde */
+    --status-expired: #ff3d00; /* Naranja/Rojo */
+    --status-inactive: #757575; /* Gris */
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+
+body {
+    background-color: var(--bg-dark);
+    font-family: 'Inter', sans-serif;
+    color: var(--white);
+    line-height: 1.6;
+}
+
+.navbar {
+    background-color: var(--white);
+    height: 54px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(230, 0, 0, 0.473);
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    margin-left: 30px;
+}
+
+.logo-text {
+    font-family: 'Bangers', cursive;
+    font-size: 34px; 
+    font-style: italic;
+    letter-spacing: 0px;
+}
+
+.txt-red { color: var(--accent-red); }
+.txt-black { color: #000000; }
+
+.container {
+    padding: 100px 20px 60px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.main-title {
+    font-family: 'Bangers', cursive;
+    font-size: 48px;
+    letter-spacing: 2px;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.main-title span { color: var(--accent-red); }
+
+/* Diseño de las tarjetas de historial */
+.history-card {
+    background-color: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: 0.3s;
+}
+
+.history-card:hover {
+    border-color: rgba(230, 0, 0, 0.4);
+    box-shadow: 0 0 20px rgba(230, 0, 0, 0.15);
+}
+
+.vehicle-img {
+    width: 120px;
+    height: 80px;
+    object-fit: contain;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.details { flex: 1; }
+
+.vehicle-name {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 5px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.info-grid strong { color: var(--white); }
+
+/* Etiquetas de Estado */
+.status-badge {
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+.status-active { 
+    background-color: rgba(0, 230, 118, 0.1); 
+    color: var(--status-active); 
+    border: 1px solid var(--status-active); 
+}
+
+.status-expired { 
+    background-color: rgba(255, 61, 0, 0.1); 
+    color: var(--status-expired); 
+    border: 1px solid var(--status-expired); 
+}
+
+.status-inactive { 
+    background-color: rgba(117, 117, 117, 0.1); 
+    color: var(--status-inactive); 
+    border: 1px solid var(--status-inactive); 
+}

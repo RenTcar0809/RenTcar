@@ -1,0 +1,144 @@
+/* Estilos generales para el panel de edición */
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.edit-container {
+    max-width: 500px;
+    margin: 50px auto;
+    background: #1e1e1e;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    border: 1px solid #2a2a2a;
+}
+
+.edit-container h2 {
+    margin-top: 0;
+    color: #ffffff;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.vehicle-info {
+    background: #252525;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    color: #b0b0b0;
+    border-left: 4px solid #ff3b30;
+}
+
+.vehicle-info strong {
+    color: #ffffff;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #cccccc;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.form-group input[type="number"]:focus,
+.form-group select:focus {
+    border-color: #ff3b30;
+    outline: none;
+}
+
+.form-group input[type="file"] {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    color: #b0b0b0;
+    cursor: pointer;
+}
+
+.current-img-preview {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #252525;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.current-img-preview img {
+    width: 90px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #3a3a3a;
+}
+
+.btn-submit {
+    background: #ff3b30;
+    color: #ffffff;
+    border: none;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 10px;
+}
+
+.btn-submit:hover {
+    background: #e03229;
+}
+
+.btn-submit:active {
+    transform: scale(0.98);
+}
+
+.alert-success {
+    background: rgba(40, 167, 69, 0.2);
+    border: 1px solid #28a745;
+    color: #4cd964;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 15px;
+    color: #8e8e93;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: #ffffff;
+}

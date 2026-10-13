@@ -1,0 +1,368 @@
+/* ==========================================================================
+   RENT CAR - DISEÑO DE ALQUILERES (MODO OSCURO)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --primary-red: #e61e1e;
+    --primary-red-hover: #ff2a2a;
+    --dark-bg: #0b0b0e;
+    --card-bg: #141418;
+    --card-border: #23232b;
+    --navbar-bg: #050507;
+    --text-main: #ffffff;
+    --text-muted: #8e8e9c;
+    --text-gray: #b0b0ba;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--dark-bg);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- NAV SUPERIOR --- */
+.top-navbar {
+    width: 100%;
+    background-color: var(--navbar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 40px;
+    border-bottom: 1px solid var(--card-border);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo-text {
+    font-family: 'Bangers', cursive;
+    font-size: 2.3rem;
+    letter-spacing: 2px;
+}
+
+.red-t { color: var(--primary-red); }
+
+.nav-menu {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-link {
+    color: var(--text-gray);
+    text-decoration: none;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+    background: rgba(230, 30, 30, 0.1);
+    color: var(--text-main);
+    border-bottom-color: var(--primary-red);
+}
+
+.nav-link.highlight-company {
+    border-bottom-color: var(--primary-red);
+    background-color: rgba(230, 30, 30, 0.15);
+}
+
+/* PERFIL DE USUARIO */
+.user-container { position: relative; cursor: pointer; }
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card-bg);
+    padding: 6px 16px;
+    border-radius: 50px;
+    border: 1px solid var(--card-border);
+}
+
+.user-avatar {
+    width: 34px;
+    height: 34px;
+    background-color: var(--primary-red);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: #18181f;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    width: 190px;
+    padding: 8px 0;
+    z-index: 1000;
+}
+
+.dropdown-content.show { display: block; }
+
+.dropdown-content a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    color: var(--text-gray);
+    text-decoration: none;
+    font-size: 0.88rem;
+}
+
+.dropdown-content a:hover {
+    background: rgba(230, 30, 30, 0.1);
+    color: var(--primary-red);
+}
+
+/* --- CONTENIDO PRINCIPAL --- */
+.main-content {
+    max-width: 1300px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 30px 20px;
+}
+
+.header-banner {
+    margin-bottom: 25px;
+}
+
+.header-info h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.header-info p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* BARRA DE ESTADÍSTICAS */
+.rental-stats-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.stat-pill {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    padding: 10px 18px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.88rem;
+    color: var(--text-gray);
+}
+
+.stat-pill strong { color: #fff; }
+
+.stat-pill.status-active i { color: #3498db; }
+.stat-pill.status-completed i { color: #2ecc71; }
+
+/* TABLA DE ALQUILERES */
+.rental-list-container {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.rental-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.rental-table th {
+    background-color: #0d0d10;
+    color: var(--text-muted);
+    padding: 16px 20px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.rental-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #1a1a21;
+    vertical-align: middle;
+}
+
+.rental-table tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* COLUMNAS ESPECÍFICAS */
+.col-id {
+    font-family: monospace;
+    font-weight: bold;
+    color: var(--text-muted);
+}
+
+.col-vehicle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.car-thumb {
+    width: 45px;
+    height: 45px;
+    border-radius: 8px;
+    background-color: #0b0b0e;
+    border: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--primary-red);
+}
+
+.car-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.car-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.car-title {
+    font-weight: 600;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.plate-text {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.client-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-gray);
+    font-size: 0.9rem;
+}
+
+.dates-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.82rem;
+}
+
+.dates-box span { color: #2ecc71; }
+.dates-box small { color: #e74c3c; }
+
+.price-tag {
+    font-weight: 700;
+    color: #fff;
+}
+
+/* BADGES DE ESTADO */
+.badge-status {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge-activo {
+    background-color: rgba(52, 152, 219, 0.15);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.badge-finalizado {
+    background-color: rgba(46, 204, 113, 0.15);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.badge-cancelado {
+    background-color: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.badge-pendiente {
+    background-color: rgba(241, 196, 15, 0.15);
+    color: #f1c40f;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+}
+
+/* BOTÓN VER DETALLE */
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    background-color: #1f1f28;
+    color: var(--text-gray);
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: var(--primary-red);
+    color: #fff;
+}
+
+/* ESTADO SIN DATOS */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-state i {
+    font-size: 3.5rem;
+    color: var(--primary-red);
+    margin-bottom: 15px;
+}
+
+/* CORRECCIÓN PARA ICONOS SIEMPRE VISIBLES */
+.fa-solid, .fas, .fa-regular, .far {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    display: inline-block;
+}

@@ -1,0 +1,11 @@
+{
+    "name": "rentcar/app",
+    "description": "Aplicacion web de RentCar en PHP con soporte para MySQL y PostgreSQL",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "ext-pdo": "*",
+        "ext-pdo_pgsql": "*",
+        "ext-pgsql": "*"
+    }
+}

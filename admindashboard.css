@@ -1,0 +1,457 @@
+/* ==========================================================================
+   RENT CAR - DASHBOARD EMPRESA (DISEÑO HORIZONTAL - MODO OSCURO CON ROJO)
+   ========================================================================== */
+
+/* --- FUENTES DE GOOGLE --- */
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --primary-red: #e61e1e;
+    --primary-red-hover: #ff2a2a;
+    --primary-dark-red: #a01515;
+    --dark-bg: #0f0f0f;
+    --card-bg: #16161a;
+    --card-border: #282830;
+    --navbar-bg: #050505;
+    --text-main: #ffffff;
+    --text-muted: #8e8e93;
+    --text-gray: #b3b3b3;
+    --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* --- RESET & ESTILOS BASE --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--dark-bg);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Barra de desplazamiento personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+}
+::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-red);
+}
+
+/* --- BARRA DE NAVEGACIÓN SUPERIOR (HORIZONTAL) --- */
+.top-navbar {
+    width: 100%;
+    background-color: var(--navbar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 40px;
+    border-bottom: 1px solid #1f1f25;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
+.logo-text {
+    font-family: 'Bangers', cursive;
+    font-size: 2.3rem;
+    letter-spacing: 2px;
+    line-height: 1;
+}
+
+.red-t { 
+    color: var(--primary-red); 
+}
+
+/* Menú central en fila */
+.nav-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+}
+
+.nav-link {
+    color: var(--text-gray);
+    text-decoration: none;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: var(--transition);
+    border-bottom: 3px solid transparent;
+    border-radius: 8px;
+}
+
+.nav-link i { 
+    font-size: 1.1rem; 
+}
+
+.nav-link:hover, 
+.nav-link.active {
+    background: rgba(230, 30, 30, 0.1);
+    color: var(--text-main);
+    border-bottom-color: var(--primary-red);
+}
+
+.nav-link.highlight-company {
+    border-bottom-color: var(--primary-red);
+    background-color: rgba(230, 30, 30, 0.15);
+    color: var(--text-main);
+}
+
+.nav-link.highlight-company:hover {
+    background-color: var(--primary-red);
+    color: #ffffff;
+}
+
+/* --- PERFIL DE USUARIO Y DROPDOWN --- */
+.user-container { 
+    position: relative; 
+    cursor: pointer; 
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card-bg);
+    padding: 6px 16px;
+    border-radius: 50px;
+    border: 1px solid var(--card-border);
+    transition: var(--transition);
+}
+
+.user-profile:hover {
+    border-color: #444;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+
+.user-profile span {
+    font-size: 0.88rem;
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.user-avatar {
+    width: 34px;
+    height: 34px;
+    background-color: var(--primary-red);
+    color: #ffffff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 10px rgba(230, 30, 30, 0.4);
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: #1a1a20;
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    width: 200px;
+    padding: 8px 0;
+    z-index: 1000;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+}
+
+.dropdown-content.show { 
+    display: block !important; 
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-content a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    color: var(--text-gray);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.dropdown-content a:hover {
+    background: rgba(230, 30, 30, 0.12);
+    color: var(--primary-red);
+}
+
+.dropdown-content .logout { 
+    border-top: 1px solid var(--card-border); 
+    color: var(--primary-red); 
+    margin-top: 5px;
+}
+
+/* --- CONTENIDO PRINCIPAL --- */
+.main-content {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 35px 40px;
+    flex-grow: 1;
+}
+
+.section-title {
+    font-family: 'Bangers', cursive;
+    font-size: 2.2rem;
+    letter-spacing: 2px;
+    color: var(--text-main);
+    margin-bottom: 25px;
+    text-transform: uppercase;
+}
+
+/* --- TARJETAS DE MÉTRICAS (KPIs) --- */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 35px;
+}
+
+.metric-card {
+    background: var(--card-bg);
+    padding: 22px;
+    border-radius: 16px;
+    border: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: var(--transition);
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+.metric-info h3 {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.metric-info p {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.metric-icon {
+    font-size: 1.8rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Variaciones de color por tarjeta */
+.metric-card:nth-child(1) {
+    background: linear-gradient(145deg, #1f1416 0%, #16161a 100%);
+    border-left: 4px solid #e61e1e;
+}
+.metric-card:nth-child(1) .metric-icon {
+    color: #e61e1e;
+    background: rgba(230, 30, 30, 0.15);
+}
+
+.metric-card:nth-child(2) {
+    background: linear-gradient(145deg, #141c2b 0%, #16161a 100%);
+    border-left: 4px solid #3b82f6;
+}
+.metric-card:nth-child(2) .metric-icon {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.metric-card:nth-child(3) {
+    background: linear-gradient(145deg, #12241d 0%, #16161a 100%);
+    border-left: 4px solid #10b981;
+}
+.metric-card:nth-child(3) .metric-icon {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.15);
+}
+
+.metric-card:nth-child(4) {
+    background: linear-gradient(145deg, #282015 0%, #16161a 100%);
+    border-left: 4px solid #f59e0b;
+}
+.metric-card:nth-child(4) .metric-icon {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+}
+
+/* --- REGISTRO DE ALQUILERES (MODO OSCURO CON RESALTE ROJO) --- */
+.table-container {
+    background: linear-gradient(145deg, #16161a 0%, #0f0f12 100%);
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid #282830;
+    border-top: 3px solid #e61e1e;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(230, 30, 30, 0.08);
+}
+
+.table-header-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #282830;
+}
+
+.table-header-title h3 {
+    font-size: 1.15rem;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+}
+
+.table-header-title h3 i {
+    color: #e61e1e;
+    font-size: 1.2rem;
+    filter: drop-shadow(0 0 6px rgba(230, 30, 30, 0.6));
+}
+
+/* Tabla */
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.custom-table th {
+    background-color: #0c0c10;
+    color: #94a3b8;
+    padding: 14px 16px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #282830;
+}
+
+.custom-table td {
+    padding: 16px;
+    border-bottom: 1px solid #1e1e26;
+    font-size: 0.9rem;
+    color: #c5c5d0;
+}
+
+.custom-table tr:hover td {
+    background-color: rgba(230, 30, 30, 0.04);
+    color: #ffffff;
+}
+
+.custom-table code {
+    background-color: #08080b;
+    color: #ff4d4d;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    border: 1px solid #282830;
+}
+
+/* Badges de Estado */
+.status-badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.status-activa { 
+    background-color: rgba(40, 167, 69, 0.15); 
+    color: #2ecc71; 
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+.status-completada { 
+    background-color: rgba(0, 123, 255, 0.15); 
+    color: #3897f0; 
+    border: 1px solid rgba(0, 123, 255, 0.3);
+}
+.status-pendiente { 
+    background-color: rgba(255, 193, 7, 0.15); 
+    color: #f1c40f; 
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+/* Estado sin datos */
+.no-data {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.no-data i {
+    color: #e61e1e;
+    font-size: 3rem;
+    margin-bottom: 15px;
+    display: block;
+    filter: drop-shadow(0 0 10px rgba(230, 30, 30, 0.4));
+}
+
+.no-data p {
+    font-size: 0.95rem;
+    color: #a0a0ab;
+    margin: 0;
+}
+
+/* --- RESPONSIVIDAD --- */
+@media (max-width: 992px) {
+    .top-navbar {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px 20px;
+    }
+    
+    .nav-menu {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .main-content {
+        padding: 20px;
+    }
+}
