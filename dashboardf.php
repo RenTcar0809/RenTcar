@@ -39,14 +39,13 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
             <a href="historial_vehiculo.php" class="nav-link">
                 <i class="fa-solid fa-folder-open"></i> <span>MIS VEHÍCULOS</span>
             </a>
-<<<<<<< HEAD
-=======
+
             <!-- Enlace de Mensajes con la burbuja roja de notificación -->
             <a href="mensajes.php" class="nav-link" style="position: relative;">
                 <i class="fa-solid fa-comments"></i> <span>MENSAJES</span>
                 <span id="badge-menu-mensajes" style="display: none; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; background: #e74c3c; border-radius: 50%; box-shadow: 0 0 5px rgba(231,76,60,0.8);"></span>
             </a>
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
+
         </nav>
     </aside>
 
@@ -61,10 +60,8 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
                 <div class="dropdown-content" id="myDropdown">
                     <a href="configuracion.php"><i class="fa-solid fa-gear"></i> Ajustes / Mi Perfil</a>
                     <a href="reservas.php"><i class="fa-solid fa-list"></i> Mis Reservas</a>
-<<<<<<< HEAD
-=======
                     <a href="mensajes.php"><i class="fa-solid fa-comments"></i> Mensajes</a>
->>>>>>> 09c48612e41ee8923941c3b2e65befe7ef2ab948
+
                     <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
                 </div>
             </div>
