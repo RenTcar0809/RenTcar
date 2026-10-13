@@ -47,14 +47,14 @@ try {
     $todos_mensajes =$stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
     function obtenerUrlImagen($ruta) {
-        $ruta = trim(str_replace('\\', '/',$ruta));
+        $ruta = trim(str_replace('\\', '/', $ruta));
         if (empty($ruta)) {
             return 'unnamed.png';
         }
-        if (strpos($ruta, 'http://') === 0 \vert{}\vert{} strpos($ruta, 'https://') === 0) {
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
             return $ruta;
         }
-        if (strpos($ruta, 'imagenes/') === 0 \vert{}\vert{} strpos($ruta, 'uploads/') === 0) {
+        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) {
             return $ruta;
         }
         if (file_exists('uploads/' . $ruta)) {
@@ -68,7 +68,7 @@ try {
         }
         return 'unnamed.png';
     }
-
+    
     foreach ($todos_mensajes as $msg) {$interlocutor = ($msg['remitente'] ===$nombre_usuario) ? $msg['destinatario'] :$msg['remitente'];
         
         if (!empty($interlocutor) &&$interlocutor !== $nombre_usuario) {$id_v_val = !empty($msg['id_vehiculo']) ?$msg['id_vehiculo'] : 0;
