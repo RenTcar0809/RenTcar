@@ -185,7 +185,7 @@ try {
                                     <td style="text-align: center;">
                                         <div class="action-buttons">
                                             <!-- CORRECCIÓN: Se cambió 'id_vehiculo' por 'id_v' -->
-                                            <a href="procesar_editar.php?id=<?php echo $carro['id_v']; ?>" class="btn-icon btn-edit" title="Editar">
+                                            <a href="procesar_editare.php?id=<?php echo $carro['id_v']; ?>" class="btn-icon btn-edit" title="Editar">
                                                 <i class="fa-solid fa-pen"></i>
                                             </a>
                                             <!-- CORRECCIÓN: Se cambió 'id_vehiculo' por 'id_v' -->
