@@ -297,9 +297,16 @@ function ocultarEditor(id) {
 function toggleChatFlotante() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
+
+    // Asegurar que tome el ID del vehículo actual de la página si no está asignado
+    if (!chatContainer.dataset.id || chatContainer.dataset.id === "0") {
+        chatContainer.dataset.id = "<?php echo $id_vehiculo; ?>";
+        chatContainer.dataset.tipo = "auto";
+    }
+
     const isOpen = chatContainer.style.display === 'flex';
     chatContainer.style.display = isOpen ? 'none' : 'flex';
-    
+
     if (!isOpen) {
         document.getElementById('chat-input')?.focus();
         iniciarActualizacionChat();

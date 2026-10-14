@@ -291,16 +291,22 @@ function toggleChatFlotante() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
 
-    if (chatContainer.style.display === 'flex') {
-        chatContainer.style.display = 'none';
+    // Asegurar que tome el ID del vehículo actual de la página si no está asignado
+    if (!chatContainer.dataset.id || chatContainer.dataset.id === "0") {
+        chatContainer.dataset.id = "<?php echo $id_vehiculo; ?>";
+        chatContainer.dataset.tipo = "auto";
+    }
+
+    const isOpen = chatContainer.style.display === 'flex';
+    chatContainer.style.display = isOpen ? 'none' : 'flex';
+
+    if (!isOpen) {
+        document.getElementById('chat-input')?.focus();
+        iniciarActualizacionChat();
     } else {
-        chatContainer.style.display = 'flex';
-        if (typeof cargarMensajesServidor === 'function') {
-            cargarMensajesServidor();
-        }
+        detenerActualizacionChat();
     }
 }
-
 function iniciarChatReserva(tipo, idVehiculo, nombreVehiculo) {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
