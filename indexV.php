@@ -146,9 +146,33 @@ session_start();
     <script src="valida_placa.js"></script>
 
     <!-- Script visual complementario para la vista previa de la foto de matrícula -->
+   <!-- Script visual complementario para la vista previa de la foto y ajuste dinámico de asientos -->
     <script>
+        // Función para cambiar los asientos según el tipo de vehículo seleccionado
+        function ajustarAsientos() {
+            const tipoVehiculo = document.getElementById('tipo').value;
+            const campoAsientos = document.getElementById('asientos');
+
+            if (tipoVehiculo === 'Motocicleta') {
+                campoAsientos.value = 2;
+            } else {
+                campoAsientos.value = 5;
+            }
+        }
+
+        // Listener para el selector de tipo de vehículo
+        document.getElementById('tipo').addEventListener('change', function() {
+            ajustarAsientos();
+        });
+
+        // Ejecutar al cargar la página por si 'Motocicleta' viene seleccionado previamente
+        document.addEventListener('DOMContentLoaded', function() {
+            ajustarAsientos();
+        });
+
+        // Vista previa de la tarjeta de propiedad / matrícula
         document.getElementById('imagenMatricula').addEventListener('change', function(event) {
-            const file = event.target.files5 || event.target.files[0];
+            const file = event.target.files[0]; // Se corrigió también el 'files5' por 'files[0]'
             if (file) {
                 document.getElementById('nombreArchivo').textContent = "📄 " + file.name;
                 const reader = new FileReader();
