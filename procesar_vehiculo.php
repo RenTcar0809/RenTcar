@@ -8,8 +8,10 @@ require_once 'conexion.php';
 
 $pagina_formulario = "indexV.php"; 
 
-// Validar sesión activa
-if (!isset($_SESSION['IdUsuario'])) {
+// Validar sesión activa (Verificamos tanto minúscula como mayúscula por compatibilidad)
+$id_proveedor_session = $_SESSION['id_usuario'] ?? $_SESSION['IdUsuario'] ?? null;
+
+if (!$id_proveedor_session) {
     header("Location: login.php");
     exit();
 }
@@ -77,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
     }
 
     // 2. RECOGER Y LIMPIAR DATOS TÉCNICOS
-    $id_proveedor = intval($_SESSION['IdUsuario']); 
+    $id_proveedor = intval($id_proveedor_session); 
     $tipo         = trim($_POST['tipo'] ?? '');
     $marca        = trim($_POST['marca'] ?? '');
     $modelo       = trim($_POST['modelo'] ?? '');
@@ -113,8 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_registro_v']))
             exit();
         }
 
-        // 5. ASOCIAR LA MATRÍCULA AL USUARIO / PROVEEDOR
-        $stmt_user_doc = $pdo->prepare('UPDATE usuario SET licencia_transito = ? WHERE "IdUsuario" = ?');
+        // 5. ASOCIAR LA MATRÍCULA AL USUARIO / PROVEEDOR (Corregido a id_usuario)
+        $stmt_user_doc = $pdo->prepare('UPDATE usuario SET licencia_transito = ? WHERE id_usuario = ?');
         $stmt_user_doc->execute([$url_imagen_matricula, $id_proveedor]);
 
         // 6. INSERTAR DATOS EN LA TABLA 'vehiculo'
