@@ -271,6 +271,9 @@ try {
 </div>
 
 <script>
+const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
+let intervaloChat = null;
+
 function cambiarImagen(el, ruta) {
     document.getElementById('mainImage').src = ruta;
     document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
@@ -308,25 +311,18 @@ function toggleChatFlotante() {
     }
 }
 
-function iniciarChatReserva(tipo, idVehiculo, nombreVehiculo) {
+function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     const chatContainer = document.getElementById('chat-float-container');
-    if (!chatContainer) return;
+    if (chatContainer) chatContainer.style.display = 'flex';
 
-    chatContainer.dataset.tipo = tipo;
-    chatContainer.dataset.id = idVehiculo;
-    chatContainer.style.display = 'flex';
+    chatContainer.dataset.tipo = tipoVehiculo;
+    chatContainer.dataset.id = idItem;
 
-    cargarMensajesServidor();
-    
-    if (typeof enviarMensajeAutomatico === 'function') {
-        enviarMensajeAutomatico(`Hola, me interesa reservar el vehículo: ${nombreVehiculo} (ID: ${idVehiculo})`);
-    }
-}
+    setTimeout(() => {
+        enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: ${nombreVehiculo}.`);
+    }, 300);
 
-function handleKeyPress(event) {
-    if (event.key === 'Enter') {
-        enviarMensajeBot();
-    }
+    iniciarActualizacionChat();
 }
 
 function enviarMensajeBot() {
@@ -337,10 +333,12 @@ function enviarMensajeBot() {
     const texto = input.value.trim();
     if (!texto) return;
 
+    const tipo = chatContainer.dataset.tipo || 'auto';
     const idItem = chatContainer.dataset.id || 0;
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
+    formData.append('tipo_vehiculo', tipo);
     formData.append('id_vehiculo', idItem);
     formData.append('mensaje', texto);
 
@@ -349,31 +347,28 @@ function enviarMensajeBot() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
     })
-    .then(res => {
-        if (!res.ok) {
-            throw new Error('El servidor respondió con un estado: ' + res.status);
-        }
-        return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
         if(data.status === 'success') {
             input.value = '';
             cargarMensajesServidor();
         } else {
-            console.error("Error del servidor:", data.message);
+            console.error("Error al enviar mensaje:", data.message || data);
         }
     })
-    .catch(err => {
-        console.error("Error detallado al enviar el mensaje:", err);
-    });
+    .catch(err => console.error("Error de red en el chat:", err));
 }
 
 function enviarMensajeAutomatico(texto) {
     const chatContainer = document.getElementById('chat-float-container');
+    if (!chatContainer) return;
+    
+    const tipo = chatContainer.dataset.tipo || 'auto';
     const idItem = chatContainer.dataset.id || 0;
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
+    formData.append('tipo_vehiculo', tipo);
     formData.append('id_vehiculo', idItem);
     formData.append('mensaje', texto);
 
@@ -382,16 +377,25 @@ function enviarMensajeAutomatico(texto) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
     })
-    .then(() => cargarMensajesServidor());
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            cargarMensajesServidor();
+        } else {
+            console.error("Error en mensaje automático:", data.message || data);
+        }
+    })
+    .catch(err => console.error("Error de red en mensaje automático:", err));
 }
 
 function cargarMensajesServidor() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer || chatContainer.style.display !== 'flex') return;
 
+    const tipo = chatContainer.dataset.tipo || 'auto';
     const idItem = chatContainer.dataset.id || 0;
 
-    fetch(`chat_backend.php?accion=obtener&id_vehiculo=${idItem}`)
+    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}`)
     .then(res => res.json())
     .then(data => {
         if(data.status === 'success') {
@@ -409,6 +413,24 @@ function cargarMensajesServidor() {
         }
     })
     .catch(err => console.error("Error al cargar mensajes:", err));
+}
+
+function iniciarActualizacionChat() {
+    cargarMensajesServidor();
+    if (!intervaloChat) {
+        intervaloChat = setInterval(cargarMensajesServidor, 3000);
+    }
+}
+
+function detenerActualizacionChat() {
+    if (intervaloChat) {
+        clearInterval(intervaloChat);
+        intervaloChat = null;
+    }
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter') enviarMensajeBot();
 }
 </script>
 
