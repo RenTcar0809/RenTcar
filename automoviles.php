@@ -9,11 +9,12 @@ if (!isset($_SESSION['usuario_nombre'])) {
 }
 
 try {
-    // Consulta con el filtro robusto para excluir motocicletas (tanto 'Motocicleta' como variaciones)
+    // Consulta optimizada: Excluye motocicletas Y filtra estrictamente para mostrar solo los Disponibles
     $sql = "SELECT v.*, 
                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS foto_galeria
             FROM vehiculo v 
             WHERE LOWER(v.tipo) NOT LIKE '%moto%' 
+              AND (v.estado = 'Disponible' OR v.estado IS NULL OR v.estado = '')
             ORDER BY v.id_v DESC";
             
     $stmt = $pdo->prepare($sql);

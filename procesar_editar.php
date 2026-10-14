@@ -208,7 +208,7 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div class="form-group">
-            <label>Subir nuevas fotos a Cloudinary</label>
+            <label>Subir nuevas fotos al Catalogo</label>
             <input type="file" name="imagenes[]" multiple accept="image/*" style="color: #888;">
         </div>
 
