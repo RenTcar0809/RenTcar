@@ -36,7 +36,7 @@ if (isset($_GET['borrar'])) {
         $del->execute([$idFotoBorrar]);
     }
     
-    header("Location: " . basename($_FILE['PHP_SELF'] ?? 'procesar_editar.php') . "?id=" . $idVehiculo);
+    header("Location: " . basename($_SERVER['PHP_SELF']) . "?id=" . $idVehiculo);
     exit();
 }
 
@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Credenciales de Cloudinary
             $cloudName = "bsd1wma1";       
-            $uploadPreset = "xkzfwqa0"; // Debe estar configurado como "Unsigned" en Cloudinary
+            $uploadPreset = "xkzfwqa0"; 
 
             foreach ($archivosValidos as $i) {
                 $tmpFilePath = $archivos['tmp_name'][$i];
@@ -123,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Solo redirige si todo salió bien y no hubo errores con Cloudinary
         if ($subidaExitosa && empty($error)) {
             header("Location: historial_vehiculo.php?success=1");
             exit();
@@ -131,8 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Consultar fotos actualizadas para mostrar en la galería
-$stmtFotos = $pdo->prepare("SELECT * FROM fotos_vehiculos WHERE id_vehiculo = ?");
+// Consultar fotos actualizadas explícitamente ordenadas por ID
+$stmtFotos = $pdo->prepare("SELECT id_foto, ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
 $stmtFotos->execute([$idVehiculo]);
 $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -153,10 +152,9 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
         label { display: block; margin-bottom: 8px; color: #bbb; font-weight: bold; }
         input[type="number"], select { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
         
-        /* Galería */
         .gallery-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
         .thumb-container { position: relative; width: 100%; height: 100px; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
-        .thumb-container img { width: 100%; height: 100%; object-fit: cover; }
+        .thumb-container img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .btn-delete { position: absolute; top: 5px; right: 5px; background: var(--rojo); color: white; text-decoration: none; width: 22px; height: 22px; border-radius: 50%; text-align: center; font-weight: bold; line-height: 20px; font-size: 14px; z-index: 10; }
         .btn-submit { background: var(--rojo); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
         .btn-cancel { display: block; text-align: center; margin-top: 15px; color: #888; text-decoration: none; }
@@ -196,12 +194,10 @@ $fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
         <div class="form-group">
             <label>Fotos actuales en Cloudinary (Obligatorio: 4 en total)</label>
             <div class="gallery-preview">
-                <?php if (count($fotosActuales) > 0): ?>
-                    <?php foreach ($fotosActuales as $foto): 
-                        $urlCloudinary = htmlspecialchars($foto['ruta_imagen']);
-                    ?>
+                <?php if (!empty($fotosActuales)): ?>
+                    <?php foreach ($fotosActuales as $foto): ?>
                         <div class="thumb-container">
-                            <img src="<?php echo $urlCloudinary; ?>" alt="Foto vehículo" onerror="this.src='unnamed.png'">
+                            <img src="<?php echo htmlspecialchars($foto['ruta_imagen']); ?>" alt="Foto vehículo" onerror="this.src='unnamed.png'">
                             <a href="?id=<?php echo $idVehiculo; ?>&borrar=<?php echo $foto['id_foto']; ?>" class="btn-delete" onclick="return confirm('¿Borrar esta foto?')">×</a>
                         </div>
                     <?php endforeach; ?>
