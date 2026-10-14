@@ -76,7 +76,8 @@ try {
         $item = $stmtV->fetch(PDO::FETCH_ASSOC);
 
         if ($item && isset($item['id_proveedor'])) {
-            $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
+            // Corrección aplicada: Se cambia "IdUsuario" por id_usuario en minúsculas
+            $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
             $stmtU->execute([$item['id_proveedor']]);
             $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
             if ($uData) {
@@ -161,7 +162,7 @@ try {
     }
 
 } catch (PDOException $e) {
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit();
 }
 ?>
