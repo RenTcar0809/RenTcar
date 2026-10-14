@@ -46,7 +46,7 @@ $stmt->execute([$idVehiculo, $idProveedor]);
 $v = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$v) {
-    header("Location: historial_vehiculo.php");
+    header("Location: VehiculoE.php");
     exit();
 }
 
@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($subidaExitosa && empty($error)) {
-            header("Location: historial_vehiculo.php?success=1");
+            header("Location: vehiculoE.php?success=1");
             exit();
         }
     }
