@@ -47,6 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_v'])) {
 }
 
 // Redireccionar siempre al panel principal de gestión de vehículos
-header("Location: panel_vehiculos.php"); // Cambia 'panel_vehiculos.php' por el nombre de tu archivo de panel si es diferente
+header("Location: historial_vehiculo.php"); // Cambia 'panel_vehiculos.php' por el nombre de tu archivo de panel si es diferente
 exit();
 ?>
