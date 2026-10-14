@@ -1,19 +1,21 @@
-<?php
+¿<?php
 session_start();
 
 require_once 'conexion.php'; 
 
-if (!isset($_SESSION['IdUsuario'])) {
+// Validamos sesión aceptando tanto minúscula como mayúscula por compatibilidad
+$id_usuario = $_SESSION['id_usuario'] ?? $_SESSION['IdUsuario'] ?? null;
+
+if (!$id_usuario) {
     header("Location: login.php");
     exit();
 }
 
-$id_usuario = $_SESSION['IdUsuario'];
 $mensajes_no_leidos = 0; // Inicializamos la variable para evitar advertencias
 
 try {
-    // 1. Obtener el nombre o empresa del proveedor actual usando comillas dobles para respetar el case de PostgreSQL
-    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE "IdUsuario" = ?');
+    // 1. Obtener el nombre o empresa del proveedor actual usando id_usuario en minúsculas
+    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
     $stmtU->execute([$id_usuario]);
     $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
     
