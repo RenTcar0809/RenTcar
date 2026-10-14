@@ -347,18 +347,27 @@ function enviarMensajeBot() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
     })
-    .then(res => res.json())
+    .then(async res => {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error("El servidor devolvió HTML/Texto plano en vez de JSON:", text);
+            alert("Error en el backend del chat. Revisa la consola (F12) para ver la respuesta exacta.");
+            throw new Error("Respuesta inválida del servidor");
+        }
+    })
     .then(data => {
-        if(data.status === 'success') {
+        if(data && data.status === 'success') {
             input.value = '';
             cargarMensajesServidor();
         } else {
-            console.error("Error al enviar mensaje:", data.message || data);
+            console.error("Error del servidor:", data?.message || data);
+            alert("No se pudo enviar: " + (data?.message || "Error desconocido"));
         }
     })
     .catch(err => console.error("Error de red en el chat:", err));
 }
-
 function enviarMensajeAutomatico(texto) {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
