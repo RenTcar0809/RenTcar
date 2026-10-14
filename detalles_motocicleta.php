@@ -307,6 +307,7 @@ function toggleChatFlotante() {
         detenerActualizacionChat();
     }
 }
+
 function iniciarChatReserva(tipo, idVehiculo, nombreVehiculo) {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
@@ -348,7 +349,12 @@ function enviarMensajeBot() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) {
+            throw new Error('El servidor respondió con un estado: ' + res.status);
+        }
+        return res.json();
+    })
     .then(data => {
         if(data.status === 'success') {
             input.value = '';
@@ -357,7 +363,9 @@ function enviarMensajeBot() {
             console.error("Error del servidor:", data.message);
         }
     })
-    .catch(err => console.error("Error de red:", err));
+    .catch(err => {
+        console.error("Error detallado al enviar el mensaje:", err);
+    });
 }
 
 function enviarMensajeAutomatico(texto) {
@@ -399,8 +407,10 @@ function cargarMensajesServidor() {
             });
             mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
         }
-    });
+    })
+    .catch(err => console.error("Error al cargar mensajes:", err));
 }
 </script>
+
 </body>
 </html>
