@@ -220,32 +220,6 @@ $documento  = $_SESSION['documento'] ?? '';
                     </form>
                 </div>
             </section>
-
-            <!-- SECCIÓN: PAGOS -->
-            <section id="pagos" class="settings-section" style="display: none;">
-                <div class="settings-card">
-                    <h2><i class="fa-solid fa-credit-card" style="color: #f59e0b;"></i> Métodos de Pago</h2>
-                    <p class="subtitle">Tus datos de pago se procesan de forma segura y cifrada a través de Stripe.</p>
-                    
-                    <form id="payment-form" action="guardar_pago.php" method="POST">
-                        <div class="form-group">
-                            <label>Titular de la tarjeta</label>
-                            <div class="input-with-icon">
-                                <i class="fa-solid fa-user-tag"></i>
-                                <input type="text" name="titular" placeholder="Nombre completo como aparece en la tarjeta" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Detalles de la tarjeta</label>
-                            <div id="card-element" style="padding: 14px; background: #141421; border: 1px solid #334155; border-radius: 8px;"></div>
-                        </div>
-
-                        <button type="submit" class="btn-save"><i class="fa-solid fa-credit-card"></i> Guardar Tarjeta</button>
-                    </form>
-                </div>
-            </section>
-
         </main>
     </div>
     
