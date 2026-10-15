@@ -2,7 +2,7 @@
 session_start();
 require_once 'conexion.php';
 
-// Incluir PHPMailer de forma manual (sin Composer)
+// Incluir PHPMailer de forma manual asegurando los archivos principales
 require 'src/Exception.php';
 require 'src/PHPMailer.php';
 require 'src/SMTP.php';
@@ -41,10 +41,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mail->isSMTP();
                 $mail->Host       = 'smtp.gmail.com';             
                 $mail->SMTPAuth   = true;
-                $mail->Username   = 'tu-correo@gmail.com';          // Tu correo de Gmail
-                $mail->Password   = 'tu-contraseña-de-aplicacion';  // Tu contraseña de aplicación de Google
+                $mail->Username   = 'tu-correo@gmail.com';          // <--- Tu correo real de Gmail
+                $mail->Password   = 'tu-contraseña-de-aplicacion';  // <--- Tu contraseña de aplicación de Google
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port       = 587;
+
+                // Solución para errores de certificado SSL en entornos locales (XAMPP)
+                $mail->SMTPOptions = array(
+                    'ssl' => array(
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true
+                    )
+                );
 
                 $mail->setFrom('tu-correo@gmail.com', 'RentCar Soporte');
                 $mail->addAddress($correo);
@@ -73,7 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $tipoAlerta = "success";
             }
         } catch (Exception $e) {
-            $mensaje = "Error al enviar el correo. Intente más tarde. (Detalle: {$mail->ErrorInfo})";
+            $errorDetalle = isset($mail) ? $mail->ErrorInfo : $e->getMessage();
+            $mensaje = "Error al enviar el correo. Intente más tarde. (Detalle: " . $errorDetalle . ")";
             $tipoAlerta = "error";
         } catch (PDOException $e) {
             $mensaje = "Error en el sistema de base de datos.";
