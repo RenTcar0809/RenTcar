@@ -10,13 +10,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 1. Recibir datos del formulario exactamente como los manda el HTML
     $nombre             = trim($_POST['nombre'] ?? '');
     $apellido           = trim($_POST['apellido'] ?? '');
-    $fecha              = trim($_POST['fechaDeNacimiento'] ?? ''); // <-- CORREGIDO AQUÍ (coincide con el name del HTML)
+    $fecha              = trim($_POST['fechaDeNacimiento'] ?? ''); 
     $telefono           = trim($_POST['numTelefono'] ?? '');
     $documento          = trim($_POST['documento'] ?? '');
     $confirmDocumento   = trim($_POST['confirm_documento'] ?? '');
     $correo             = trim($_POST['correo'] ?? '');
     $confirmCorreo      = trim($_POST['confirm_correo'] ?? '');
-    $password           = $_POST['contraseña'] ?? ''; 
+    $password           = $_POST['contraseña'] ?? ''; // El HTML manda el input con ñ
     $confirmPassword    = $_POST['confirm_password'] ?? '';
 
     // 2. Validar que no haya campos vacíos obligatorios
@@ -74,8 +74,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Encriptar la contraseña de forma segura
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-        // 5. Insertar datos (respetando la columna con guion bajo en la BD de PostgreSQL)
-        $sql_insertar = "INSERT INTO usuario (nombre, apellido, \"fecha_de_nacimiento\", \"numTelefono\", documento, correo, contraseña)
+        // 5. Insertar datos usando los nombres exactos de tu base de datos
+        $sql_insertar = "INSERT INTO usuario (nombre, apellido, fecha_de_nacimiento, num_telefono, documento, correo, contrasena)
                          VALUES (:nombre, :apellido, :fecha, :telefono, :documento, :correo, :password)";
         
         $stmt_insertar = $pdo->prepare($sql_insertar);
