@@ -10,7 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 1. Recibir datos del formulario exactamente como los manda el HTML
     $nombre           = trim($_POST['nombre'] ?? '');
     $apellido         = trim($_POST['apellido'] ?? '');
-    $fecha            = trim($_POST['fechaDeNacimiento'] ?? '');
+    $fecha            = trim($_POST['fecha_de_nacimiento'] ?? '');
     $telefono         = trim($_POST['numTelefono'] ?? '');
     $documento        = trim($_POST['documento'] ?? '');
     $confirmDocumento = trim($_POST['confirm_documento'] ?? '');
