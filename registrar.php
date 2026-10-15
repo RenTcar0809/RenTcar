@@ -8,16 +8,16 @@ require_once 'conexion.php';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     // 1. Recibir datos del formulario exactamente como los manda el HTML
-    $nombre           = trim($_POST['nombre'] ?? '');
-    $apellido         = trim($_POST['apellido'] ?? '');
-    $fecha            = trim($_POST['fecha_de_nacimiento'] ?? '');
-    $telefono         = trim($_POST['numTelefono'] ?? '');
-    $documento        = trim($_POST['documento'] ?? '');
-    $confirmDocumento = trim($_POST['confirm_documento'] ?? '');
-    $correo           = trim($_POST['correo'] ?? '');
-    $confirmCorreo    = trim($_POST['confirm_correo'] ?? '');
-    $password         = $_POST['contraseña'] ?? ''; // Ojo: usa 'contraseña' con ñ tal cual tu HTML
-    $confirmPassword  = $_POST['confirm_password'] ?? '';
+    $nombre             = trim($_POST['nombre'] ?? '');
+    $apellido           = trim($_POST['apellido'] ?? '');
+    $fecha              = trim($_POST['fechaDeNacimiento'] ?? ''); // <-- CORREGIDO AQUÍ (coincide con el name del HTML)
+    $telefono           = trim($_POST['numTelefono'] ?? '');
+    $documento          = trim($_POST['documento'] ?? '');
+    $confirmDocumento   = trim($_POST['confirm_documento'] ?? '');
+    $correo             = trim($_POST['correo'] ?? '');
+    $confirmCorreo      = trim($_POST['confirm_correo'] ?? '');
+    $password           = $_POST['contraseña'] ?? ''; 
+    $confirmPassword    = $_POST['confirm_password'] ?? '';
 
     // 2. Validar que no haya campos vacíos obligatorios
     if (empty($nombre) || empty($apellido) || empty($fecha) || empty($telefono) || 
@@ -74,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Encriptar la contraseña de forma segura
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-        // 5. Insertar datos (con comillas dobles en columnas con mayúsculas para PostgreSQL)
+        // 5. Insertar datos (respetando la columna con guion bajo en la BD de PostgreSQL)
         $sql_insertar = "INSERT INTO usuario (nombre, apellido, \"fecha_de_nacimiento\", \"numTelefono\", documento, correo, contraseña)
                          VALUES (:nombre, :apellido, :fecha, :telefono, :documento, :correo, :password)";
         
@@ -105,7 +105,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 } else {
-    header('Location: registrar.html'); // O el nombre de tu archivo HTML de registro
+    header('Location: registrar.html'); 
     exit();
 }
 
