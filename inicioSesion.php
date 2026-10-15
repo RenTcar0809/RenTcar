@@ -38,7 +38,7 @@
         </form>
 
         <div class="footer-links">
-            <a href="#">¿Olvidó su contraseña?</a>
+            <a href="recuperar.php">¿Olvidó su contraseña?</a>
             <p>¿No tienes una cuenta? <a href="index.php">Únete</a></p>
         </div>
     </div>
