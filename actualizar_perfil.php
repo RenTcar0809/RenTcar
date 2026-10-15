@@ -1,38 +1,62 @@
 <?php
 session_start();
-require 'conexion.php'; // <--- Aquí conectas la base de datos
+require_once 'conexion.php'; // Asegúrate de tener tu conexión PDO
 
-// Si el usuario no está logueado, lo mandamos afuera
-if (!isset($_SESSION['usuario_nombre'])) {
+// Verificar si el usuario ha iniciado sesión
+if (!isset($_SESSION['IdUsuario'])) {
     header("Location: inicioSesion.php");
     exit();
 }
 
-// Lógica de guardado si se presionó el botón
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['btn_actualizar'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $idUsuario = $_SESSION['IdUsuario'];
+    
+    // Recibimos los datos del formulario (si no vienen, mantenemos el valor actual de la sesión)
+    $nombre   = trim($_POST['nombre'] ?? $_SESSION['nombre']);
+    $apellido = trim($_POST['apellido'] ?? $_SESSION['apellido']);
+    $correo   = trim($_POST['correo'] ?? $_SESSION['correo']);
+    $telefono = trim($_POST['numTelefono'] ?? $_SESSION['telefono']);
+
+    // Validación básica de campos obligatorios
+    if (empty($nombre) || empty($apellido) || empty($correo)) {
+        echo "<script>alert('Por favor complete los campos obligatorios.'); window.history.back();</script>";
+        exit();
+    }
+
     try {
-        $sql = "UPDATE usuarios SET nombre = :nombre, apellido = :apellido, 
-                correo = :correo, numTelefono = :numTelefono 
-                WHERE IdUsuario = :id";
-        
+        // Consulta SQL para actualizar únicamente los campos del usuario logueado
+        $sql = "UPDATE usuario 
+                SET nombre = :nombre, 
+                    apellido = :apellido, 
+                    correo = :correo, 
+                    numTelefono = :telefono 
+                WHERE IdUsuario = :id OR id = :id"; // Ajusta 'IdUsuario' o 'id' según tu base de datos
+
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            'nombre' => $_POST['nombre'],
-            'apellido' => $_POST['apellido'],
-            'correo' => $_POST['correo'],
-            'numTelefono' => $_POST['numTelefono'],
-            'id' => $_SESSION['IdUsuario']
+            ':nombre'   => $nombre,
+            ':apellido' => $apellido,
+            ':correo'   => $correo,
+            ':telefono' => $telefono,
+            ':id'       => $idUsuario
         ]);
 
-        // Actualizamos la sesión para que el cambio se vea inmediato
-        $_SESSION['nombre'] = $_POST['nombre'];
-        $_SESSION['apellido'] = $_POST['apellido'];
-        $_SESSION['correo'] = $_POST['correo'];
-        $_SESSION['numTelefono'] = $_POST['numTelefono'];
-        
-        $mensajeExito = "Perfil actualizado correctamente.";
+        // Actualizamos también las variables de sesión para que reflejen el cambio de inmediato
+        $_SESSION['nombre']   = $nombre;
+        $_SESSION['apellido'] = $apellido;
+        $_SESSION['correo']   = $correo;
+        $_SESSION['telefono'] = $telefono;
+
+        // Redirigir de regreso con un mensaje de éxito (puedes usar un parámetro GET si deseas mostrar una alerta)
+        echo "<script>alert('¡Perfil actualizado con éxito!'); window.location.href='configuracion.php';</script>";
+        exit();
+
     } catch (PDOException $e) {
-        $error = "Error al guardar: " . $e->getMessage();
+        echo "<script>alert('Error al actualizar: " . addslashes($e->getMessage()) . "'); window.history.back();</script>";
+        exit();
     }
+} else {
+    header("Location: configuracion.php");
+    exit();
 }
 ?>
