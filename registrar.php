@@ -75,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
         // 5. Insertar datos (con comillas dobles en columnas con mayúsculas para PostgreSQL)
-        $sql_insertar = "INSERT INTO usuario (nombre, apellido, \"fechaDeNacimiento\", \"numTelefono\", documento, correo, contraseña)
+        $sql_insertar = "INSERT INTO usuario (nombre, apellido, \"fecha_de_nacimiento\", \"numTelefono\", documento, correo, contraseña)
                          VALUES (:nombre, :apellido, :fecha, :telefono, :documento, :correo, :password)";
         
         $stmt_insertar = $pdo->prepare($sql_insertar);
