@@ -40,62 +40,65 @@ $documento  = $_SESSION['documento'] ?? '';
         <!-- CONTENIDO PRINCIPAL -->
         <main class="settings-main">
             
-            <!-- SECCIÓN: PERFIL PERSONAL -->
-            <section id="perfil" class="settings-section active-section">
-                <div class="settings-card">
-                    <h2><i class="fa-solid fa-user-pen" style="color: #6366f1;"></i> Información Personal</h2>
-                    <p class="subtitle">Actualiza los datos de tu cuenta de forma independiente.</p>
-                    
-                    <form action="actualizar_perfil.php" method="POST" class="interactive-form">
-                        <input type="hidden" name="IdUsuario" value="<?php echo htmlspecialchars($idUsuario); ?>">
+          <!-- SECCIÓN: PERFIL PERSONAL -->
+<section id="perfil" class="settings-section active-section">
+    <div class="settings-card">
+        <h2><i class="fa-solid fa-user-pen" style="color: #6366f1;"></i> Información Personal</h2>
+        <p class="subtitle">Puedes cambiar solo el dato que desees actualizar.</p>
+        
+        <form action="actualizar_perfil.php" method="POST" class="interactive-form">
+            <input type="hidden" name="IdUsuario" value="<?php echo htmlspecialchars($idUsuario); ?>">
 
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label>Nombre</label>
-                                <div class="input-with-icon">
-                                    <i class="fa-solid fa-signature"></i>
-                                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($nombre); ?>" required>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Apellido</label>
-                                <div class="input-with-icon">
-                                    <i class="fa-solid fa-user"></i>
-                                    <input type="text" name="apellido" value="<?php echo htmlspecialchars($apellido); ?>" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label>Correo Electrónico</label>
-                                <div class="input-with-icon">
-                                    <i class="fa-solid fa-envelope"></i>
-                                    <input type="email" name="correo" value="<?php echo htmlspecialchars($correo); ?>" required>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Número de Teléfono</label>
-                                <div class="input-with-icon">
-                                    <i class="fa-solid fa-phone"></i>
-                                    <input type="tel" name="numTelefono" value="<?php echo htmlspecialchars($telefono); ?>" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Documento de Identidad <span style="color: #64748b; font-weight: normal;">(No modificable)</span></label>
-                            <div class="input-with-icon">
-                                <i class="fa-solid fa-id-card"></i>
-                                <input type="text" value="<?php echo htmlspecialchars($documento); ?>" readonly>
-                            </div>
-                        </div>
-                        
-                        <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios del Perfil</button>
-                    </form>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-signature"></i>
+                        <!-- SIN "required" -->
+                        <input type="text" name="nombre" value="<?php echo htmlspecialchars($nombre); ?>" placeholder="Dejar igual o cambiar">
+                    </div>
                 </div>
-            </section>
+                <div class="form-group">
+                    <label>Apellido</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-user"></i>
+                        <!-- SIN "required" -->
+                        <input type="text" name="apellido" value="<?php echo htmlspecialchars($apellido); ?>" placeholder="Dejar igual o cambiar">
+                    </div>
+                </div>
+            </div>
 
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-envelope"></i>
+                        <!-- SIN "required" -->
+                        <input type="email" name="correo" value="<?php echo htmlspecialchars($correo); ?>" placeholder="Dejar igual o cambiar">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Número de Teléfono</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-phone"></i>
+                        <!-- SIN "required" -->
+                        <input type="tel" name="numTelefono" value="<?php echo htmlspecialchars($telefono); ?>" placeholder="Dejar igual o cambiar">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Documento de Identidad <span style="color: #64748b; font-weight: normal;">(No modificable)</span></label>
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-id-card"></i>
+                    <input type="text" value="<?php echo htmlspecialchars($documento); ?>" readonly>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
+        </form>
+    </div>
+</section>
             <!-- SECCIÓN: SEGURIDAD -->
             <section id="seguridad" class="settings-section" style="display: none;">
                 <div class="settings-card">
