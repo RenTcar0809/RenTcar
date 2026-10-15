@@ -1,79 +1,192 @@
-/* Variables para mantener la consistencia con tu dashboard */
-:root {
-    --primary-red: #E50914;
-    --black-bg: #0d0d0d;
-    --dark-grey: #1a1a1a;
+/* Estilos Generales y Layout */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-body { background-color: var(--black-bg); color: #fff; }
-
-.settings-layout { display: flex; min-height: 100vh; }
-
-/* Sidebar de Ajustes */
-.settings-sidebar { 
-    width: 280px; 
-    padding: 40px; 
-    border-right: 1px solid #333; 
-    background: #050505;
+body.settings-page {
+    background-color: #0f0f17;
+    color: #f8fafc;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
 }
 
-.settings-sidebar h2 { margin-bottom: 20px; font-family: 'Bangers', cursive; color: var(--primary-red); }
-
-.back-link { display: block; margin-bottom: 30px; color: #888; text-decoration: none; }
-.back-link:hover { color: #fff; }
-
-.settings-nav a { 
-    display: block; 
-    padding: 15px; 
-    color: #ccc; 
-    text-decoration: none; 
-    border-radius: 8px;
-    margin-bottom: 10px;
-    transition: 0.3s;
+.settings-layout {
+    display: flex;
+    min-height: 100vh;
 }
 
-.settings-nav a:hover, .settings-nav a.active { 
-    background: var(--primary-red); 
+/* Sidebar Estilizada */
+.settings-sidebar {
+    width: 280px;
+    background: #141421;
+    border-right: 1px solid #1e293b;
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.back-link {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 30px;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
     color: #fff;
 }
 
-/* Panel Principal */
-.settings-main { padding: 60px; flex-grow: 1; }
-
-.settings-main h1 { margin-bottom: 40px; }
-
-.form-group { margin-bottom: 25px; }
-
-.form-group label { display: block; margin-bottom: 8px; color: #aaa; }
-
-.form-group input { 
-    width: 100%; 
-    max-width: 500px;
-    padding: 12px; 
-    background: var(--dark-grey); 
-    border: 1px solid #333; 
-    color: #fff; 
-    border-radius: 5px;
+.settings-sidebar h2 {
+    font-size: 1.5rem;
+    color: #fff;
+    margin-bottom: 20px;
 }
 
-.btn-save { 
-    background: var(--primary-red); 
-    color: white; 
-    padding: 12px 30px; 
-    border: none; 
-    border-radius: 5px; 
-    cursor: pointer; 
-    font-weight: bold;
-    transition: 0.3s;
+.settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.btn-save:hover { background: #b3070f; }
-#card-element {
-    width: 100%;
-    max-width: 500px;
-    height: 45px;
-    margin-bottom: 25px;
+.settings-nav a {
+    color: #94a3b8;
+    text-decoration: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.95rem;
     display: flex;
     align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+}
+
+.settings-nav a:hover, 
+.settings-nav a.active {
+    background: #1e1e2f;
+    color: #6366f1;
+}
+
+/* Contenido Principal y Tarjetas */
+.settings-main {
+    flex: 1;
+    padding: 40px;
+    overflow-y: auto;
+}
+
+.settings-card {
+    background: #1e1e2f;
+    border: 1px solid #2a2a3eb5;
+    border-radius: 12px;
+    padding: 35px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    margin-bottom: 25px;
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-card h2 {
+    font-size: 1.3rem;
+    color: #fff;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.settings-card p.subtitle {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    margin-bottom: 25px;
+}
+
+/* Formularios y Inputs */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .settings-layout { flex-direction: column; }
+    .settings-sidebar { width: 100%; height: auto; }
+    .form-grid { grid-template-columns: 1fr; }
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+}
+
+.input-with-icon {
+    position: relative;
+}
+
+.input-with-icon i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+}
+
+.input-with-icon input {
+    width: 100%;
+    padding: 12px 14px 12px 42px;
+    background: #141421;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.input-with-icon input:focus {
+    border-color: #6366f1;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.input-with-icon input[readonly] {
+    background: #0f0f17;
+    color: #64748b;
+    border-color: #1e293b;
+    cursor: not-allowed;
+}
+
+/* Botón Guardar */
+.btn-save {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-save:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
 }
