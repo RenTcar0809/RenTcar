@@ -4,7 +4,7 @@ require_once 'conexion.php'; // Usa tu archivo de conexión PDO
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Recibe los datos del formulario
+    // Recibe los datos del formulario y limpia espacios
     $identificador = trim($_POST['usuario_identificador'] ?? '');
     $password      = $_POST['password'] ?? '';
 
@@ -14,7 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $sql = "SELECT * FROM usuario WHERE correo = :login OR nit = :login LIMIT 1";
+        // Usamos LOWER() para que la búsqueda del correo sea insensible a mayúsculas/minúsculas.
+        // Nota: El NIT por lo general es numérico, pero si contiene letras o prefijos, LOWER() también lo manejará bien.
+        $sql = "SELECT * FROM usuario WHERE LOWER(correo) = LOWER(:login) OR LOWER(nit) = LOWER(:login) LIMIT 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':login' => $identificador]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
