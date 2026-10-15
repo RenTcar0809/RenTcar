@@ -45,11 +45,10 @@
                         <input type="text" id="apellido" name="apellido" placeholder="Escriba su apellido" required>
                     </div>
 
-                    <div class="input-group">
+                  <div class="input-group">
                         <label for="fecha_de_nacimiento"><span class="required">*</span>FECHA DE NACIMIENTO</label>
-                        <input type="text" id="fechaDeNacimiento" name="fechaDeNacimiento" placeholder="DD/MM/YY" onfocus="(this.type='date')" onblur="(this.placeholder='DD/MM/YY')" required>
-                    </div>
-
+                         <input type="date" id="fecha_de_nacimiento" name="fechaDeNacimiento" required>
+                  </div>
                     <div class="input-group">
                         <label for="numTelefono"><span class="required">*</span>NÚMERO DE CONTACTO</label>
                         <div class="phone-input-container">
