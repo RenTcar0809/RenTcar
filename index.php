@@ -46,7 +46,7 @@
                     </div>
 
                     <div class="input-group">
-                        <label for="fechaDeNacimiento"><span class="required">*</span>FECHA DE NACIMIENTO</label>
+                        <label for="fecha_de_nacimiento"><span class="required">*</span>FECHA DE NACIMIENTO</label>
                         <input type="text" id="fechaDeNacimiento" name="fechaDeNacimiento" placeholder="DD/MM/YY" onfocus="(this.type='date')" onblur="(this.placeholder='DD/MM/YY')" required>
                     </div>
 
