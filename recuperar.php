@@ -21,21 +21,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $token = bin2hex(random_bytes(32));
                 $expiracion = date("Y-m-d H:i:s", strtotime("+1 hour"));
 
-                $idUsuario = $usuario['IdUsuario'] ?? $usuario['idusuario'] ?? $usuario['id'];
+                // CORREGIDO: Usamos id_usuario que es el nombre real en tu tabla
+                $idUsuario = $usuario['id_usuario'];
 
-                $update = $pdo->prepare("UPDATE usuario SET token_recuperacion = :token, token_expiracion = :exp WHERE IdUsuario = :id OR id = :id");
+                $update = $pdo->prepare("UPDATE usuario SET token_recuperacion = :token, token_expiracion = :exp WHERE id_usuario = :id");
                 $update->execute([':token' => $token, ':exp' => $expiracion, ':id' => $idUsuario]);
 
                 $enlace = "restablecer.php?token=" . $token;
 
-                $mensaje = "¡Solicitud exitosa! Enlace generado para pruebas: <a href='$enlace' style='color: #6366f1; font-weight: bold; text-decoration: underline;'>Hacer clic aquí para restablecer</a>";
+                $mensaje = "¡Solicitud exitosa! Enlace de recuperación generado: <a href='$enlace' style='color: #df0000; font-weight: bold; text-decoration: underline;'>Hacer clic aquí para restablecer</a>";
                 $tipoAlerta = "success";
             } else {
                 $mensaje = "Si el correo está registrado, se han enviado las instrucciones de recuperación.";
                 $tipoAlerta = "success";
             }
         } catch (PDOException $e) {
-            $mensaje = "Error en el sistema. Intente más tarde.";
+            $mensaje = "Error en el sistema: " . $e->getMessage();
             $tipoAlerta = "error";
         }
     }
@@ -47,7 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>Recuperar Contraseña | RentCar</title>
-    <!-- Vinculamos ambos estilos -->
     <link rel="stylesheet" href="confi.css">
     <link rel="stylesheet" href="auth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="fa-solid fa-arrow-left"></i> Volver al Login
             </a>
 
-            <h2><i class="fa-solid fa-key" style="color: #6366f1;"></i> Recuperar Contraseña</h2>
+            <h2><i class="fa-solid fa-key" style="color: #df0000;"></i> Recuperar Contraseña</h2>
             <p>Ingresa tu correo electrónico registrado y te enviaremos los pasos para restablecer tu acceso.</p>
 
             <?php if (!empty($mensaje)): ?>
