@@ -23,7 +23,6 @@ $documento  = $_SESSION['documento'] ?? '';
     <title>Configuración de Cuenta | RentCar</title>
     <link rel="stylesheet" href="confi.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body class="settings-page">
 
@@ -45,7 +44,7 @@ $documento  = $_SESSION['documento'] ?? '';
             <section id="perfil" class="settings-section active-section">
                 <div class="settings-card">
                     <h2><i class="fa-solid fa-user-pen" style="color: #6366f1;"></i> Información Personal</h2>
-                    <p class="subtitle">Actualiza los datos de tu cuenta para mantener tu perfil al día.</p>
+                    <p class="subtitle">Actualiza los datos de tu cuenta de forma independiente.</p>
                     
                     <form action="actualizar_perfil.php" method="POST" class="interactive-form">
                         <input type="hidden" name="IdUsuario" value="<?php echo htmlspecialchars($idUsuario); ?>">
@@ -92,7 +91,7 @@ $documento  = $_SESSION['documento'] ?? '';
                             </div>
                         </div>
                         
-                        <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
+                        <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios del Perfil</button>
                     </form>
                 </div>
             </section>
@@ -101,7 +100,7 @@ $documento  = $_SESSION['documento'] ?? '';
             <section id="seguridad" class="settings-section" style="display: none;">
                 <div class="settings-card">
                     <h2><i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> Seguridad y Contraseña</h2>
-                    <p class="subtitle">Asegúrate de utilizar una contraseña robusta para proteger tu cuenta.</p>
+                    <p class="subtitle">Modifica tu contraseña de acceso cuando lo necesites.</p>
                     
                     <form action="actualizar_seguridad.php" method="POST" id="security-form" class="interactive-form">
                         <div class="form-group">
@@ -133,6 +132,7 @@ $documento  = $_SESSION['documento'] ?? '';
                     </form>
                 </div>
             </section>
+
         </main>
     </div>
     
