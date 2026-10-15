@@ -1,54 +1,80 @@
 <?php
 session_start();
-require_once 'conexion.php';
+require_once 'conexion.php'; // Usa tu archivo de conexión PDO
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // Recibe los datos del formulario y limpia espacios
     $identificador = trim($_POST['usuario_identificador'] ?? '');
     $password      = $_POST['password'] ?? '';
 
-    echo "<h3>Resultados de Diagnóstico:</h3>";
-    echo "<ul>";
-    echo "<li><strong>Identificador ingresado:</strong> " . htmlspecialchars($identificador) . "</li>";
+    if (empty($identificador) || empty($password)) {
+        echo "<script>alert('Por favor ingrese todos los campos.'); window.history.back();</script>";
+        exit();
+    }
 
     try {
-        // Consulta exacta ignorando mayúsculas y espacios
-        $sql = "SELECT * FROM usuario WHERE LOWER(TRIM(correo)) = LOWER(TRIM(:login)) OR LOWER(TRIM(nit)) = LOWER(TRIM(:login)) LIMIT 1";
+        // CORRECCIÓN: Agregamos LOWER(TRIM(nombre)) y LOWER(TRIM(empresa)) para que también busque por nombre y empresa
+        $sql = "SELECT * FROM usuario 
+                WHERE LOWER(TRIM(correo)) = LOWER(TRIM(:login)) 
+                   OR LOWER(TRIM(nit)) = LOWER(TRIM(:login)) 
+                   OR LOWER(TRIM(nombre)) = LOWER(TRIM(:login)) 
+                   OR LOWER(TRIM(empresa)) = LOWER(TRIM(:login)) 
+                LIMIT 1";
+                
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':login' => $identificador]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($usuario) {
-            echo "<li><span style='color:green;'>✔ ¡Usuario encontrado en la base de datos!</span></li>";
-            echo "<li><strong>Correo en BD:</strong> " . htmlspecialchars($usuario['correo'] ?? 'N/A') . "</li>";
-            echo "<li><strong>NIT en BD:</strong> " . htmlspecialchars($usuario['nit'] ?? 'N/A') . "</li>";
-            
+            // 1. Buscamos la contraseña de forma flexible
             $hashGuardado = $usuario['contraseña'] ?? $usuario['contrasena'] ?? '';
-            echo "<li><strong>¿Existe hash/contraseña en BD?:</strong> " . (!empty($hashGuardado) ? 'Sí' : 'No') . "</li>";
+            
+            // Compara contraseña encriptada o en texto plano
+            if (password_verify($password, $hashGuardado) || $password === $hashGuardado) {
+                session_regenerate_id(true);
 
-            $passwordValida = false;
-            if (!empty($hashGuardado)) {
-                if (password_verify($password, $hashGuardado) || $password === $hashGuardado) {
-                    $passwordValida = true;
+                // 2. Buscamos el ID del usuario de forma flexible
+                $idUsuarioEncontrado = $usuario['IdUsuario'] ?? $usuario['idusuario'] ?? $usuario['id_usuario'] ?? $usuario['id'] ?? null;
+
+                if (!$idUsuarioEncontrado) {
+                    echo "<script>alert('Error: No se encontró la columna de identificación del usuario en la base de datos.'); window.history.back();</script>";
+                    exit();
+                }
+
+                // Asignamos las variables de sesión unificadas de forma segura
+                $_SESSION['IdUsuario']      = $idUsuarioEncontrado;
+                $_SESSION['id_proveedor']   = $idUsuarioEncontrado; // Para compatibilidad antigua
+                $_SESSION['tipo']           = $usuario['tipo'];     // 1 = Empresa, 2 = Usuario
+
+                // Validamos según el tipo guardado en la tabla unificada
+                if ($usuario['tipo'] == 1) {
+                    // Es Empresa
+                    $_SESSION['nombre_empresa'] = $usuario['empresa'] ?? '';
+                    $_SESSION['usuario_nombre'] = $usuario['empresa'] ?? '';
+                    $_SESSION['rol']            = 'proveedor';
+
+                    header("Location: dashboardE.php");
+                    exit();
+                } else {
+                    // Es Usuario normal
+                    $_SESSION['usuario_nombre'] = $usuario['nombre'] ?? '';
+                    $_SESSION['rol']            = 'cliente';
+
+                    header("Location: dashboardf.php");
+                    exit();
                 }
             }
-
-            if ($passwordValida) {
-                echo "<li><span style='color:green;'>✔ ¡Contraseña correcta! El login sería exitoso.</span></li>";
-            } else {
-                echo "<li><span style='color:red;'>✖ La contraseña NO coincide con la guardada en la base de datos.</span></li>";
-            }
-
-        } else {
-            echo "<li><span style='color:red;'>✖ No se encontró ningún registro que coincida con ese correo o NIT en la base de datos.</span></li>";
         }
 
-    } catch (PDOException $e) {
-        echo "<li><span style='color:red;'>Error de BD: " . htmlspecialchars($e->getMessage()) . "</span></li>";
-    }
+        // SI NO SE ENCONTRÓ O LA CONTRASEÑA ES INCORRECTA
+        echo "<script>alert('Credenciales incorrectas (Correo, NIT o Nombre inválidos, o contraseña incorrecta).'); window.history.back();</script>";
+        exit();
 
-    echo "</ul>";
-    echo '<br><a href="javascript:window.history.back();">Volver atrás</a>';
-    exit();
+    } catch (PDOException $e) {
+        echo "<script>alert('Error en el sistema: " . addslashes($e->getMessage()) . "'); window.history.back();</script>";
+        exit();
+    }
 
 } else {
     die("Debes enviar el formulario primero.");
