@@ -1,38 +1,19 @@
 <?php
 session_start();
-require_once 'conexion.php'; // Asegúrate de tener tu archivo de conexión PDO aquí
 
+// Si no ha iniciado sesión, lo regresa al login
 if (!isset($_SESSION['IdUsuario'])) {
     header("Location: inicioSesion.php");
     exit();
 }
 
-$idUsuario = $_SESSION['IdUsuario'];
-$usuario = null;
-
-try {
-    // Consultamos los datos frescos del usuario desde la base de datos
-    $sql = "SELECT * FROM usuario WHERE IdUsuario = :id OR id = :id LIMIT 1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([':id' => $idUsuario]);
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // Manejo de error silencioso o log
-}
-
-// Si por alguna razón no se encuentra el usuario
-if (!$usuario) {
-    session_destroy();
-    header("Location: inicioSesion.php");
-    exit();
-}
-
-// Mapeamos los campos de forma flexible por si en tu BD tienen nombres diferentes
-$nombre     = $usuario['nombre'] ?? '';
-$apellido   = $usuario['apellido'] ?? '';
-$correo     = $usuario['correo'] ?? '';
-$telefono   = $usuario['numTelefono'] ?? $usuario['telefono'] ?? '';
-$documento  = $usuario['documento'] ?? $usuario['nit'] ?? '';
+// Recuperamos los datos directamente de la sesión
+$idUsuario  = $_SESSION['IdUsuario'];
+$nombre     = $_SESSION['nombre'] ?? '';
+$apellido   = $_SESSION['apellido'] ?? '';
+$correo     = $_SESSION['correo'] ?? '';
+$telefono   = $_SESSION['telefono'] ?? '';
+$documento  = $_SESSION['documento'] ?? '';
 ?>
 
 <!DOCTYPE html>
