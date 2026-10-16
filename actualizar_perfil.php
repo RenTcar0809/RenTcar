@@ -13,24 +13,31 @@ if (!isset($_SESSION['IdUsuario'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $idUsuario = $_SESSION['IdUsuario'];
-    
-    // Procesar campos de texto normales
-    $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : ($_SESSION['nombre'] ?? '');
-    $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : ($_SESSION['apellido'] ?? '');
-    $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : ($_SESSION['correo'] ?? '');
-    
-    // Procesar el teléfono (campo numérico bigint): si está vacío, enviamos NULL para evitar el error de sintaxis
-    $telefonoInput = trim($_POST['numTelefono'] ?? '');
-    if ($telefonoInput !== '') {
-        $telefono = $telefonoInput;
-    } else {
-        // Si viene vacío, intentamos usar el de la sesión o dejamos NULL si la BD lo permite
-        $telefono = !empty(trim($_SESSION['telefono'] ?? '')) ? trim($_SESSION['telefono']) : null;
-    }
 
- 
     try {
-        // Consulta SQL para actualizar los datos en PostgreSQL
+        // 1. Consultar los datos actuales del usuario en la base de datos
+        $stmtSelect = $pdo->prepare("SELECT nombre, apellido, correo, num_telefono FROM usuario WHERE id_usuario = :id");
+        $stmtSelect->execute([':id' => $idUsuario]);
+        $currentUser = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+
+        if (!$currentUser) {
+            echo "<script>alert('Usuario no encontrado.'); window.location.href='configuracion.php';</script>";
+            exit();
+        }
+
+        // 2. Si el usuario envió texto nuevo, lo usamos; si dejó el campo vacío, mantenemos el valor actual de la BD
+        $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : $currentUser['nombre'];
+        $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : $currentUser['apellido'];
+        $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : $currentUser['correo'];
+        $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : $currentUser['num_telefono'];
+
+        // Validación de seguridad para asegurar que los campos principales tengan texto
+        if (empty($nombre) || empty($apellido) || empty($correo) || empty($telefono)) {
+            echo "<script>alert('Por favor complete los campos obligatorios. Ningún campo puede quedar vacío.'); window.history.back();</script>";
+            exit();
+        }
+
+        // 3. Ejecutar la actualización en PostgreSQL
         $sql = "UPDATE usuario 
                 SET nombre = :nombre, 
                     apellido = :apellido, 
@@ -43,11 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':nombre'   => $nombre,
             ':apellido' => $apellido,
             ':correo'   => $correo,
-            ':telefono' => $telefono, // Si es null, PDO lo enviará como NULL de SQL correctamente
+            ':telefono' => $telefono,
             ':id'       => $idUsuario
         ]);
 
-        // Actualizamos las variables de sesión
+        // 4. Actualizar también las variables de sesión para reflejar los cambios de inmediato
         $_SESSION['nombre']   = $nombre;
         $_SESSION['apellido'] = $apellido;
         $_SESSION['correo']   = $correo;
