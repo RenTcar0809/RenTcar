@@ -11,11 +11,11 @@ if (!isset($_SESSION['IdUsuario'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $idUsuario = $_SESSION['IdUsuario'];
     
-    // Si el campo viene vacío o con espacios, mantenemos el valor actual de la sesión
-    $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : $_SESSION['nombre'];
-    $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : $_SESSION['apellido'];
-    $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : $_SESSION['correo'];
-    $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : $_SESSION['telefono'];
+    // Si el campo viene vacío, recurrimos a la sesión; si tampoco existe en la sesión, ponemos un string vacío ''
+    $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : ($_SESSION['nombre'] ?? '');
+    $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : ($_SESSION['apellido'] ?? '');
+    $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : ($_SESSION['correo'] ?? '');
+    $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : ($_SESSION['telefono'] ?? $_SESSION['numTelefono'] ?? '');
 
     try {
         // Consulta SQL para actualizar los datos en PostgreSQL
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id'       => $idUsuario
         ]);
 
-        // Actualizamos las variables de sesión con los nuevos valores
+        // Actualizamos las variables de sesión para que reflejen los nuevos valores sin errores
         $_SESSION['nombre']   = $nombre;
         $_SESSION['apellido'] = $apellido;
         $_SESSION['correo']   = $correo;
