@@ -11,11 +11,13 @@ if (!isset($_SESSION['usuario_nombre'])) {
 $errorBD = "";
 
 try {
-    // Consulta para traer las motocicletas y su primera foto desde 'fotos_vehiculos'
+    // Consulta para traer solo las motocicletas DISPONIBLES y su primera foto desde 'fotos_vehiculos'
+    // Ajusta 'v.estado' al nombre real de tu columna si es diferente en tu base de datos.
     $sql = "SELECT v.*, 
                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS imagen_relacionada
             FROM vehiculo v 
             WHERE LOWER(v.tipo) LIKE '%moto%' 
+              AND v.estado NOT IN ('Alquilada', 'Mantenimiento', 'Ocupada') 
             ORDER BY v.id_v DESC";
 
     $stmt = $pdo->prepare($sql);
@@ -76,13 +78,10 @@ try {
                     // 3. Determinar si es una URL externa (Cloudinary / http) o un archivo local
                     if (!empty($fotoBD)) {
                         if (strpos($fotoBD, 'http://') === 0 || strpos($fotoBD, 'https://') === 0) {
-                            // Es una URL completa de Cloudinary, se usa tal cual
                             $srcImagen = $fotoBD;
                         } elseif (strpos($fotoBD, 'imagenes/') === 0) {
-                            // Ya tiene la ruta local prefijada
                             $srcImagen = $fotoBD;
                         } else {
-                            // Es un nombre de archivo local suelto, le anteponemos la carpeta
                             $srcImagen = 'imagenes/' . $fotoBD;
                         }
                     } else {
