@@ -209,10 +209,6 @@ try {
                             <a href="procesar_editar.php?id=<?php echo $id_v; ?>" class="btn-mini btn-edit">
                                 <i class="fas fa-edit"></i> Editar Datos
                             </a>
-                            
-                            <a href="subirfotos.php?id=<?php echo $id_v; ?>" class="btn-mini btn-photos">
-                                <i class="fas fa-camera"></i> Fotos
-                            </a>
 
                             <a href="ver_comentarios.php?id=<?php echo $id_v; ?>" class="btn-mini btn-comments">
                                 <i class="fas fa-star"></i> Ver Comentarios del Cliente
