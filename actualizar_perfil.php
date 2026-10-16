@@ -37,7 +37,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-        // 4. Ejecutar la actualización en PostgreSQL
+        // 4. Validación de duplicados: Verificar si el correo o teléfono ya existen en otro usuario
+        $sqlCheck = "SELECT COUNT(*) FROM usuario 
+                     WHERE (correo = :correo OR num_telefono = :telefono) 
+                     AND id_usuario != :id";
+                     
+        $stmtCheck = $pdo->prepare($sqlCheck);
+        $stmtCheck->execute([
+            ':correo'   => $correo,
+            ':telefono' => $telefono,
+            ':id'       => $idUsuario
+        ]);
+        
+        $existeDuplicado = $stmtCheck->fetchColumn();
+
+        if ($existeDuplicado > 0) {
+            echo "<script>alert('El correo electrónico o el número de teléfono ya están registrados por otra cuenta.'); window.history.back();</script>";
+            exit();
+        }
+
+        // 5. Ejecutar la actualización en PostgreSQL
         $sql = "UPDATE usuario 
                 SET nombre = :nombre, 
                     apellido = :apellido, 
@@ -54,10 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id'       => $idUsuario
         ]);
 
-        // 5. Actualizar las variables de sesión
-       // 5. Actualizar las variables de sesión (ambas versiones para evitar desincronizaciones)
+        // 6. Actualizar las variables de sesión (ambas versiones para evitar desincronizaciones en el dashboard)
         $_SESSION['nombre']         = $nombre;
-        $_SESSION['usuario_nombre'] = $nombre; // <- ¡Esta es la que lee tu dashboard!
+        $_SESSION['usuario_nombre'] = $nombre; // Sincronizado con el dashboard
         $_SESSION['apellido']       = $apellido;
         $_SESSION['correo']         = $correo;
         $_SESSION['telefono']       = $telefono;
