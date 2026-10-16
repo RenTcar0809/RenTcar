@@ -26,18 +26,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // 2. Si el usuario envió texto nuevo, lo usamos; si dejó el campo vacío, mantenemos el valor actual de la BD
-        $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : $currentUser['nombre'];
-        $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : $currentUser['apellido'];
-        $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : $currentUser['correo'];
-        $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : $currentUser['num_telefono'];
+        $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : ($currentUser['nombre'] ?? '');
+        $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : ($currentUser['apellido'] ?? '');
+        $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : ($currentUser['correo'] ?? '');
+        $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : ($currentUser['num_telefono'] ?? '');
 
-        // Validación de seguridad para asegurar que los campos principales tengan texto
-        if (empty($nombre) || empty($apellido) || empty($correo) || empty($telefono)) {
-            echo "<script>alert('Por favor complete los campos obligatorios. Ningún campo puede quedar vacío.'); window.history.back();</script>";
+        // 3. Validación flexible: Solo exigimos que Nombre y Correo tengan contenido obligatorio
+        if (empty($nombre) || empty($correo)) {
+            echo "<script>alert('El nombre y el correo electrónico son obligatorios.'); window.history.back();</script>";
             exit();
         }
 
-        // 3. Ejecutar la actualización en PostgreSQL
+        // 4. Ejecutar la actualización en PostgreSQL
         $sql = "UPDATE usuario 
                 SET nombre = :nombre, 
                     apellido = :apellido, 
@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id'       => $idUsuario
         ]);
 
-        // 4. Actualizar también las variables de sesión para reflejar los cambios de inmediato
+        // 5. Actualizar las variables de sesión
         $_SESSION['nombre']   = $nombre;
         $_SESSION['apellido'] = $apellido;
         $_SESSION['correo']   = $correo;
