@@ -13,13 +13,13 @@ $errorBD = "";
 try {
     // Consulta para traer solo las motocicletas DISPONIBLES y su primera foto desde 'fotos_vehiculos'
     // Ajusta 'v.estado' al nombre real de tu columna si es diferente en tu base de datos.
-    $sql = "SELECT v.*, 
+$sql = "SELECT v.*, 
                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1) AS imagen_relacionada
             FROM vehiculo v 
             WHERE LOWER(v.tipo) LIKE '%moto%' 
-              AND v.estado NOT IN ('Alquilada', 'Mantenimiento', 'Ocupada') 
+              AND v.estado NOT IN ('Alquilado', 'Mantenimiento', 'Ocupado') 
             ORDER BY v.id_v DESC";
-
+            
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
