@@ -21,11 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : ($_SESSION['correo'] ?? '');
     $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : ($_SESSION['telefono'] ?? $_SESSION['numTelefono'] ?? '');
 
-    // Validación por seguridad
-    if (empty($nombre) || empty($apellido) || empty($correo)) {
-        echo "<script>alert('Por favor complete los campos obligatorios.'); window.history.back();</script>";
-        exit();
-    }
 
     try {
         // Consulta SQL para actualizar los datos en PostgreSQL
