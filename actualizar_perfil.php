@@ -1,5 +1,4 @@
 <?php
-// Asegurar que no haya espacios antes de esta etiqueta
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -15,13 +14,21 @@ if (!isset($_SESSION['IdUsuario'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $idUsuario = $_SESSION['IdUsuario'];
     
-    // Si el campo viene vacío, recurrimos a la sesión; si tampoco existe, ponemos un string vacío
+    // Procesar campos de texto normales
     $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : ($_SESSION['nombre'] ?? '');
     $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : ($_SESSION['apellido'] ?? '');
     $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : ($_SESSION['correo'] ?? '');
-    $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : ($_SESSION['telefono'] ?? $_SESSION['numTelefono'] ?? '');
+    
+    // Procesar el teléfono (campo numérico bigint): si está vacío, enviamos NULL para evitar el error de sintaxis
+    $telefonoInput = trim($_POST['numTelefono'] ?? '');
+    if ($telefonoInput !== '') {
+        $telefono = $telefonoInput;
+    } else {
+        // Si viene vacío, intentamos usar el de la sesión o dejamos NULL si la BD lo permite
+        $telefono = !empty(trim($_SESSION['telefono'] ?? '')) ? trim($_SESSION['telefono']) : null;
+    }
 
-
+ 
     try {
         // Consulta SQL para actualizar los datos en PostgreSQL
         $sql = "UPDATE usuario 
@@ -36,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':nombre'   => $nombre,
             ':apellido' => $apellido,
             ':correo'   => $correo,
-            ':telefono' => $telefono,
+            ':telefono' => $telefono, // Si es null, PDO lo enviará como NULL de SQL correctamente
             ':id'       => $idUsuario
         ]);
 
@@ -46,12 +53,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['correo']   = $correo;
         $_SESSION['telefono'] = $telefono;
 
-        // Redirección limpia por cabecera HTTP en lugar de JS
         header("Location: configuracion.php?status=success");
         exit();
 
     } catch (PDOException $e) {
-        // Si hay un error de base de datos, lo mostramos en pantalla en lugar de dejarla en blanco
         echo "<div style='color: red; padding: 20px; font-family: sans-serif;'>";
         echo "<h3>Error al actualizar la base de datos:</h3>";
         echo "<p>" . htmlspecialchars($e->getMessage()) . "</p>";
