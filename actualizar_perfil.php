@@ -11,20 +11,20 @@ if (!isset($_SESSION['IdUsuario'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $idUsuario = $_SESSION['IdUsuario'];
     
-    // Recibimos los datos del formulario (si no vienen, mantenemos el valor actual de la sesión)
-    $nombre   = trim($_POST['nombre'] ?? $_SESSION['nombre']);
-    $apellido = trim($_POST['apellido'] ?? $_SESSION['apellido']);
-    $correo   = trim($_POST['correo'] ?? $_SESSION['correo']);
-    $telefono = trim($_POST['numTelefono'] ?? $_SESSION['telefono']);
+    // Si el campo viene vacío o con espacios, mantenemos el valor actual de la sesión
+    $nombre   = !empty(trim($_POST['nombre'] ?? '')) ? trim($_POST['nombre']) : $_SESSION['nombre'];
+    $apellido = !empty(trim($_POST['apellido'] ?? '')) ? trim($_POST['apellido']) : $_SESSION['apellido'];
+    $correo   = !empty(trim($_POST['correo'] ?? '')) ? trim($_POST['correo']) : $_SESSION['correo'];
+    $telefono = !empty(trim($_POST['numTelefono'] ?? '')) ? trim($_POST['numTelefono']) : $_SESSION['telefono'];
 
-    // Validación básica de campos obligatorios
+    // Validación por seguridad para asegurar que no queden vacíos
     if (empty($nombre) || empty($apellido) || empty($correo)) {
         echo "<script>alert('Por favor complete los campos obligatorios.'); window.history.back();</script>";
         exit();
     }
 
     try {
-        // Consulta SQL adaptada exactamente a los nombres de columnas de tu base de datos
+        // Consulta SQL para actualizar los datos en PostgreSQL
         $sql = "UPDATE usuario 
                 SET nombre = :nombre, 
                     apellido = :apellido, 
@@ -41,13 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id'       => $idUsuario
         ]);
 
-        // Actualizamos también las variables de sesión para que reflejen el cambio de inmediato
+        // Actualizamos las variables de sesión con los nuevos valores
         $_SESSION['nombre']   = $nombre;
         $_SESSION['apellido'] = $apellido;
         $_SESSION['correo']   = $correo;
         $_SESSION['telefono'] = $telefono;
 
-        // Redirigir de regreso con éxito
         echo "<script>alert('¡Perfil actualizado con éxito!'); window.location.href='configuracion.php';</script>";
         exit();
 
