@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'conexion.php'; // Asegúrate de tener tu conexión PDO
+require_once 'conexion.php'; // Tu conexión PDO
 
 // Verificar si el usuario ha iniciado sesión
 if (!isset($_SESSION['IdUsuario'])) {
@@ -24,13 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Consulta SQL para actualizar únicamente los campos del usuario logueado
+        // Consulta SQL adaptada exactamente a los nombres de columnas de tu base de datos
         $sql = "UPDATE usuario 
                 SET nombre = :nombre, 
                     apellido = :apellido, 
                     correo = :correo, 
-                    numTelefono = :telefono 
-                WHERE IdUsuario = :id OR id = :id"; // Ajusta 'IdUsuario' o 'id' según tu base de datos
+                    num_telefono = :telefono 
+                WHERE id_usuario = :id";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['correo']   = $correo;
         $_SESSION['telefono'] = $telefono;
 
-        // Redirigir de regreso con un mensaje de éxito (puedes usar un parámetro GET si deseas mostrar una alerta)
+        // Redirigir de regreso con éxito
         echo "<script>alert('¡Perfil actualizado con éxito!'); window.location.href='configuracion.php';</script>";
         exit();
 
