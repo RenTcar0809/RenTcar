@@ -25,7 +25,7 @@
         
         <form action="procesar_login.php" method="POST" class="login-form">
             <div class="input-group">
-                <label>USUARIO, CORREO O NIT</label>
+                <label>CORREO ELECTRONICO O NIT</label>
                 <input type="text" name="usuario_identificador" placeholder="ejemplo@correo.com" required>
             </div>
 
