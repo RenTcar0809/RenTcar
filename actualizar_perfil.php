@@ -55,10 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         // 5. Actualizar las variables de sesión
-        $_SESSION['nombre']   = $nombre;
-        $_SESSION['apellido'] = $apellido;
-        $_SESSION['correo']   = $correo;
-        $_SESSION['telefono'] = $telefono;
+       // 5. Actualizar las variables de sesión (ambas versiones para evitar desincronizaciones)
+        $_SESSION['nombre']         = $nombre;
+        $_SESSION['usuario_nombre'] = $nombre; // <- ¡Esta es la que lee tu dashboard!
+        $_SESSION['apellido']       = $apellido;
+        $_SESSION['correo']         = $correo;
+        $_SESSION['telefono']       = $telefono;
 
         header("Location: configuracion.php?status=success");
         exit();
