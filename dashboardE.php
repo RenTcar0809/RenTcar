@@ -213,7 +213,7 @@ try {
         <!-- --- APARTADO: MENSAJES DE LOS CLIENTES --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
-                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
+                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes.</h3>
             </div>
 
             <?php if (!empty($mensajesClientes)): ?>
