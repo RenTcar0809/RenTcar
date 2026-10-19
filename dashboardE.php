@@ -19,11 +19,11 @@ $nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? '
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1)); // Primera letra para el avatar
 
 // Variables para estadísticas (valores por defecto)
-$totalVehiculos  = 0;
-$rentasActivas   = 0;
-$gananciasMes    = 0;
-$totalClientes   = 0;
-$historialRentas = [];
+$totalVehiculos   = 0;
+$rentasActivas    = 0;
+$gananciasMes     = 0;
+$totalClientes    = 0;
+$historialRentas  = [];
 $mensajesClientes = []; 
 
 try {
@@ -53,7 +53,7 @@ try {
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar los últimos usuarios que han usado los vehículos (incluyendo id_reserva)
+    // 5. Consultar los últimos usuarios que han usado los vehículos
     $sqlRentas = "SELECT r.id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
                          v.marca, v.modelo, v.placa, 
                          r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
@@ -67,10 +67,14 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de los clientes (Corregido a id_vehiculo)
-    $sqlMensajes = "SELECT m.mensaje, m.fecha, m.remitente AS cliente, v.marca, v.modelo, v.placa 
+    // 6. Consultar mensajes adaptados a tu estructura (mensajes_chat)
+    $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
+                           COALESCE(u.nombre, m.remitente) AS cliente, 
+                           u.telefono, 
+                           v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
+                    LEFT JOIN usuario u ON m.remitente = u.IdUsuario
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
     
@@ -79,7 +83,8 @@ try {
     $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Manejo de errores de base de datos opcional
+    // Si ocurre un error de SQL, puedes activarlo para depuración descomentando la línea siguiente:
+    // die("Error en la consulta: " . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
@@ -93,13 +98,34 @@ try {
     <!-- Estilos CSS -->
     <link rel="stylesheet" href="admindashboard.css">
     <style>
-        .messages-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-        .message-card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; color: #fff; }
-        .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #2a2a2a; padding-bottom: 8px; }
+        .messages-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px; 
+            margin-top: 20px; 
+        }
+        .message-card { 
+            background: #1e1e1e; 
+            border: 1px solid #333; 
+            border-radius: 10px; 
+            padding: 20px; 
+            color: #fff; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .message-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 10px; 
+            border-bottom: 1px solid #2a2a2a; 
+            padding-bottom: 8px; 
+        }
         .message-header strong { color: #fff; font-size: 1rem; }
         .message-header small { color: #8e8e93; }
         .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
-        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; }
+        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
 
         /* Estilos para el selector de estado dinámico */
         .select-estado {
@@ -210,25 +236,41 @@ try {
             </div>
         </section>
 
-        <!-- --- APARTADO: MENSAJES DE LOS CLIENTES --- -->
+        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
-                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes.</h3>
+                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
             </div>
 
             <?php if (!empty($mensajesClientes)): ?>
                 <div class="messages-grid">
                     <?php foreach ($mensajesClientes as $msg): ?>
                         <div class="message-card">
-                            <div class="message-header">
-                                <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
-                                <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
+                            <div>
+                                <div class="message-header">
+                                    <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
+                                    <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
+                                </div>
+                                <div class="message-vehicle">
+                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars($msg['marca'] . ' ' . $msg['modelo']); ?> (Placa: <?php echo htmlspecialchars($msg['placa']); ?>)
+                                </div>
+                                <div class="message-body">
+                                    "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
+                                </div>
                             </div>
-                            <div class="message-vehicle">
-                                <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars($msg['marca'] . ' ' . $msg['modelo']); ?> (Placa: <?php echo htmlspecialchars($msg['placa']); ?>)
-                            </div>
-                            <div class="message-body">
-                                "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
+
+                            <!-- Botón para responder por WhatsApp si el usuario cuenta con teléfono -->
+                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; text-align: right;">
+                                <?php if (!empty($msg['telefono'])): ?>
+                                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $msg['telefono']); ?>?text=Hola%20<?php echo urlencode($msg['cliente']); ?>,%20te%20contacto%20desde%20RentCar%20sobre%20tu%20mensaje%20del%20vehículo%20<?php echo urlencode($msg['marca'] . ' ' . $msg['modelo']); ?>" 
+                                       target="_blank" 
+                                       class="view-btn" 
+                                       style="padding: 6px 15px; font-size: 0.85rem; background: #25d366; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 5px; font-weight: bold;">
+                                        <i class="fa-brands fa-whatsapp"></i> Responder por WhatsApp
+                                    </a>
+                                <?php else: ?>
+                                    <span style="font-size: 0.8rem; color: #888;">Sin teléfono registrado</span>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -301,6 +343,7 @@ try {
 
     <!-- Scripts -->
     <script>
+        // Menú desplegable del perfil del usuario
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');
 
@@ -315,6 +358,7 @@ try {
             }
         });
 
+        // Cambiar el estado de la reserva vía AJAX
         function cambiarEstadoReserva(idReserva, nuevoEstado) {
             const formData = new FormData();
             formData.append('id_reserva', idReserva);

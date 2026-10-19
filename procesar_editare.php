@@ -1,387 +1,221 @@
 <?php
-session_start();
-require_once 'conexion.php'; // Archivo de conexión PDO
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'conexion.php';
 
-// 1. SEGURIDAD: Validar que la empresa tenga una sesión activa
-if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
+// 1. Verificar sesión activa
+if (!isset($_SESSION['IdUsuario'])) {
     header("Location: inicioSesion.php");
     exit();
 }
 
-// Prevenir caché para que no se pueda regresar con el botón de "Atrás" tras cerrar sesión
-header("Cache-Control: no-cache, no-store, must-revalidate");
-header("Pragma: no-cache");
-header("Expires: 0");
+$idVehiculo = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$idProveedor = $_SESSION['IdUsuario'];
+$error = "";
 
-// Obtención de datos del usuario
-$idProveedor    = $_SESSION['id_proveedor'] ?? 0;
-$nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
-$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1)); // Primera letra para el avatar
-
-// Variables para estadísticas (valores por defecto)
-$totalVehiculos   = 0;
-$rentasActivas    = 0;
-$gananciasMes     = 0;
-$totalClientes    = 0;
-$historialRentas  = [];
-$mensajesClientes = []; 
-
-try {
-    // 1. Contar vehículos de la empresa
-    $stmtVeh = $pdo->prepare("SELECT COUNT(*) FROM vehiculo WHERE id_proveedor = :id");
-    $stmtVeh->execute([':id' => $idProveedor]);
-    $totalVehiculos = $stmtVeh->fetchColumn();
-
-    // 2. Contar rentas activas
-    $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM reserva r 
-                                INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
-                                WHERE v.id_proveedor = :id AND r.estado = 'activa'");
-    $stmtActivas->execute([':id' => $idProveedor]);
-    $rentasActivas = $stmtActivas->fetchColumn();
-
-    // 3. Obtener ganancias del mes
-    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM reserva r 
-                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
-                                   WHERE v.id_proveedor = :id AND r.estado = 'completada'");
-    $stmtGanancias->execute([':id' => $idProveedor]);
-    $gananciasMes = $stmtGanancias->fetchColumn();
-
-    // 4. Contar clientes únicos que han alquilado
-    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_usuario) FROM reserva r 
-                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
-                                   WHERE v.id_proveedor = :id");
-    $stmtClientes->execute([':id' => $idProveedor]);
-    $totalClientes = $stmtClientes->fetchColumn();
-
-    // 5. Consultar los últimos usuarios que han usado los vehículos
-    $sqlRentas = "SELECT r.id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
-                         v.marca, v.modelo, v.placa, 
-                         r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
-                  FROM reserva r
-                  INNER JOIN usuario u ON r.id_usuario = u.IdUsuario
-                  INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo
-                  WHERE v.id_proveedor = :id
-                  ORDER BY r.fecha_inicio DESC LIMIT 10";
-    
-    $stmtRentas = $pdo->prepare($sqlRentas);
-    $stmtRentas->execute([':id' => $idProveedor]);
-    $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
-
-    // 6. Consultar mensajes adaptados a tu estructura (mensajes_chat)
-    $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
-                           COALESCE(u.nombre, m.remitente) AS cliente, 
-                           u.telefono, 
-                           v.marca, v.modelo, v.placa 
-                    FROM mensajes_chat m
-                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
-                    LEFT JOIN usuario u ON m.remitente = u.IdUsuario
-                    WHERE v.id_proveedor = :id
-                    ORDER BY m.fecha DESC LIMIT 10";
-    
-    $stmtMensajes = $pdo->prepare($sqlMensajes);
-    $stmtMensajes->execute([':id' => $idProveedor]);
-    $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    // Si ocurre un error de SQL, puedes activarlo para depuración descomentando la línea siguiente:
-    // die("Error en la consulta: " . $e->getMessage());
+if ($idVehiculo <= 0) {
+    header("Location: dashboardE.php");
+    exit();
 }
+
+// --- LÓGICA PARA ELIMINAR UNA FOTO ---
+if (isset($_GET['borrar'])) {
+    $idFotoBorrar = intval($_GET['borrar']);
+    
+    $stmtCheck = $pdo->prepare("
+        SELECT f.ruta_imagen FROM fotos_vehiculos f 
+        JOIN vehiculo v ON f.id_vehiculo = v.id_v 
+        WHERE f.id_foto = ? AND v.id_proveedor = ?
+    ");
+    $stmtCheck->execute([$idFotoBorrar, $idProveedor]);
+    $foto = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+    
+    if ($foto) {
+        $del = $pdo->prepare("DELETE FROM fotos_vehiculos WHERE id_foto = ?");
+        $del->execute([$idFotoBorrar]);
+    }
+    
+    header("Location: " . basename($_SERVER['PHP_SELF']) . "?id=" . $idVehiculo);
+    exit();
+}
+
+// --- OBTENER DATOS ACTUALES DEL VEHÍCULO ---
+$stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ? AND id_proveedor = ?");
+$stmt->execute([$idVehiculo, $idProveedor]);
+$v = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$v) {
+    header("Location: VehiculoE.php");
+    exit();
+}
+
+// --- PROCESAR GUARDADO DE CAMBIOS ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // Contar fotos actuales en la BD
+    $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM fotos_vehiculos WHERE id_vehiculo = ?");
+    $stmtCount->execute([$idVehiculo]);
+    $cantidadActualEnBD = (int) $stmtCount->fetchColumn();
+
+    // Contar fotos nuevas seleccionadas de manera estricta
+    $fotosNuevasCount = 0;
+    $archivosValidos = [];
+    if (isset($_FILES['imagenes']) && !empty($_FILES['imagenes']['name'][0])) {
+        foreach ($_FILES['imagenes']['error'] as $i => $err) {
+            if ($err === UPLOAD_ERR_OK) {
+                $fotosNuevasCount++;
+                $archivosValidos[] = $i;
+            }
+        }
+    }
+
+    $totalFotosFinales = $cantidadActualEnBD + $fotosNuevasCount;
+
+    // Validación estricta: Obliga a que sean exactamente 4 fotos en total
+    if ($totalFotosFinales != 4) {
+        $error = "Error: El vehículo debe tener exactamente 4 fotografías. Actualmente tienes $cantidadActualEnBD en la base de datos y seleccionaste $fotosNuevasCount nuevas (Total: $totalFotosFinales).";
+    } else {
+        // 1. Actualizar datos de texto primero
+        $nuevoPrecio = $_POST['precio'];
+        $nuevoEstado = $_POST['estado'];
+
+        $stmtUp = $pdo->prepare("UPDATE vehiculo SET precio = ?, estado = ? WHERE id_v = ? AND id_proveedor = ?");
+        $stmtUp->execute([$nuevoPrecio, $nuevoEstado, $idVehiculo, $idProveedor]);
+
+        // 2. Subir nuevas fotos a Cloudinary si el usuario seleccionó alguna
+        $subidaExitosa = true;
+        if ($fotosNuevasCount > 0) {
+            $archivos = $_FILES['imagenes'];
+            
+            // Credenciales de Cloudinary
+            $cloudName = "bsd1wma1";       
+            $uploadPreset = "xkzfwqa0"; 
+
+            foreach ($archivosValidos as $i) {
+                $tmpFilePath = $archivos['tmp_name'][$i];
+                $name = $archivos['name'][$i];
+
+                $cfile = new CURLFile($tmpFilePath, $archivos['type'][$i], $name);
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, "https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, [
+                    'file' => $cfile,
+                    'upload_preset' => $uploadPreset
+                ]);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                $response = curl_exec($ch);
+                curl_close($ch);
+
+                $responseData = json_decode($response, true);
+
+                if (isset($responseData['secure_url'])) {
+                    $urlSegura = $responseData['secure_url'];
+                    
+                    $insF = $pdo->prepare("INSERT INTO fotos_vehiculos (id_vehiculo, id_usuario, ruta_imagen) VALUES (?, ?, ?)");
+                    $insF->execute([$idVehiculo, $idProveedor, $urlSegura]);
+                } else {
+                    $subidaExitosa = false;
+                    $error = "Error al conectar con Cloudinary. Revisa tu cloud_name y upload_preset.";
+                    break;
+                }
+            }
+        }
+
+        if ($subidaExitosa && empty($error)) {
+            header("Location: vehiculosE.php?success=1");
+            exit();
+        }
+    }
+}
+
+// Consultar fotos actualizadas explícitamente ordenadas por ID
+$stmtFotos = $pdo->prepare("SELECT id_foto, ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
+$stmtFotos->execute([$idVehiculo]);
+$fotosActuales = $stmtFotos->fetchAll(PDO::FETCH_ASSOC);
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - <?php echo htmlspecialchars($nombreEmpresa); ?></title>
-    <!-- Iconos FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Estilos CSS -->
-    <link rel="stylesheet" href="admindashboard.css">
+    <title>Editar Vehículo | RentCar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        .messages-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 20px; 
-            margin-top: 20px; 
-        }
-        .message-card { 
-            background: #1e1e1e; 
-            border: 1px solid #333; 
-            border-radius: 10px; 
-            padding: 20px; 
-            color: #fff; 
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .message-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 10px; 
-            border-bottom: 1px solid #2a2a2a; 
-            padding-bottom: 8px; 
-        }
-        .message-header strong { color: #fff; font-size: 1rem; }
-        .message-header small { color: #8e8e93; }
-        .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
-        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
-
-        /* Estilos para el selector de estado dinámico */
-        .select-estado {
-            background-color: #2a2a2a;
-            color: #fff;
-            border: 1px solid #444;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-        .select-estado:focus {
-            outline: none;
-            border-color: #e50914;
-        }
+        :root { --rojo: #e50914; --oscuro: #121212; --card: #1e1e1e; }
+        body { background: var(--oscuro); color: white; font-family: 'Roboto', sans-serif; padding: 20px; }
+        .edit-container { max-width: 700px; margin: auto; background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid #333; }
+        h2 { font-family: 'Bangers'; color: var(--rojo); font-size: 2.5rem; letter-spacing: 2px; margin-top:0; }
+        .vehicle-info { background: #252525; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--rojo); }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #bbb; font-weight: bold; }
+        input[type="number"], select { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
+        
+        .gallery-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+        .thumb-container { position: relative; width: 100%; height: 100px; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
+        .thumb-container img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .btn-delete { position: absolute; top: 5px; right: 5px; background: var(--rojo); color: white; text-decoration: none; width: 22px; height: 22px; border-radius: 50%; text-align: center; font-weight: bold; line-height: 20px; font-size: 14px; z-index: 10; }
+        .btn-submit { background: var(--rojo); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
+        .btn-cancel { display: block; text-align: center; margin-top: 15px; color: #888; text-decoration: none; }
+        .error-msg { background: rgba(229, 9, 20, 0.2); color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--rojo); }
+        .no-fotos { color: #888; font-style: italic; font-size: 0.9rem; grid-column: span 4; text-align: center; padding: 20px; background: #252525; border-radius: 8px;}
     </style>
 </head>
 <body>
 
-    <!-- --- BARRA DE NAVEGACIÓN SUPERIOR --- -->
-    <header class="top-navbar">
-        <div class="logo-container">
-            <h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1>
+<div class="edit-container">
+    <h2>MODIFICAR UNIDAD</h2>
+    
+    <?php if (!empty($error)): ?>
+        <div class="error-msg"><?php echo htmlspecialchars($error); ?></div>
+    <?php endif; ?>
+
+    <form action="" method="POST" enctype="multipart/form-data">
+        <div class="vehicle-info">
+            <strong>Vehículo:</strong> <?php echo htmlspecialchars($v['marca'] . ' ' . $v['modelo']); ?><br>
+            <strong>Placa:</strong> <?php echo htmlspecialchars($v['placa']); ?>
         </div>
 
-        <nav class="nav-menu">
-            <a href="dashboardE.php" class="nav-link active">
-                <i class="fa-solid fa-chart-pie"></i>
-                <span>Panel</span>
-            </a>
-            <a href="vehiculosE.php" class="nav-link">
-                <i class="fa-solid fa-car-side"></i>
-                <span>Mi Flota</span>
-            </a>
-            <a href="alquileres.php" class="nav-link">
-                <i class="fa-solid fa-calendar-check"></i>
-                <span>Alquileres</span>
-            </a>
-            <a href="clientes.php" class="nav-link">
-                <i class="fa-solid fa-users"></i>
-                <span>Clientes</span>
-            </a>
-            <a href="perfil_empresa.php" class="nav-link highlight-company">
-                <i class="fa-solid fa-building"></i>
-                <span>Mi Empresa</span>
-            </a>
-        </nav>
-
-        <div class="user-container">
-            <div class="user-profile" id="userProfileBtn">
-                <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
-                <span><?php echo htmlspecialchars($nombreEmpresa); ?></span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: #8e8e93;"></i>
-            </div>
-            
-            <div class="dropdown-content" id="userDropdown">
-                <a href="perfil_empresa.php"><i class="fa-solid fa-user-gear"></i> Configuración</a>
-                <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
-            </div>
+        <div class="form-group">
+            <label>Precio por Día ($)</label>
+            <input type="number" name="precio" value="<?php echo htmlspecialchars($v['precio']); ?>" required>
         </div>
-    </header>
 
-    <!-- --- CONTENIDO PRINCIPAL --- -->
-    <main class="main-content">
-        
-        <h2 class="section-title">Resumen General</h2>
+        <div class="form-group">
+            <label>Estado</label>
+            <select name="estado">
+                <option value="Disponible" <?php if($v['estado']=='Disponible') echo 'selected'; ?>>Disponible</option>
+                <option value="Alquilado" <?php if($v['estado']=='Alquilado') echo 'selected'; ?>>Alquilado</option>
+                <option value="Mantenimiento" <?php if($v['estado']=='Mantenimiento') echo 'selected'; ?>>Mantenimiento</option>
+            </select>
+        </div>
 
-        <!-- Tarjetas de métricas -->
-        <section class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Vehículos Totales</h3>
-                    <p><?php echo number_format($totalVehiculos); ?></p>
-                </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-car"></i>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Alquileres Activos</h3>
-                    <p><?php echo number_format($rentasActivas); ?></p>
-                </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-key"></i>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Clientes Totales</h3>
-                    <p><?php echo number_format($totalClientes); ?></p>
-                </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-user-check"></i>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Ingresos del Mes</h3>
-                    <p>$<?php echo number_format($gananciasMes, 2); ?></p>
-                </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-dollar-sign"></i>
-                </div>
-            </div>
-        </section>
-
-        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
-        <section class="table-container" style="margin-top: 30px;">
-            <div class="table-header-title">
-                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
-            </div>
-
-            <?php if (!empty($mensajesClientes)): ?>
-                <div class="messages-grid">
-                    <?php foreach ($mensajesClientes as $msg): ?>
-                        <div class="message-card">
-                            <div>
-                                <div class="message-header">
-                                    <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
-                                    <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
-                                </div>
-                                <div class="message-vehicle">
-                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars($msg['marca'] . ' ' . $msg['modelo']); ?> (Placa: <?php echo htmlspecialchars($msg['placa']); ?>)
-                                </div>
-                                <div class="message-body">
-                                    "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
-                                </div>
-                            </div>
-
-                            <!-- Botón para responder por WhatsApp si el usuario cuenta con teléfono -->
-                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; text-align: right;">
-                                <?php if (!empty($msg['telefono'])): ?>
-                                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $msg['telefono']); ?>?text=Hola%20<?php echo urlencode($msg['cliente']); ?>,%20te%20contacto%20desde%20RentCar%20sobre%20tu%20mensaje%20del%20vehículo%20<?php echo urlencode($msg['marca'] . ' ' . $msg['modelo']); ?>" 
-                                       target="_blank" 
-                                       class="view-btn" 
-                                       style="padding: 6px 15px; font-size: 0.85rem; background: #25d366; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 5px; font-weight: bold;">
-                                        <i class="fa-brands fa-whatsapp"></i> Responder por WhatsApp
-                                    </a>
-                                <?php else: ?>
-                                    <span style="font-size: 0.8rem; color: #888;">Sin teléfono registrado</span>
-                                <?php endif; ?>
-                            </div>
+        <div class="form-group">
+            <label>Fotos actuales en Cloudinary (Obligatorio: 4 en total)</label>
+            <div class="gallery-preview">
+                <?php if (!empty($fotosActuales)): ?>
+                    <?php foreach ($fotosActuales as $foto): ?>
+                        <div class="thumb-container">
+                            <img src="<?php echo htmlspecialchars($foto['ruta_imagen']); ?>" alt="Foto vehículo" onerror="this.src='unnamed.png'">
+                            <a href="?id=<?php echo $idVehiculo; ?>&borrar=<?php echo $foto['id_foto']; ?>" class="btn-delete" onclick="return confirm('¿Borrar esta foto?')">×</a>
                         </div>
                     <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <div class="no-data" style="text-align: center; padding: 20px; color: #888;">
-                    <i class="fa-solid fa-envelope-open" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                    <p>No hay mensajes nuevos de los clientes por el momento.</p>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <!-- --- REGISTRO DE ALQUILERES Y GESTIÓN DE ESTADO --- -->
-        <section class="table-container" style="margin-top: 30px;">
-            <div class="table-header-title">
-                <h3><i class="fa-solid fa-clock-rotate-left"></i> Registro de Usuarios y Alquileres</h3>
+                <?php else: ?>
+                    <div class="no-fotos">No hay fotos registradas. Sube tus fotos pendientes.</div>
+                <?php endif; ?>
             </div>
+        </div>
 
-            <?php if (!empty($historialRentas)): ?>
-                <table class="custom-table">
-                    <thead>
-                        <tr>
-                            <th>Cliente</th>
-                            <th>Vehículo</th>
-                            <th>Placa</th>
-                            <th>Fecha Inicio</th>
-                            <th>Fecha Fin</th>
-                            <th>Monto</th>
-                            <th>Estado Actual</th>
-                            <th>Acción / Cambiar Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($historialRentas as $renta): ?>
-                            <tr>
-                                <td>
-                                    <strong><?php echo htmlspecialchars($renta['cliente']); ?></strong><br>
-                                    <small style="color: #8e8e93;"><?php echo htmlspecialchars($renta['correo']); ?></small>
-                                </td>
-                                <td><?php echo htmlspecialchars($renta['marca'] . ' ' . $renta['modelo']); ?></td>
-                                <td><code><?php echo htmlspecialchars($renta['placa']); ?></code></td>
-                                <td><?php echo date('d/m/Y', strtotime($renta['fecha_inicio'])); ?></td>
-                                <td><?php echo date('d/m/Y', strtotime($renta['fecha_fin'])); ?></td>
-                                <td><strong>$<?php echo number_format($renta['monto_total'], 2); ?></strong></td>
-                                <td>
-                                    <span class="status-badge status-<?php echo strtolower($renta['estado']); ?>">
-                                        <?php echo htmlspecialchars($renta['estado']); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <select class="select-estado" onchange="cambiarEstadoReserva(<?php echo $renta['id_reserva']; ?>, this.value)">
-                                        <option value="activa" <?php echo ($renta['estado'] === 'activa') ? 'selected' : ''; ?>>Activa (Rentado)</option>
-                                        <option value="completada" <?php echo ($renta['estado'] === 'completada') ? 'selected' : ''; ?>>Completada (Disponible)</option>
-                                        <option value="cancelada" <?php echo ($renta['estado'] === 'cancelada') ? 'selected' : ''; ?>>Cancelada (Disponible)</option>
-                                    </select>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <div class="no-data" style="text-align: center; padding: 20px; color: #888;">
-                    <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                    <p>Aún no hay usuarios que hayan alquilado vehículos de tu flota.</p>
-                </div>
-            <?php endif; ?>
-        </section>
+        <div class="form-group">
+            <label>Subir nuevas fotos al Catalogo</label>
+            <input type="file" name="imagenes[]" multiple accept="image/*" style="color: #888;">
+        </div>
 
-    </main>
-
-    <!-- Scripts -->
-    <script>
-        // Menú desplegable del perfil del usuario
-        const btn = document.getElementById('userProfileBtn');
-        const dropdown = document.getElementById('userDropdown');
-
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('show');
-        });
-
-        window.addEventListener('click', () => {
-            if (dropdown.classList.contains('show')) {
-                dropdown.classList.remove('show');
-            }
-        });
-
-        // Cambiar el estado de la reserva vía AJAX
-        function cambiarEstadoReserva(idReserva, nuevoEstado) {
-            const formData = new FormData();
-            formData.append('id_reserva', idReserva);
-            formData.append('estado', nuevoEstado);
-
-            fetch('actualizar_estado_reserva.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocurrió un error al procesar la solicitud.');
-            });
-        }
-    </script>
+        <button type="submit" class="btn-submit">GUARDAR CAMBIOS</button>
+        <a href="vehiculosE.php" class="btn-cancel">Cancelar y volver</a>
+    </form>
+</div>
 
 </body>
 </html>
