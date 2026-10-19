@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($subidaExitosa && empty($error)) {
-            header("Location: vehiculoE.php?success=1");
+            header("Location: vehiculosE.php?success=1");
             exit();
         }
     }
