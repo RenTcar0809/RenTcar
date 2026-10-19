@@ -25,6 +25,7 @@ $gananciasMes     = 0;
 $totalClientes    = 0;
 $historialRentas  = [];
 $mensajesClientes = []; 
+$errorConsulta    = null;
 
 try {
     // 1. Contar vehículos de la empresa
@@ -67,14 +68,14 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes adaptados a tu estructura (mensajes_chat)
+    // 6. Consultar mensajes de los clientes (Adaptado con respaldo de campos)
     $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
                            COALESCE(u.nombre, m.remitente) AS cliente, 
-                           u.telefono, 
+                           COALESCE(u.telefono, '') AS telefono, 
                            v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
-                    LEFT JOIN usuario u ON m.remitente = u.IdUsuario
+                    LEFT JOIN usuario u ON (m.remitente = CAST(u.IdUsuario AS CHAR) OR m.remitente = u.correo)
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
     
@@ -83,8 +84,7 @@ try {
     $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Si ocurre un error de SQL, puedes activarlo para depuración descomentando la línea siguiente:
-    // die("Error en la consulta: " . $e->getMessage());
+    $errorConsulta = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -127,7 +127,6 @@ try {
         .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
         .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
 
-        /* Estilos para el selector de estado dinámico */
         .select-estado {
             background-color: #2a2a2a;
             color: #fff;
@@ -191,6 +190,12 @@ try {
     <!-- --- CONTENIDO PRINCIPAL --- -->
     <main class="main-content">
         
+        <?php if ($errorConsulta): ?>
+            <div style="background: #2b0000; color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4d4d;">
+                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Error SQL detectado:</strong> <?php echo htmlspecialchars($errorConsulta); ?>
+            </div>
+        <?php endif; ?>
+
         <h2 class="section-title">Resumen General</h2>
 
         <!-- Tarjetas de métricas -->
@@ -259,7 +264,6 @@ try {
                                 </div>
                             </div>
 
-                            <!-- Botón para responder por WhatsApp si el usuario cuenta con teléfono -->
                             <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; text-align: right;">
                                 <?php if (!empty($msg['telefono'])): ?>
                                     <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $msg['telefono']); ?>?text=Hola%20<?php echo urlencode($msg['cliente']); ?>,%20te%20contacto%20desde%20RentCar%20sobre%20tu%20mensaje%20del%20vehículo%20<?php echo urlencode($msg['marca'] . ' ' . $msg['modelo']); ?>" 
@@ -343,7 +347,6 @@ try {
 
     <!-- Scripts -->
     <script>
-        // Menú desplegable del perfil del usuario
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');
 
@@ -358,7 +361,6 @@ try {
             }
         });
 
-        // Cambiar el estado de la reserva vía AJAX
         function cambiarEstadoReserva(idReserva, nuevoEstado) {
             const formData = new FormData();
             formData.append('id_reserva', idReserva);
