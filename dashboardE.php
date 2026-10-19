@@ -33,32 +33,32 @@ try {
     $stmtVeh->execute([':id' => $idProveedor]);
     $totalVehiculos = $stmtVeh->fetchColumn();
 
-    // 2. Contar rentas activas
-    $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM reserva r 
+    // 2. Contar rentas activas (Usando la tabla 'prestamo')
+    $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM prestamo r 
                                 INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
                                 WHERE v.id_proveedor = :id AND r.estado = 'activa'");
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
     // 3. Obtener ganancias del mes
-    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM reserva r 
+    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM prestamo r 
                                    INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
                                    WHERE v.id_proveedor = :id AND r.estado = 'completada'");
     $stmtGanancias->execute([':id' => $idProveedor]);
     $gananciasMes = $stmtGanancias->fetchColumn();
 
     // 4. Contar clientes únicos que han alquilado
-    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_usuario) FROM reserva r 
+    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_usuario) FROM prestamo r 
                                    INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
                                    WHERE v.id_proveedor = :id");
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
     // 5. Consultar los últimos usuarios que han usado los vehículos
-    $sqlRentas = "SELECT r.id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
+    $sqlRentas = "SELECT r.id_prestamo AS id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
                          v.marca, v.modelo, v.placa, 
                          r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
-                  FROM reserva r
+                  FROM prestamo r
                   INNER JOIN usuario u ON r.id_usuario = u.IdUsuario
                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo
                   WHERE v.id_proveedor = :id
@@ -68,14 +68,14 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de los clientes (Adaptado con respaldo de campos)
+    // 6. Consultar mensajes directamente de mensajes_chat y vehiculo
     $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
-                           COALESCE(u.nombre, m.remitente) AS cliente, 
-                           COALESCE(u.telefono, '') AS telefono, 
+                           m.remitente AS cliente, 
+                           u.telefono, 
                            v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
-                    LEFT JOIN usuario u ON (m.remitente = CAST(u.IdUsuario AS CHAR) OR m.remitente = u.correo)
+                    LEFT JOIN usuario u ON u.nombre = m.remitente OR u.correo = m.remitente
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
     
@@ -257,7 +257,7 @@ try {
                                     <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
                                 </div>
                                 <div class="message-vehicle">
-                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars($msg['marca'] . ' ' . $msg['modelo']); ?> (Placa: <?php echo htmlspecialchars($msg['placa']); ?>)
+                                    <i class="fa-solid fa-car-side"></i> Vehículo ID: <?php echo htmlspecialchars($msg['id_vehiculo'] ?? ''); ?> — <?php echo htmlspecialchars(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? '')); ?> (Placa: <?php echo htmlspecialchars($msg['placa'] ?? 'N/D'); ?>)
                                 </div>
                                 <div class="message-body">
                                     "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
@@ -266,7 +266,7 @@ try {
 
                             <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; text-align: right;">
                                 <?php if (!empty($msg['telefono'])): ?>
-                                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $msg['telefono']); ?>?text=Hola%20<?php echo urlencode($msg['cliente']); ?>,%20te%20contacto%20desde%20RentCar%20sobre%20tu%20mensaje%20del%20vehículo%20<?php echo urlencode($msg['marca'] . ' ' . $msg['modelo']); ?>" 
+                                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $msg['telefono']); ?>?text=Hola%20<?php echo urlencode($msg['cliente']); ?>,%20te%20contacto%20desde%20RentCar%20sobre%20tu%20mensaje." 
                                        target="_blank" 
                                        class="view-btn" 
                                        style="padding: 6px 15px; font-size: 0.85rem; background: #25d366; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 5px; font-weight: bold;">
