@@ -53,8 +53,8 @@ try {
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar los últimos usuarios que han usado los vehículos
-    $sqlRentas = "SELECT u.nombre AS cliente, u.correo, u.telefono, 
+    // 5. Consultar los últimos usuarios que han usado los vehículos (incluyendo id_reserva)
+    $sqlRentas = "SELECT r.id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
                          v.marca, v.modelo, v.placa, 
                          r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
                   FROM reserva r
@@ -67,10 +67,10 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de los clientes vinculados a los vehículos de la empresa
+    // 6. Consultar mensajes de los clientes (Corregido a id_vehiculo)
     $sqlMensajes = "SELECT m.mensaje, m.fecha, m.remitente AS cliente, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
-                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
+                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
     
@@ -79,7 +79,7 @@ try {
     $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Si alguna tabla (como 'mensajes_chat') no existe todavía, evita que rompa el panel completo
+    // Manejo de errores de base de datos opcional
 }
 ?>
 <!DOCTYPE html>
@@ -93,7 +93,6 @@ try {
     <!-- Estilos CSS -->
     <link rel="stylesheet" href="admindashboard.css">
     <style>
-        /* Estilos rápidos adicionales para la sección de mensajes */
         .messages-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
         .message-card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; color: #fff; }
         .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #2a2a2a; padding-bottom: 8px; }
@@ -101,18 +100,31 @@ try {
         .message-header small { color: #8e8e93; }
         .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
         .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; }
+
+        /* Estilos para el selector de estado dinámico */
+        .select-estado {
+            background-color: #2a2a2a;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .select-estado:focus {
+            outline: none;
+            border-color: #e50914;
+        }
     </style>
 </head>
 <body>
 
-    <!-- --- BARRA DE NAVEGACIÓN SUPERIOR (HORIZONTAL) --- -->
+    <!-- --- BARRA DE NAVEGACIÓN SUPERIOR --- -->
     <header class="top-navbar">
-        <!-- Logo con el resalte en rojo -->
         <div class="logo-container">
             <h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1>
         </div>
 
-        <!-- Opciones del menú -->
         <nav class="nav-menu">
             <a href="dashboardE.php" class="nav-link active">
                 <i class="fa-solid fa-chart-pie"></i>
@@ -136,7 +148,6 @@ try {
             </a>
         </nav>
 
-        <!-- Perfil dinámico del Proveedor / Empresa -->
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
                 <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
@@ -156,7 +167,7 @@ try {
         
         <h2 class="section-title">Resumen General</h2>
 
-        <!-- Tarjetas de métricas (KPIs) con datos reales de la BD -->
+        <!-- Tarjetas de métricas -->
         <section class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-info">
@@ -230,7 +241,7 @@ try {
             <?php endif; ?>
         </section>
 
-        <!-- Registro de Usuarios y Alquileres -->
+        <!-- --- REGISTRO DE ALQUILERES Y GESTIÓN DE ESTADO --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-clock-rotate-left"></i> Registro de Usuarios y Alquileres</h3>
@@ -246,7 +257,8 @@ try {
                             <th>Fecha Inicio</th>
                             <th>Fecha Fin</th>
                             <th>Monto</th>
-                            <th>Estado</th>
+                            <th>Estado Actual</th>
+                            <th>Acción / Cambiar Estado</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -266,6 +278,13 @@ try {
                                         <?php echo htmlspecialchars($renta['estado']); ?>
                                     </span>
                                 </td>
+                                <td>
+                                    <select class="select-estado" onchange="cambiarEstadoReserva(<?php echo $renta['id_reserva']; ?>, this.value)">
+                                        <option value="activa" <?php echo ($renta['estado'] === 'activa') ? 'selected' : ''; ?>>Activa (Rentado)</option>
+                                        <option value="completada" <?php echo ($renta['estado'] === 'completada') ? 'selected' : ''; ?>>Completada (Disponible)</option>
+                                        <option value="cancelada" <?php echo ($renta['estado'] === 'cancelada') ? 'selected' : ''; ?>>Cancelada (Disponible)</option>
+                                    </select>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -280,7 +299,7 @@ try {
 
     </main>
 
-    <!-- Script del Menú Desplegable -->
+    <!-- Scripts -->
     <script>
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');
@@ -295,6 +314,29 @@ try {
                 dropdown.classList.remove('show');
             }
         });
+
+        function cambiarEstadoReserva(idReserva, nuevoEstado) {
+            const formData = new FormData();
+            formData.append('id_reserva', idReserva);
+            formData.append('estado', nuevoEstado);
+
+            fetch('actualizar_estado_reserva.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocurrió un error al procesar la solicitud.');
+            });
+        }
     </script>
 
 </body>
