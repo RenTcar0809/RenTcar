@@ -33,23 +33,23 @@ try {
     $stmtVeh->execute([':id' => $idProveedor]);
     $totalVehiculos = $stmtVeh->fetchColumn();
 
-    // 2. Contar rentas activas (Usando la tabla 'prestamo')
+    // 2. Contar rentas activas (Usando la tabla 'prestamo' y 'id_v')
     $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM prestamo r 
-                                INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+                                INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                 WHERE v.id_proveedor = :id AND r.estado = 'activa'");
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
     // 3. Obtener ganancias del mes
     $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM prestamo r 
-                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id AND r.estado = 'completada'");
     $stmtGanancias->execute([':id' => $idProveedor]);
     $gananciasMes = $stmtGanancias->fetchColumn();
 
     // 4. Contar clientes únicos que han alquilado
     $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_usuario) FROM prestamo r 
-                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id");
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
@@ -60,7 +60,7 @@ try {
                          r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
                   FROM prestamo r
                   INNER JOIN usuario u ON r.id_usuario = u.IdUsuario
-                  INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo
+                  INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v
                   WHERE v.id_proveedor = :id
                   ORDER BY r.fecha_inicio DESC LIMIT 10";
     
@@ -72,9 +72,9 @@ try {
     $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
                            m.remitente AS cliente, 
                            u.telefono, 
-                           v.marca, v.modelo, v.placa 
+                           v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
-                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_vehiculo
+                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
                     LEFT JOIN usuario u ON u.nombre = m.remitente OR u.correo = m.remitente
                     WHERE v.id_proveedor = :id
                     ORDER BY m.fecha DESC LIMIT 10";
