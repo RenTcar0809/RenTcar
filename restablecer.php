@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
         $errorForm = "Las contraseñas no coinciden.";
     } else {
         $nuevoHash = password_hash($passNueva, PASSWORD_DEFAULT);
-        $idUsuario = $usuario['IdUsuario'] ?? $usuario['idusuario'] ?? $usuario['id'];
+        $idUsuario = $usuario['id_usuario'] ?? null;
 
         $update = $pdo->prepare("UPDATE usuario SET contraseña = :pass, token_recuperacion = NULL, token_expiracion = NULL WHERE IdUsuario = :id OR id = :id");
         $update->execute([':pass' => $nuevoHash, ':id' => $idUsuario]);
