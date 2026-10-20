@@ -12,7 +12,7 @@ if (empty($token)) {
 }
 
 try {
-    // 1. Buscamos al usuario usando estrictamente id_usuario
+    // 1. Buscamos al usuario usando id_usuario
     $stmt = $pdo->prepare("SELECT id_usuario, correo FROM usuario WHERE token_recuperacion = :token AND token_expiracion > NOW() LIMIT 1");
     $stmt->execute([':token' => $token]);
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -37,12 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
     } else {
         try {
             $nuevoHash = password_hash($passNueva, PASSWORD_DEFAULT);
-            
-            // 2. Extraemos el id_usuario correctamente sin opciones ambiguas
             $idUsuario = $usuario['id_usuario'] ?? null;
 
-            // 3. Ejecutamos el update apuntando a id_usuario
-            $update = $pdo->prepare("UPDATE usuario SET contraseña = :pass, token_recuperacion = NULL, token_expiracion = NULL WHERE id_usuario = :id");
+            // 2. Actualizamos usando 'contrasena' (sin eñe) y 'id_usuario'
+            $update = $pdo->prepare("UPDATE usuario SET contrasena = :pass, token_recuperacion = NULL, token_expiracion = NULL WHERE id_usuario = :id");
             $update->execute([
                 ':pass' => $nuevoHash,
                 ':id'   => $idUsuario
@@ -51,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
             echo "<script>alert('¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.'); window.location.href='inicioSesion.php';</script>";
             exit();
         } catch (PDOException $e) {
-            $errorForm = "Error al actualizar la contraseña en la base de datos.";
+            $errorForm = "Error BD: " . $e->getMessage();
         }
     }
 }
