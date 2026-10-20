@@ -20,9 +20,9 @@ if (empty($mensaje) || empty($destinatario)) {
 }
 
 try {
-    // Insertar la respuesta directamente en mensajes_chat usando 'id_v'
+    // Se cambia 'false' por '0' para alinearse con el tipo integer de la columna 'leido'
     $stmt = $pdo->prepare("INSERT INTO mensajes_chat (remitente, id_vehiculo, mensaje, fecha, leido) 
-                           VALUES (:remitente, :id_v, :mensaje, NOW(), false)");
+                           VALUES (:remitente, :id_v, :mensaje, NOW(), 0)");
     $stmt->execute([
         ':remitente' => $remitente,
         ':id_v'      => $idVehiculo,
