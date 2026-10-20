@@ -68,8 +68,9 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de chat
-    $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
+    // 6. Consultar mensajes AGRUPADOS (Solo el último mensaje de cada cliente por vehículo)
+    $sqlMensajes = "SELECT DISTINCT ON (m.remitente, m.id_vehiculo) 
+                           m.id_mensaje, m.mensaje, m.fecha, m.leido, 
                            m.remitente AS cliente, 
                            u.id_usuario, u.num_telefono AS telefono, 
                            v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
@@ -77,7 +78,7 @@ try {
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
                     LEFT JOIN usuario u ON u.nombre = m.remitente OR u.correo = m.remitente
                     WHERE v.id_proveedor = :id
-                    ORDER BY m.fecha DESC LIMIT 10";
+                    ORDER BY m.remitente, m.id_vehiculo, m.fecha DESC";
     
     $stmtMensajes = $pdo->prepare($sqlMensajes);
     $stmtMensajes->execute([':id' => $idProveedor]);
@@ -111,6 +112,7 @@ try {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            position: relative;
         }
         .message-header { 
             display: flex; 
@@ -137,6 +139,21 @@ try {
         .select-estado:focus {
             outline: none;
             border-color: #e50914;
+        }
+
+        /* Botón de Borrar Mensaje */
+        .btn-delete-msg {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-delete-msg:hover {
+            background: rgba(239, 68, 68, 0.2);
         }
 
         /* Estilos del Modal de Respuesta */
@@ -307,7 +324,7 @@ try {
             <?php if (!empty($mensajesClientes)): ?>
                 <div class="messages-grid">
                     <?php foreach ($mensajesClientes as $msg): ?>
-                        <div class="message-card">
+                        <div class="message-card" id="card-msg-<?php echo $msg['id_mensaje']; ?>">
                             <div>
                                 <div class="message-header">
                                     <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
@@ -321,7 +338,10 @@ try {
                                 </div>
                             </div>
 
-                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; text-align: right;">
+                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                <button type="button" class="btn-delete-msg" onclick="eliminarChat('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>', '<?php echo $msg['id_mensaje']; ?>')" title="Eliminar conversación">
+                                    <i class="fa-solid fa-trash-can"></i> Borrar
+                                </button>
                                 <button type="button" class="btn-reply" onclick="abrirModalRespuesta('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>')">
                                     <i class="fa-solid fa-reply"></i> Responder en la App
                                 </button>
@@ -469,6 +489,33 @@ try {
             .catch(err => {
                 console.error(err);
                 alert('Ocurrió un error al enviar la respuesta.');
+            });
+        }
+
+        // Función para Eliminar Mensajes / Chat
+        function eliminarChat(remitente, idVehiculo, idCard) {
+            if (!confirm('¿Deseas borrar esta conversación con el cliente?')) return;
+
+            const formData = new FormData();
+            formData.append('remitente', remitente);
+            formData.append('id_vehiculo', idVehiculo);
+
+            fetch('eliminar_mensaje.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById('card-msg-' + idCard);
+                    if (card) card.remove();
+                } else {
+                    alert('Error al eliminar: ' + (data.message || 'Error desconocido'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error al procesar la eliminación.');
             });
         }
 
