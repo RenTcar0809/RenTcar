@@ -5,13 +5,15 @@ require_once 'conexion.php';
 $token = $_GET['token'] ?? '';
 $valido = false;
 $mensaje = "";
+$usuario = null;
 
 if (empty($token)) {
     die("Token no proporcionado.");
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM usuario WHERE token_recuperacion = :token AND token_expiracion > NOW() LIMIT 1");
+    // 1. Buscamos al usuario usando estrictamente id_usuario
+    $stmt = $pdo->prepare("SELECT id_usuario, correo FROM usuario WHERE token_recuperacion = :token AND token_expiracion > NOW() LIMIT 1");
     $stmt->execute([':token' => $token]);
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -21,7 +23,7 @@ try {
         $mensaje = "El enlace de recuperación es inválido o ha expirado.";
     }
 } catch (PDOException $e) {
-    $mensaje = "Error en el sistema.";
+    $mensaje = "Error en el sistema de base de datos.";
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
@@ -33,14 +35,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
     } elseif ($passNueva !== $passConfirmar) {
         $errorForm = "Las contraseñas no coinciden.";
     } else {
-        $nuevoHash = password_hash($passNueva, PASSWORD_DEFAULT);
-        $idUsuario = $usuario['id_usuario'] ?? null;
+        try {
+            $nuevoHash = password_hash($passNueva, PASSWORD_DEFAULT);
+            
+            // 2. Extraemos el id_usuario correctamente sin opciones ambiguas
+            $idUsuario = $usuario['id_usuario'] ?? null;
 
-        $update = $pdo->prepare("UPDATE usuario SET contraseña = :pass, token_recuperacion = NULL, token_expiracion = NULL WHERE IdUsuario = :id OR id = :id");
-        $update->execute([':pass' => $nuevoHash, ':id' => $idUsuario]);
+            // 3. Ejecutamos el update apuntando a id_usuario
+            $update = $pdo->prepare("UPDATE usuario SET contraseña = :pass, token_recuperacion = NULL, token_expiracion = NULL WHERE id_usuario = :id");
+            $update->execute([
+                ':pass' => $nuevoHash,
+                ':id'   => $idUsuario
+            ]);
 
-        echo "<script>alert('¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.'); window.location.href='inicioSesion.php';</script>";
-        exit();
+            echo "<script>alert('¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.'); window.location.href='inicioSesion.php';</script>";
+            exit();
+        } catch (PDOException $e) {
+            $errorForm = "Error al actualizar la contraseña en la base de datos.";
+        }
     }
 }
 ?>
@@ -64,9 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
                 <div class="auth-alert auth-alert-error">
                     <?php echo $mensaje; ?>
                 </div>
-                <a href="inicioSesion.php" class="btn-save" style="display: block; text-align: center; text-decoration: none;">Ir al Inicio de Sesión</a>
+                <a href="inicioSesion.php" class="btn-save" style="display: block; text-align: center; text-decoration: none; margin-top: 15px;">Ir al Inicio de Sesión</a>
             <?php else: ?>
-                <p>Ingresa y confirma tu nueva contraseña de acceso segura</p>
+                <p>Ingresa y confirma tu nueva contraseña de acceso segura.</p>
 
                 <?php if (!empty($errorForm)): ?>
                     <div class="auth-alert auth-alert-error">
@@ -79,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
                         <label>Nueva Contraseña</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-lock"></i>
-                            <input type="password" name="pass_nueva" placeholder="••••••••••••" required>
+                            <input type="password" name="pass_nueva" placeholder="••••••••••••" required minlength="6">
                         </div>
                     </div>
 
@@ -87,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
                         <label>Confirmar Nueva Contraseña</label>
                         <div class="input-with-icon">
                             <i class="fa-solid fa-lock-open"></i>
-                            <input type="password" name="pass_confirmar" placeholder="••••••••••••" required>
+                            <input type="password" name="pass_confirmar" placeholder="••••••••••••" required minlength="6">
                         </div>
                     </div>
 
