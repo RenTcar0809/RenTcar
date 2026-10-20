@@ -8,7 +8,7 @@ $tipoAlerta = "";
 // Función para enviar correos usando la API HTTP de Brevo vía cURL
 function enviarCorreoBrevo($correoDestino, $enlace) {
     // Aquí pegas tu API Key de Brevo (o la configuras en una variable de entorno en Render: BREVO_API_KEY)
-    $apiKey = getenv('BREVO_API_KEY') ?: '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'; 
+    $apiKey = getenv('BREVO_API_KEY'); 
     
     $data = [
         'sender' => [
