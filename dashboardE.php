@@ -33,14 +33,14 @@ try {
     $stmtVeh->execute([':id' => $idProveedor]);
     $totalVehiculos = $stmtVeh->fetchColumn();
 
-    // 2. Contar rentas activas (Usando 'id_v' en vehiculo)
+    // 2. Contar rentas activas
     $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM prestamo r 
                                 INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                 WHERE v.id_proveedor = :id AND r.estado = 'activa'");
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
-    // 3. Obtener ganancias del mes (Usando la columna 'monto')
+    // 3. Obtener ganancias del mes
     $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto), 0) FROM prestamo r 
                                    INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id AND r.estado = 'completada'");
@@ -54,8 +54,8 @@ try {
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar el historial de rentas
-    $sqlRentas = "SELECT r.id_prestamo AS id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
+    // 5. Consultar el historial de rentas (Usando u.num_telefono)
+    $sqlRentas = "SELECT r.id_prestamo AS id_reserva, u.nombre AS cliente, u.correo, u.num_telefono AS telefono, 
                          v.marca, v.modelo, v.placa, 
                          r.fecha_inicio, r.fecha_fin, r.estado, r.monto AS monto_total
                   FROM prestamo r
@@ -68,10 +68,10 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de chat
+    // 6. Consultar mensajes de chat (Usando u.num_telefono)
     $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
                            m.remitente AS cliente, 
-                           u.telefono, 
+                           u.num_telefono AS telefono, 
                            v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
