@@ -33,33 +33,33 @@ try {
     $stmtVeh->execute([':id' => $idProveedor]);
     $totalVehiculos = $stmtVeh->fetchColumn();
 
-    // 2. Contar rentas activas (Usando la tabla 'prestamo' y 'id_v')
+    // 2. Contar rentas activas (Usando 'id_v' en vehiculo)
     $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM prestamo r 
                                 INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                 WHERE v.id_proveedor = :id AND r.estado = 'activa'");
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
-    // 3. Obtener ganancias del mes
-    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM prestamo r 
+    // 3. Obtener ganancias del mes (Usando la columna 'monto')
+    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto), 0) FROM prestamo r 
                                    INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id AND r.estado = 'completada'");
     $stmtGanancias->execute([':id' => $idProveedor]);
     $gananciasMes = $stmtGanancias->fetchColumn();
 
     // 4. Contar clientes únicos que han alquilado
-    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_usuario) FROM prestamo r 
+    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_arrendatario) FROM prestamo r 
                                    INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id");
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar los últimos usuarios que han usado los vehículos
+    // 5. Consultar el historial de rentas
     $sqlRentas = "SELECT r.id_prestamo AS id_reserva, u.nombre AS cliente, u.correo, u.telefono, 
                          v.marca, v.modelo, v.placa, 
-                         r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
+                         r.fecha_inicio, r.fecha_fin, r.estado, r.monto AS monto_total
                   FROM prestamo r
-                  INNER JOIN usuario u ON r.id_usuario = u.IdUsuario
+                  INNER JOIN usuario u ON r.id_arrendatario = u.id_usuario
                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v
                   WHERE v.id_proveedor = :id
                   ORDER BY r.fecha_inicio DESC LIMIT 10";
@@ -68,7 +68,7 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes directamente de mensajes_chat y vehiculo
+    // 6. Consultar mensajes de chat
     $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
                            m.remitente AS cliente, 
                            u.telefono, 
