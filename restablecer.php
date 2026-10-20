@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valido) {
                 </div>
                 <a href="inicioSesion.php" class="btn-save" style="display: block; text-align: center; text-decoration: none;">Ir al Inicio de Sesión</a>
             <?php else: ?>
-                <p>Ingresa y confirma tu nueva contraseña de acceso segura.</p>
+                <p>Ingresa y confirma tu nueva contraseña de acceso segura</p>
 
                 <?php if (!empty($errorForm)): ?>
                     <div class="auth-alert auth-alert-error">
