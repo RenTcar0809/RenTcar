@@ -2,16 +2,62 @@
 session_start();
 require_once 'conexion.php';
 
-// Incluir PHPMailer de forma manual asegurando los archivos principales
-require 'src/Exception.php';
-require 'src/PHPMailer.php';
-require 'src/SMTP.php';
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
 $mensaje = "";
 $tipoAlerta = "";
+
+// Función para enviar correos usando la API HTTP de Brevo vía cURL
+function enviarCorreoBrevo($correoDestino, $enlace) {
+    // Aquí pegas tu API Key de Brevo (o la configuras en una variable de entorno en Render: BREVO_API_KEY)
+    $apiKey = getenv('BREVO_API_KEY'); 
+    
+    $data = [
+        'sender' => [
+            'name' => 'RentCar Soporte',
+            'email' => 'RenTcarCop@gmail.com' // El correo con el que abriste tu cuenta en Brevo
+        ],
+        'to' => [
+            [
+                'email' => $correoDestino
+            ]
+        ],
+        'subject' => 'Recuperación de Contraseña - RentCar',
+        'htmlContent' => '
+            <div style="font-family: Arial, sans-serif; background-color: #000; color: #fff; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #df0000;">RENTCAR - Recuperación de Cuenta</h2>
+                <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente botón para continuar:</p>
+                <p style="margin: 25px 0;">
+                    <a href="' . $enlace . '" style="background-color: #df0000; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Restablecer Contraseña</a>
+                </p>
+                <p style="color: #a1a1aa; font-size: 0.9rem;">Si tú no solicitaste este cambio, puedes ignorar este mensaje. Este enlace expirará en 1 hora.</p>
+            </div>
+        '
+    ];
+
+    $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'api-key: ' . $apiKey,
+        'Content-Type: application/json',
+        'Accept: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    
+    // Si en local (XAMPP) te llega a dar problemas de SSL, puedes descomentar la siguiente línea:
+    // curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($err || $httpCode >= 400) {
+        error_log("Error cURL Brevo: " . $err . " | Respuesta: " . $response);
+        return false;
+    }
+
+    return true;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correo = trim($_POST['correo'] ?? '');
@@ -35,56 +81,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $enlace = "https://rentcar-g542.onrender.com/restablecer.php?token=" . $token;
 
-                // Configuración de PHPMailer
-                $mail = new PHPMailer(true);
+                // Envío de correo mediante Brevo
+                $enviado = enviarCorreoBrevo($correo, $enlace);
 
-                $mail->isSMTP();
-                $mail->Host       = 'smtp.gmail.com';             
-                $mail->SMTPAuth   = true;
-                $mail->Username   = 'tu-correo@gmail.com';          // <--- Tu correo real de Gmail
-                $mail->Password   = 'tu-contraseña-de-aplicacion';  // <--- Tu contraseña de aplicación de Google
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port       = 587;
-
-                // Solución para errores de certificado SSL en entornos locales (XAMPP)
-                $mail->SMTPOptions = array(
-                    'ssl' => array(
-                        'verify_peer' => false,
-                        'verify_peer_name' => false,
-                        'allow_self_signed' => true
-                    )
-                );
-
-                $mail->setFrom('tu-correo@gmail.com', 'RentCar Soporte');
-                $mail->addAddress($correo);
-
-                $mail->isHTML(true);
-                $mail->Subject = 'Recuperación de Contraseña - RentCar';
-                $mail->CharSet = 'UTF-8';
-                
-                $mail->Body    = '
-                    <div style="font-family: Arial, sans-serif; background-color: #000; color: #fff; padding: 20px; border-radius: 8px;">
-                        <h2 style="color: #df0000;">RENTCAR - Recuperación de Cuenta</h2>
-                        <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente botón para continuar:</p>
-                        <p style="margin: 25px 0;">
-                            <a href="' . $enlace . '" style="background-color: #df0000; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Restablecer Contraseña</a>
-                        </p>
-                        <p style="color: #a1a1aa; font-size: 0.9rem;">Si tú no solicitaste este cambio, puedes ignorar este mensaje. Este enlace expirará en 1 hora.</p>
-                    </div>
-                ';
-
-                $mail->send();
-
-                $mensaje = "¡Listo! Se han enviado las instrucciones de recuperación a tu correo electrónico.";
-                $tipoAlerta = "success";
+                if ($enviado) {
+                    $mensaje = "¡Listo! Se han enviado las instrucciones de recuperación a tu correo electrónico.";
+                    $tipoAlerta = "success";
+                } else {
+                    $mensaje = "Error al enviar el correo con Brevo. Intente más tarde.";
+                    $tipoAlerta = "error";
+                }
             } else {
                 $mensaje = "Si el correo está registrado, se han enviado las instrucciones de recuperación.";
                 $tipoAlerta = "success";
             }
-        } catch (Exception $e) {
-            $errorDetalle = isset($mail) ? $mail->ErrorInfo : $e->getMessage();
-            $mensaje = "Error al enviar el correo. Intente más tarde. (Detalle: " . $errorDetalle . ")";
-            $tipoAlerta = "error";
         } catch (PDOException $e) {
             $mensaje = "Error en el sistema de base de datos.";
             $tipoAlerta = "error";
