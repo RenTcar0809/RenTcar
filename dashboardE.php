@@ -8,7 +8,7 @@ if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
     exit();
 }
 
-// Prevenir caché para que no se pueda regresar con el botón de "Atrás" tras cerrar sesión
+// Prevenir caché
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
@@ -16,9 +16,9 @@ header("Expires: 0");
 // Obtención de datos del usuario
 $idProveedor    = $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
-$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1)); // Primera letra para el avatar
+$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 
-// Variables para estadísticas (valores por defecto)
+// Variables para estadísticas
 $totalVehiculos   = 0;
 $rentasActivas    = 0;
 $gananciasMes     = 0;
@@ -54,7 +54,7 @@ try {
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar el historial de rentas (Usando u.num_telefono)
+    // 5. Consultar el historial de rentas
     $sqlRentas = "SELECT r.id_prestamo AS id_reserva, u.nombre AS cliente, u.correo, u.num_telefono AS telefono, 
                          v.marca, v.modelo, v.placa, 
                          r.fecha_inicio, r.fecha_fin, r.estado, r.monto AS monto_total
@@ -68,10 +68,10 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de chat (Usando u.num_telefono)
+    // 6. Consultar mensajes de chat
     $sqlMensajes = "SELECT m.id_mensaje, m.mensaje, m.fecha, m.leido, 
                            m.remitente AS cliente, 
-                           u.num_telefono AS telefono, 
+                           u.id_usuario, u.num_telefono AS telefono, 
                            v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
@@ -93,9 +93,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control - <?php echo htmlspecialchars($nombreEmpresa); ?></title>
-    <!-- Iconos FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Estilos CSS -->
     <link rel="stylesheet" href="admindashboard.css">
     <style>
         .messages-grid { 
@@ -140,6 +138,73 @@ try {
             outline: none;
             border-color: #e50914;
         }
+
+        /* Estilos del Modal de Respuesta */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            padding: 25px;
+            color: #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+        .modal-header h3 { margin: 0; color: #e50914; }
+        .close-modal {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .close-modal:hover { color: #fff; }
+        .modal-body textarea {
+            width: 100%;
+            height: 120px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            padding: 10px;
+            font-size: 0.95rem;
+            resize: vertical;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+        .modal-body textarea:focus { outline: none; border-color: #e50914; }
+        .btn-reply {
+            background: #e50914;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-reply:hover { background: #b80710; }
     </style>
 </head>
 <body>
@@ -205,9 +270,7 @@ try {
                     <h3>Vehículos Totales</h3>
                     <p><?php echo number_format($totalVehiculos); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-car"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-car"></i></div>
             </div>
 
             <div class="metric-card">
@@ -215,9 +278,7 @@ try {
                     <h3>Alquileres Activos</h3>
                     <p><?php echo number_format($rentasActivas); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-key"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-key"></i></div>
             </div>
 
             <div class="metric-card">
@@ -225,9 +286,7 @@ try {
                     <h3>Clientes Totales</h3>
                     <p><?php echo number_format($totalClientes); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-user-check"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-user-check"></i></div>
             </div>
 
             <div class="metric-card">
@@ -235,9 +294,7 @@ try {
                     <h3>Ingresos del Mes</h3>
                     <p>$<?php echo number_format($gananciasMes, 2); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-dollar-sign"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-dollar-sign"></i></div>
             </div>
         </section>
 
@@ -257,7 +314,7 @@ try {
                                     <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
                                 </div>
                                 <div class="message-vehicle">
-                                    <i class="fa-solid fa-car-side"></i> Vehículo ID: <?php echo htmlspecialchars($msg['id_vehiculo'] ?? ''); ?> — <?php echo htmlspecialchars(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? '')); ?> (Placa: <?php echo htmlspecialchars($msg['placa'] ?? 'N/D'); ?>)
+                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? '')); ?> (Placa: <?php echo htmlspecialchars($msg['placa'] ?? 'N/D'); ?>)
                                 </div>
                                 <div class="message-body">
                                     "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
@@ -265,16 +322,9 @@ try {
                             </div>
 
                             <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; text-align: right;">
-                                <?php if (!empty($msg['telefono'])): ?>
-                                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $msg['telefono']); ?>?text=Hola%20<?php echo urlencode($msg['cliente']); ?>,%20te%20contacto%20desde%20RentCar%20sobre%20tu%20mensaje." 
-                                       target="_blank" 
-                                       class="view-btn" 
-                                       style="padding: 6px 15px; font-size: 0.85rem; background: #25d366; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 5px; font-weight: bold;">
-                                        <i class="fa-brands fa-whatsapp"></i> Responder por WhatsApp
-                                    </a>
-                                <?php else: ?>
-                                    <span style="font-size: 0.8rem; color: #888;">Sin teléfono registrado</span>
-                                <?php endif; ?>
+                                <button type="button" class="btn-reply" onclick="abrirModalRespuesta('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>')">
+                                    <i class="fa-solid fa-reply"></i> Responder en la App
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -287,7 +337,7 @@ try {
             <?php endif; ?>
         </section>
 
-        <!-- --- REGISTRO DE ALQUILERES Y GESTIÓN DE ESTADO --- -->
+        <!-- --- REGISTRO DE ALQUILERES --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-clock-rotate-left"></i> Registro de Usuarios y Alquileres</h3>
@@ -345,6 +395,30 @@ try {
 
     </main>
 
+    <!-- --- MODAL DE RESPUESTA DIRECTA --- -->
+    <div class="modal-overlay" id="replyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-paper-plane"></i> Responder Mensaje</h3>
+                <button type="button" class="close-modal" onclick="cerrarModalRespuesta()">&times;</button>
+            </div>
+            <form id="replyForm" onsubmit="enviarRespuestaInterna(event)">
+                <div class="modal-body">
+                    <p style="margin-bottom: 5px; color: #aaa;">Para: <strong id="modalClienteNombre" style="color: #fff;">-</strong></p>
+                    <input type="hidden" id="modalDestinatario" name="destinatario">
+                    <input type="hidden" id="modalIdVehiculo" name="id_vehiculo">
+
+                    <label for="modalMensajeTexto" style="font-size: 0.9rem; color: #888;">Tu respuesta:</label>
+                    <textarea id="modalMensajeTexto" name="mensaje" placeholder="Escribe tu mensaje para el cliente aquí..." required></textarea>
+                </div>
+                <div style="text-align: right; margin-top: 15px;">
+                    <button type="button" onclick="cerrarModalRespuesta()" style="background: #444; color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-right: 8px;">Cancelar</button>
+                    <button type="submit" class="btn-reply"><i class="fa-solid fa-paper-plane"></i> Enviar Respuesta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         const btn = document.getElementById('userProfileBtn');
@@ -360,6 +434,43 @@ try {
                 dropdown.classList.remove('show');
             }
         });
+
+        // Funciones del Modal
+        function abrirModalRespuesta(clienteNombre, idVehiculo) {
+            document.getElementById('modalClienteNombre').innerText = clienteNombre;
+            document.getElementById('modalDestinatario').value = clienteNombre;
+            document.getElementById('modalIdVehiculo').value = idVehiculo;
+            document.getElementById('modalMensajeTexto').value = '';
+            document.getElementById('replyModal').classList.add('active');
+        }
+
+        function cerrarModalRespuesta() {
+            document.getElementById('replyModal').classList.remove('active');
+        }
+
+        function enviarRespuestaInterna(e) {
+            e.preventDefault();
+            const formData = new FormData(document.getElementById('replyForm'));
+
+            fetch('responder_mensaje.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    alert('¡Respuesta enviada exitosamente!');
+                    cerrarModalRespuesta();
+                    location.reload();
+                } else {
+                    alert('Error al enviar el mensaje: ' + (data.message || 'Intente nuevamente'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ocurrió un error al enviar la respuesta.');
+            });
+        }
 
         function cambiarEstadoReserva(idReserva, nuevoEstado) {
             const formData = new FormData();
