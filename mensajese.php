@@ -17,7 +17,7 @@ $idProveedor    = $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 
-// Si es una petición AJAX para obtener los mensajes de un chat específico
+// 1. OBTENER MENSAJES DE UN CHAT ESPECÍFICO (AJAX)
 if (isset($_GET['action']) && $_GET['action'] === 'get_chat') {
     header('Content-Type: application/json');
     $cliente = $_GET['cliente'] ?? '';
@@ -27,10 +27,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_chat') {
         $sqlChat = "SELECT m.id_mensaje, m.remitente, m.destinatario, m.mensaje, m.fecha, m.leido
                     FROM mensajes_chat m
                     WHERE m.id_vehiculo = :id_v 
-                      AND (m.remitente = :cliente OR m.destinatario = :cliente)
+                      AND (
+                           (m.remitente = :cliente AND m.destinatario = :empresa) OR 
+                           (m.remitente = :empresa AND m.destinatario = :cliente)
+                          )
                     ORDER BY m.fecha ASC";
+        
         $stmtChat = $pdo->prepare($sqlChat);
-        $stmtChat->execute([':id_v' => $idVehiculo, ':cliente' => $cliente]);
+        $stmtChat->execute([
+            ':id_v'    => $idVehiculo, 
+            ':cliente' => $cliente,
+            ':empresa' => $nombreEmpresa
+        ]);
         $mensajes = $stmtChat->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode(['success' => true, 'mensajes' => $mensajes]);
@@ -40,22 +48,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_chat') {
     exit();
 }
 
-// Consultar la lista de conversaciones (Último mensaje por cada cliente y vehículo)
+// 2. CONSULTAR LISTA DE CONVERSACIONES (Agrupadas por el cliente involucrado)
 $conversaciones = [];
 $errorConsulta  = null;
 
 try {
-    $sqlLista = "SELECT DISTINCT ON (m.remitente, m.id_vehiculo) 
-                        m.id_mensaje, m.mensaje, m.fecha, 
-                        m.remitente AS cliente, 
-                        v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa, v.imagen_principal
+    // Definimos cuál es el 'cliente' (si la empresa es el remitente, el cliente es el destinatario y viceversa)
+    $sqlLista = "SELECT DISTINCT ON (
+                    CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
+                    m.id_vehiculo
+                 ) 
+                    m.id_mensaje, m.mensaje, m.fecha, 
+                    CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END AS cliente, 
+                    v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa, v.imagen_principal
                  FROM mensajes_chat m
                  INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
-                 WHERE v.id_proveedor = :id AND m.remitente != :empresa
-                 ORDER BY m.remitente, m.id_vehiculo, m.fecha DESC";
+                 WHERE v.id_proveedor = :id 
+                   AND (m.remitente = :empresa OR m.destinatario = :empresa)
+                 ORDER BY 
+                    CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
+                    m.id_vehiculo, 
+                    m.fecha DESC";
     
     $stmtLista = $pdo->prepare($sqlLista);
-    $stmtLista->execute([':id' => $idProveedor, ':empresa' => $nombreEmpresa]);
+    $stmtLista->execute([
+        ':id'      => $idProveedor, 
+        ':empresa' => $nombreEmpresa
+    ]);
     $conversaciones = $stmtLista->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $errorConsulta = $e->getMessage();
