@@ -2,8 +2,14 @@
 session_start();
 require_once 'conexion.php'; // Archivo de conexión PDO
 
-// 1. SEGURIDAD: Validar que la empresa tenga una sesión activa
-if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
+// 1. SEGURIDAD REFORZADA: Verificar que exista sesión Y que sea de tipo Empresa (tipo = 1)
+if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] != 1) {
+    // Si la sesión actual en el navegador es de un cliente (tipo 2), enviarlo a su panel
+    if (isset($_SESSION['tipo']) && $_SESSION['tipo'] == 2) {
+        header("Location: dashboardf.php");
+        exit();
+    }
+    // Si no hay sesión iniciada, enviarlo al login
     header("Location: inicioSesion.php");
     exit();
 }
@@ -13,8 +19,7 @@ header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
 
-// Obtención de datos del usuario
-$idProveedor    = $_SESSION['id_proveedor'] ?? 0;
+$idProveedor    = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 

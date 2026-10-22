@@ -1,6 +1,13 @@
 <?php
 session_start();
-if (!isset($_SESSION['usuario_nombre'])) {
+require_once 'conexion.php';
+
+// Validar que sea un Cliente (tipo = 2)
+if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] != 2) {
+    if (isset($_SESSION['tipo']) && $_SESSION['tipo'] == 1) {
+        header("Location: dashboardE.php");
+        exit();
+    }
     header("Location: inicioSesion.php");
     exit();
 }
