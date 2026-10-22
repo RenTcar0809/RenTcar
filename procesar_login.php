@@ -1,5 +1,6 @@
 <?php
 session_start();
+session_unset(); // <--- IMPORTANTE: Borra cualquier dato de sesión anterior para evitar mezclas
 require_once 'conexion.php'; // Usa tu archivo de conexión PDO
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -14,7 +15,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // CORRECCIÓN: Agregamos LOWER(TRIM(nombre)) y LOWER(TRIM(empresa)) para que también busque por nombre y empresa
         $sql = "SELECT * FROM usuario 
                 WHERE LOWER(TRIM(correo)) = LOWER(TRIM(:login)) 
                    OR LOWER(TRIM(nit)) = LOWER(TRIM(:login)) 
@@ -32,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Compara contraseña encriptada o en texto plano
             if (password_verify($password, $hashGuardado) || $password === $hashGuardado) {
+                
+                // Regeneramos el ID de sesión por seguridad
                 session_regenerate_id(true);
 
                 // 2. Buscamos el ID del usuario de forma flexible
@@ -77,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 } else {
-    die("Debes enviar el formulario primero.");
+    header("Location: inicioSesion.php");
+    exit();
 }
 ?>
