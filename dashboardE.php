@@ -24,7 +24,6 @@ $rentasActivas    = 0;
 $gananciasMes     = 0;
 $totalClientes    = 0;
 $historialRentas  = [];
-$mensajesClientes = []; 
 $errorConsulta    = null;
 
 try {
@@ -68,22 +67,6 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes AGRUPADOS (Solo el último mensaje de cada cliente por vehículo)
-    $sqlMensajes = "SELECT DISTINCT ON (m.remitente, m.id_vehiculo) 
-                           m.id_mensaje, m.mensaje, m.fecha, m.leido, 
-                           m.remitente AS cliente, 
-                           u.id_usuario, u.num_telefono AS telefono, 
-                           v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
-                    FROM mensajes_chat m
-                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
-                    LEFT JOIN usuario u ON u.nombre = m.remitente OR u.correo = m.remitente
-                    WHERE v.id_proveedor = :id
-                    ORDER BY m.remitente, m.id_vehiculo, m.fecha DESC";
-    
-    $stmtMensajes = $pdo->prepare($sqlMensajes);
-    $stmtMensajes->execute([':id' => $idProveedor]);
-    $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
-
 } catch (PDOException $e) {
     $errorConsulta = $e->getMessage();
 }
@@ -97,36 +80,6 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admindashboard.css">
     <style>
-        .messages-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 20px; 
-            margin-top: 20px; 
-        }
-        .message-card { 
-            background: #1e1e1e; 
-            border: 1px solid #333; 
-            border-radius: 10px; 
-            padding: 20px; 
-            color: #fff; 
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            position: relative;
-        }
-        .message-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 10px; 
-            border-bottom: 1px solid #2a2a2a; 
-            padding-bottom: 8px; 
-        }
-        .message-header strong { color: #fff; font-size: 1rem; }
-        .message-header small { color: #8e8e93; }
-        .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
-        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
-
         .select-estado {
             background-color: #2a2a2a;
             color: #fff;
@@ -140,88 +93,6 @@ try {
             outline: none;
             border-color: #e50914;
         }
-
-        /* Botón de Borrar Mensaje */
-        .btn-delete-msg {
-            background: transparent;
-            border: none;
-            color: #ef4444;
-            cursor: pointer;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-        }
-        .btn-delete-msg:hover {
-            background: rgba(239, 68, 68, 0.2);
-        }
-
-        /* Estilos del Modal de Respuesta */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal-content {
-            background: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 500px;
-            padding: 25px;
-            color: #fff;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #333;
-            padding-bottom: 12px;
-            margin-bottom: 15px;
-        }
-        .modal-header h3 { margin: 0; color: #e50914; }
-        .close-modal {
-            background: transparent;
-            border: none;
-            color: #888;
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
-        .close-modal:hover { color: #fff; }
-        .modal-body textarea {
-            width: 100%;
-            height: 120px;
-            background: #2a2a2a;
-            border: 1px solid #444;
-            border-radius: 6px;
-            color: #fff;
-            padding: 10px;
-            font-size: 0.95rem;
-            resize: vertical;
-            box-sizing: border-box;
-            margin-top: 10px;
-        }
-        .modal-body textarea:focus { outline: none; border-color: #e50914; }
-        .btn-reply {
-            background: #e50914;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-reply:hover { background: #b80710; }
     </style>
 </head>
 <body>
@@ -237,8 +108,7 @@ try {
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Panel</span>
             </a>
-            <!-- Botón para ir al apartado de mensajes -->
-            <a href="#seccion-mensajes" class="nav-link">
+            <a href="mensajese.php" class="nav-link">
                 <i class="fa-solid fa-comments"></i>
                 <span>Mensajes</span>
             </a>
@@ -283,51 +153,9 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
-        <section id="seccion-mensajes" class="table-container" style="margin-bottom: 30px;">
-            <div class="table-header-title">
-                <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
-            </div>
-
-            <?php if (!empty($mensajesClientes)): ?>
-                <div class="messages-grid">
-                    <?php foreach ($mensajesClientes as $msg): ?>
-                        <div class="message-card" id="card-msg-<?php echo $msg['id_mensaje']; ?>">
-                            <div>
-                                <div class="message-header">
-                                    <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
-                                    <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
-                                </div>
-                                <div class="message-vehicle">
-                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? '')); ?> (Placa: <?php echo htmlspecialchars($msg['placa'] ?? 'N/D'); ?>)
-                                </div>
-                                <div class="message-body">
-                                    "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
-                                </div>
-                            </div>
-
-                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                <button type="button" class="btn-delete-msg" onclick="eliminarChat('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>', '<?php echo $msg['id_mensaje']; ?>')" title="Eliminar conversación">
-                                    <i class="fa-solid fa-trash-can"></i> Borrar
-                                </button>
-                                <button type="button" class="btn-reply" onclick="abrirModalRespuesta('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>')">
-                                    <i class="fa-solid fa-reply"></i> Responder en la App
-                                </button>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <div class="no-data" style="text-align: center; padding: 20px; color: #888;">
-                    <i class="fa-solid fa-envelope-open" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                    <p>No hay mensajes nuevos de los clientes por el momento.</p>
-                </div>
-            <?php endif; ?>
-        </section>
-
+        <!-- RESUMEN GENERAL (INICIO DE PÁGINA) -->
         <h2 class="section-title">Resumen General</h2>
 
-        <!-- Tarjetas de métricas -->
         <section class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-info">
@@ -420,30 +248,6 @@ try {
 
     </main>
 
-    <!-- --- MODAL DE RESPUESTA DIRECTA --- -->
-    <div class="modal-overlay" id="replyModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-paper-plane"></i> Responder Mensaje</h3>
-                <button type="button" class="close-modal" onclick="cerrarModalRespuesta()">&times;</button>
-            </div>
-            <form id="replyForm" onsubmit="enviarRespuestaInterna(event)">
-                <div class="modal-body">
-                    <p style="margin-bottom: 5px; color: #aaa;">Para: <strong id="modalClienteNombre" style="color: #fff;">-</strong></p>
-                    <input type="hidden" id="modalDestinatario" name="destinatario">
-                    <input type="hidden" id="modalIdVehiculo" name="id_vehiculo">
-
-                    <label for="modalMensajeTexto" style="font-size: 0.9rem; color: #888;">Tu respuesta:</label>
-                    <textarea id="modalMensajeTexto" name="mensaje" placeholder="Escribe tu mensaje para el cliente aquí..." required></textarea>
-                </div>
-                <div style="text-align: right; margin-top: 15px;">
-                    <button type="button" onclick="cerrarModalRespuesta()" style="background: #444; color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-right: 8px;">Cancelar</button>
-                    <button type="submit" class="btn-reply"><i class="fa-solid fa-paper-plane"></i> Enviar Respuesta</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- Scripts -->
     <script>
         const btn = document.getElementById('userProfileBtn');
@@ -459,83 +263,6 @@ try {
                 dropdown.classList.remove('show');
             }
         });
-
-        // Funciones del Modal
-        function abrirModalRespuesta(clienteNombre, idVehiculo) {
-            document.getElementById('modalClienteNombre').innerText = clienteNombre;
-            document.getElementById('modalDestinatario').value = clienteNombre;
-            document.getElementById('modalIdVehiculo').value = idVehiculo;
-            document.getElementById('modalMensajeTexto').value = '';
-            document.getElementById('replyModal').classList.add('active');
-        }
-
-        function cerrarModalRespuesta() {
-            document.getElementById('replyModal').classList.remove('active');
-        }
-
-        function enviarRespuestaInterna(e) {
-            e.preventDefault();
-            const formData = new FormData(document.getElementById('replyForm'));
-
-            fetch('responder_mensaje.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    alert('¡Respuesta enviada exitosamente!');
-                    cerrarModalRespuesta();
-                    
-                    // Desplazamiento suave hacia la sección de mensajes
-                    const seccionMensajes = document.getElementById('seccion-mensajes');
-                    if (seccionMensajes) {
-                        seccionMensajes.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'start' 
-                        });
-                    }
-                    
-                    setTimeout(() => {
-                        location.reload();
-                    }, 800);
-
-                } else {
-                    alert('Error al enviar el mensaje: ' + (data.message || 'Intente nuevamente'));
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Ocurrió un error al enviar la respuesta.');
-            });
-        }
-
-        // Función para Eliminar Mensajes / Chat
-        function eliminarChat(remitente, idVehiculo, idCard) {
-            if (!confirm('¿Deseas borrar esta conversación con el cliente?')) return;
-
-            const formData = new FormData();
-            formData.append('remitente', remitente);
-            formData.append('id_vehiculo', idVehiculo);
-
-            fetch('eliminar_mensaje.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const card = document.getElementById('card-msg-' + idCard);
-                    if (card) card.remove();
-                } else {
-                    alert('Error al eliminar: ' + (data.message || 'Error desconocido'));
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Error al procesar la eliminación.');
-            });
-        }
 
         function cambiarEstadoReserva(idReserva, nuevoEstado) {
             const formData = new FormData();
