@@ -2,7 +2,7 @@
 session_start();
 require_once 'conexion.php'; // Archivo de conexión PDO
 
-// 1. SEGURIDAD: Validar sesión activa
+// 1. SEGURIDAD: Validar sesión activa de la empresa
 if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
     header("Location: inicioSesion.php");
     exit();
@@ -17,26 +17,46 @@ $idProveedor    = $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 
-$mensajesClientes = [];
-$errorConsulta    = null;
+// Si es una petición AJAX para obtener los mensajes de un chat específico
+if (isset($_GET['action']) && $_GET['action'] === 'get_chat') {
+    header('Content-Type: application/json');
+    $cliente = $_GET['cliente'] ?? '';
+    $idVehiculo = $_GET['id_vehiculo'] ?? 0;
+
+    try {
+        $sqlChat = "SELECT m.id_mensaje, m.remitente, m.destinatario, m.mensaje, m.fecha, m.leido
+                    FROM mensajes_chat m
+                    WHERE m.id_vehiculo = :id_v 
+                      AND (m.remitente = :cliente OR m.destinatario = :cliente)
+                    ORDER BY m.fecha ASC";
+        $stmtChat = $pdo->prepare($sqlChat);
+        $stmtChat->execute([':id_v' => $idVehiculo, ':cliente' => $cliente]);
+        $mensajes = $stmtChat->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'mensajes' => $mensajes]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit();
+}
+
+// Consultar la lista de conversaciones (Último mensaje por cada cliente y vehículo)
+$conversaciones = [];
+$errorConsulta  = null;
 
 try {
-    // Consultar mensajes AGRUPADOS (Solo el último mensaje de cada cliente por vehículo)
-    $sqlMensajes = "SELECT DISTINCT ON (m.remitente, m.id_vehiculo) 
-                           m.id_mensaje, m.mensaje, m.fecha, m.leido, 
-                           m.remitente AS cliente, 
-                           u.id_usuario, u.num_telefono AS telefono, 
-                           v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
-                    FROM mensajes_chat m
-                    INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
-                    LEFT JOIN usuario u ON u.nombre = m.remitente OR u.correo = m.remitente
-                    WHERE v.id_proveedor = :id
-                    ORDER BY m.remitente, m.id_vehiculo, m.fecha DESC";
+    $sqlLista = "SELECT DISTINCT ON (m.remitente, m.id_vehiculo) 
+                        m.id_mensaje, m.mensaje, m.fecha, 
+                        m.remitente AS cliente, 
+                        v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa, v.imagen_principal
+                 FROM mensajes_chat m
+                 INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
+                 WHERE v.id_proveedor = :id AND m.remitente != :empresa
+                 ORDER BY m.remitente, m.id_vehiculo, m.fecha DESC";
     
-    $stmtMensajes = $pdo->prepare($sqlMensajes);
-    $stmtMensajes->execute([':id' => $idProveedor]);
-    $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
-
+    $stmtLista = $pdo->prepare($sqlLista);
+    $stmtLista->execute([':id' => $idProveedor, ':empresa' => $nombreEmpresa]);
+    $conversaciones = $stmtLista->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $errorConsulta = $e->getMessage();
 }
@@ -50,116 +70,251 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admindashboard.css">
     <style>
-        .messages-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
-            gap: 20px; 
-            margin-top: 20px; 
+        /* LAYOUT DE CHAT TIPO PRO */
+        .chat-app-container {
+            display: flex;
+            height: calc(100vh - 100px);
+            background: #121212;
+            border-radius: 12px;
+            border: 1px solid #2a2a2a;
+            overflow: hidden;
+            margin-top: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .message-card { 
-            background: #1e1e1e; 
-            border: 1px solid #333; 
-            border-radius: 10px; 
-            padding: 20px; 
-            color: #fff; 
+
+        /* SIDEBAR IZQUIERDA: LISTA DE CHATS */
+        .chat-sidebar {
+            width: 320px;
+            background: #181818;
+            border-right: 1px solid #2a2a2a;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            position: relative;
         }
-        .message-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 10px; 
-            border-bottom: 1px solid #2a2a2a; 
-            padding-bottom: 8px; 
-        }
-        .message-header strong { color: #fff; font-size: 1rem; }
-        .message-header small { color: #8e8e93; }
-        .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
-        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
 
-        .btn-delete-msg {
-            background: transparent;
-            border: none;
-            color: #ef4444;
+        .chat-sidebar-header {
+            padding: 18px 20px;
+            background: #1f1f1f;
+            border-bottom: 1px solid #2a2a2a;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 18px;
+            gap: 12px;
+            border-bottom: 1px solid #222;
             cursor: pointer;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 0.9rem;
             transition: background 0.2s;
         }
-        .btn-delete-msg:hover {
-            background: rgba(239, 68, 68, 0.2);
+
+        .chat-item:hover { background: #242424; }
+        .chat-item.active { background: #2d1a1a; border-left: 4px solid #e50914; }
+
+        .chat-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: #e50914;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            overflow: hidden;
         }
 
-        /* Modal de Respuesta */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
+        .chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        .chat-info {
+            flex: 1;
+            min-width: 0;
         }
-        .modal-overlay.active { display: flex; }
-        .modal-content {
-            background: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 500px;
-            padding: 25px;
-            color: #fff;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        .modal-header {
+
+        .chat-title-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #333;
-            padding-bottom: 12px;
-            margin-bottom: 15px;
+            margin-bottom: 4px;
         }
-        .modal-header h3 { margin: 0; color: #e50914; }
-        .close-modal {
-            background: transparent;
-            border: none;
-            color: #888;
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
-        .close-modal:hover { color: #fff; }
-        .modal-body textarea {
-            width: 100%;
-            height: 120px;
-            background: #2a2a2a;
-            border: 1px solid #444;
-            border-radius: 6px;
+
+        .chat-name {
+            font-weight: bold;
             color: #fff;
-            padding: 10px;
             font-size: 0.95rem;
-            resize: vertical;
-            box-sizing: border-box;
-            margin-top: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .modal-body textarea:focus { outline: none; border-color: #e50914; }
-        .btn-reply {
+
+        .chat-time {
+            font-size: 0.75rem;
+            color: #777;
+        }
+
+        .chat-subtext {
+            font-size: 0.8rem;
+            color: #e50914;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .chat-last-msg {
+            font-size: 0.82rem;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ÁREA PRINCIPAL DERECHA: CONVERSACIÓN */
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0d0d0d;
+        }
+
+        .chat-main-header {
+            padding: 15px 20px;
+            background: #181818;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-delete-chat {
+            background: #2b1111;
+            color: #ef4444;
+            border: 1px solid #5a1a1a;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-delete-chat:hover { background: #ef4444; color: #fff; }
+
+        /* MENSAJES */
+        .chat-messages-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .msg-bubble {
+            max-width: 65%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.93rem;
+            line-height: 1.4;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        /* Recibido (Cliente) */
+        .msg-bubble.received {
+            align-self: flex-start;
+            background: #222222;
+            color: #eeeeee;
+            border-bottom-left-radius: 2px;
+            border: 1px solid #333;
+        }
+
+        /* Enviado (Empresa) */
+        .msg-bubble.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #e50914, #b80710);
+            color: #ffffff;
+            border-bottom-right-radius: 2px;
+        }
+
+        .msg-time {
+            font-size: 0.7rem;
+            margin-top: 6px;
+            text-align: right;
+            opacity: 0.7;
+        }
+
+        /* FOOTER: INPUT DE MENSAJE */
+        .chat-input-container {
+            padding: 15px 20px;
+            background: #181818;
+            border-top: 1px solid #2a2a2a;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input-container input {
+            flex: 1;
+            background: #262626;
+            border: 1px solid #3d3d3d;
+            padding: 12px 16px;
+            border-radius: 25px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .chat-input-container input:focus {
+            border-color: #e50914;
+        }
+
+        .btn-send-msg {
             background: #e50914;
             color: #fff;
             border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            font-weight: bold;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
             cursor: pointer;
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: background 0.2s, transform 0.1s;
         }
-        .btn-reply:hover { background: #b80710; }
+
+        .btn-send-msg:hover {
+            background: #b80710;
+            transform: scale(1.05);
+        }
+
+        .empty-chat-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            text-align: center;
+        }
+
+        .empty-chat-state i { font-size: 3.5rem; margin-bottom: 15px; color: #333; }
     </style>
 </head>
 <body>
@@ -175,7 +330,6 @@ try {
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Panel</span>
             </a>
-            <!-- Opción Activa en esta pantalla -->
             <a href="mensajes.php" class="nav-link active">
                 <i class="fa-solid fa-comments"></i>
                 <span>Mensajes</span>
@@ -213,113 +367,171 @@ try {
     </header>
 
     <!-- --- CONTENIDO PRINCIPAL --- -->
-    <main class="main-content">
+    <main class="main-content" style="padding-top: 10px;">
         
-        <?php if ($errorConsulta): ?>
-            <div style="background: #2b0000; color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4d4d;">
-                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Error SQL detectado:</strong> <?php echo htmlspecialchars($errorConsulta); ?>
-            </div>
-        <?php endif; ?>
+        <div class="chat-app-container">
+            
+            <!-- LISTA IZQUIERDA DE CONVERSACIONES -->
+            <div class="chat-sidebar">
+                <div class="chat-sidebar-header">
+                    <i class="fa-solid fa-comments" style="color: #e50914;"></i> Mensajes Recibidos
+                </div>
 
-        <!-- VISTA DE CHATS COMPLETA -->
-        <section class="table-container">
-            <div class="table-header-title">
-                <h3><i class="fa-solid fa-comments"></i> Centro de Mensajes y Dudas de Clientes</h3>
-            </div>
+                <div class="chat-list">
+                    <?php if (!empty($conversaciones)): ?>
+                        <?php foreach ($conversaciones as $index => $chat): ?>
+                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" 
+                                 onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente']); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo']); ?>', this)">
+                                
+                                <div class="chat-avatar">
+                                    <?php echo strtoupper(substr($chat['cliente'], 0, 1)); ?>
+                                </div>
 
-            <?php if (!empty($mensajesClientes)): ?>
-                <div class="messages-grid">
-                    <?php foreach ($mensajesClientes as $msg): ?>
-                        <div class="message-card" id="card-msg-<?php echo $msg['id_mensaje']; ?>">
-                            <div>
-                                <div class="message-header">
-                                    <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
-                                    <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
-                                </div>
-                                <div class="message-vehicle">
-                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? '')); ?> (Placa: <?php echo htmlspecialchars($msg['placa'] ?? 'N/D'); ?>)
-                                </div>
-                                <div class="message-body">
-                                    "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
+                                <div class="chat-info">
+                                    <div class="chat-title-row">
+                                        <span class="chat-name"><?php echo htmlspecialchars($chat['cliente']); ?></span>
+                                        <span class="chat-time"><?php echo date('H:i', strtotime($chat['fecha'])); ?></span>
+                                    </div>
+                                    <div class="chat-subtext">
+                                        <i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo']); ?>
+                                    </div>
+                                    <div class="chat-last-msg">
+                                        <?php echo htmlspecialchars($chat['mensaje']); ?>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                <button type="button" class="btn-delete-msg" onclick="eliminarChat('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>', '<?php echo $msg['id_mensaje']; ?>')" title="Eliminar conversación">
-                                    <i class="fa-solid fa-trash-can"></i> Borrar
-                                </button>
-                                <button type="button" class="btn-reply" onclick="abrirModalRespuesta('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>')">
-                                    <i class="fa-solid fa-reply"></i> Responder en la App
-                                </button>
-                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div style="padding: 30px 15px; text-align: center; color: #666;">
+                            <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>No tienes mensajes pendientes.</p>
                         </div>
-                    <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
-            <?php else: ?>
-                <div class="no-data" style="text-align: center; padding: 40px; color: #888;">
-                    <i class="fa-solid fa-envelope-open" style="font-size: 2.5rem; margin-bottom: 12px;"></i>
-                    <p>No tienes conversaciones o dudas pendientes por responder.</p>
+            </div>
+
+            <!-- ÁREA DERECHA DE CHAT ACTIVO -->
+            <div class="chat-main">
+                
+                <div class="chat-main-header" id="chatMainHeader" style="display: none;">
+                    <div class="chat-header-user">
+                        <div class="chat-avatar" id="activeAvatar">A</div>
+                        <div>
+                            <div style="font-weight: bold; color: #fff;" id="activeCliente">-</div>
+                            <div style="font-size: 0.8rem; color: #e50914;" id="activeVehiculo">-</div>
+                        </div>
+                    </div>
+                    <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
                 </div>
-            <?php endif; ?>
-        </section>
+
+                <!-- Lista de Burbujas de Mensaje -->
+                <div class="chat-messages-area" id="chatMessagesArea">
+                    <div class="empty-chat-state" id="emptyChatState">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <p>Selecciona una conversación para interactuar con el cliente</p>
+                    </div>
+                </div>
+
+                <!-- Campo de Entrada para Responder -->
+                <form class="chat-input-container" id="chatInputForm" style="display: none;" onsubmit="enviarMensajePro(event)">
+                    <input type="hidden" id="inputDestinatario">
+                    <input type="hidden" id="inputIdVehiculo">
+                    <input type="text" id="inputTextoMensaje" placeholder="Escribe un mensaje..." autocomplete="off" required>
+                    <button type="submit" class="btn-send-msg"><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+
+            </div>
+
+        </div>
 
     </main>
 
-    <!-- --- MODAL DE RESPUESTA DIRECTA --- -->
-    <div class="modal-overlay" id="replyModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-paper-plane"></i> Responder Mensaje</h3>
-                <button type="button" class="close-modal" onclick="cerrarModalRespuesta()">&times;</button>
-            </div>
-            <form id="replyForm" onsubmit="enviarRespuestaInterna(event)">
-                <div class="modal-body">
-                    <p style="margin-bottom: 5px; color: #aaa;">Para: <strong id="modalClienteNombre" style="color: #fff;">-</strong></p>
-                    <input type="hidden" id="modalDestinatario" name="destinatario">
-                    <input type="hidden" id="modalIdVehiculo" name="id_vehiculo">
-
-                    <label for="modalMensajeTexto" style="font-size: 0.9rem; color: #888;">Tu respuesta:</label>
-                    <textarea id="modalMensajeTexto" name="mensaje" placeholder="Escribe tu mensaje para el cliente aquí..." required></textarea>
-                </div>
-                <div style="text-align: right; margin-top: 15px;">
-                    <button type="button" onclick="cerrarModalRespuesta()" style="background: #444; color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-right: 8px;">Cancelar</button>
-                    <button type="submit" class="btn-reply"><i class="fa-solid fa-paper-plane"></i> Enviar Respuesta</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Scripts -->
+    <!-- JS -->
     <script>
-        const btn = document.getElementById('userProfileBtn');
-        const dropdown = document.getElementById('userDropdown');
+        // Dropdown del Perfil
+        const btnProfile = document.getElementById('userProfileBtn');
+        const dropdownProfile = document.getElementById('userDropdown');
 
-        btn.addEventListener('click', (e) => {
+        btnProfile.addEventListener('click', (e) => {
             e.stopPropagation();
-            dropdown.classList.toggle('show');
+            dropdownProfile.classList.toggle('show');
         });
 
         window.addEventListener('click', () => {
-            if (dropdown.classList.contains('show')) {
-                dropdown.classList.remove('show');
+            if (dropdownProfile.classList.contains('show')) {
+                dropdownProfile.classList.remove('show');
             }
         });
 
-        function abrirModalRespuesta(clienteNombre, idVehiculo) {
-            document.getElementById('modalClienteNombre').innerText = clienteNombre;
-            document.getElementById('modalDestinatario').value = clienteNombre;
-            document.getElementById('modalIdVehiculo').value = idVehiculo;
-            document.getElementById('modalMensajeTexto').value = '';
-            document.getElementById('replyModal').classList.add('active');
+        let clienteActual = '';
+        let vehiculoActualId = '';
+
+        // Cargar primera conversación al iniciar si existe
+        document.addEventListener('DOMContentLoaded', () => {
+            const primerChat = document.querySelector('.chat-item');
+            if (primerChat) {
+                primerChat.click();
+            }
+        });
+
+        function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
+            clienteActual = cliente;
+            vehiculoActualId = idVehiculo;
+
+            // Marcar ítem activo en la lista
+            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
+            if (elemento) elemento.classList.add('active');
+
+            // Actualizar Cabecera
+            document.getElementById('chatMainHeader').style.display = 'flex';
+            document.getElementById('chatInputForm').style.display = 'flex';
+            document.getElementById('emptyChatState').style.display = 'none';
+
+            document.getElementById('activeCliente').innerText = cliente;
+            document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
+            document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
+
+            document.getElementById('inputDestinatario').value = cliente;
+            document.getElementById('inputIdVehiculo').value = idVehiculo;
+
+            // Obtener Mensajes por AJAX
+            fetch(`mensajes.php?action=get_chat&cliente=${encodeURIComponent(cliente)}&id_vehiculo=${idVehiculo}`)
+                .then(res => res.json())
+                .then(data => {
+                    const area = document.getElementById('chatMessagesArea');
+                    area.innerHTML = '';
+
+                    if (data.success && data.mensajes.length > 0) {
+                        data.mensajes.forEach(msg => {
+                            // Determinar si fue enviado por la empresa o recibido por el cliente
+                            const esEnviado = (msg.remitente !== cliente);
+                            const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                            const bubble = document.createElement('div');
+                            bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
+                            bubble.innerHTML = `
+                                <div>${escapeHtml(msg.mensaje)}</div>
+                                <div class="msg-time">${hora}</div>
+                            `;
+                            area.appendChild(bubble);
+                        });
+                        // Scroll automático al final
+                        area.scrollTop = area.scrollHeight;
+                    }
+                })
+                .catch(err => console.error('Error al cargar chat:', err));
         }
 
-        function cerrarModalRespuesta() {
-            document.getElementById('replyModal').classList.remove('active');
-        }
-
-        function enviarRespuestaInterna(e) {
+        function enviarMensajePro(e) {
             e.preventDefault();
-            const formData = new FormData(document.getElementById('replyForm'));
+            const mensajeInput = document.getElementById('inputTextoMensaje');
+            const texto = mensajeInput.value.trim();
+            if (!texto) return;
+
+            const formData = new FormData();
+            formData.append('destinatario', clienteActual);
+            formData.append('id_vehiculo', vehiculoActualId);
+            formData.append('mensaje', texto);
 
             fetch('responder_mensaje.php', {
                 method: 'POST',
@@ -327,26 +539,24 @@ try {
             })
             .then(res => res.json())
             .then(data => {
-                if(data.success) {
-                    alert('¡Respuesta enviada exitosamente!');
-                    cerrarModalRespuesta();
-                    location.reload();
+                if (data.success) {
+                    mensajeInput.value = '';
+                    // Recargar conversación
+                    const activo = document.querySelector('.chat-item.active');
+                    if (activo) activo.click();
                 } else {
-                    alert('Error al enviar el mensaje: ' + (data.message || 'Intente nuevamente'));
+                    alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
                 }
             })
-            .catch(err => {
-                console.error(err);
-                alert('Ocurrió un error al enviar la respuesta.');
-            });
+            .catch(err => console.error(err));
         }
 
-        function eliminarChat(remitente, idVehiculo, idCard) {
-            if (!confirm('¿Deseas borrar esta conversación con el cliente?')) return;
+        function eliminarChatActual() {
+            if (!confirm(`¿Estás seguro de eliminar el historial de chat con ${clienteActual}?`)) return;
 
             const formData = new FormData();
-            formData.append('remitente', remitente);
-            formData.append('id_vehiculo', idVehiculo);
+            formData.append('remitente', clienteActual);
+            formData.append('id_vehiculo', vehiculoActualId);
 
             fetch('eliminar_mensaje.php', {
                 method: 'POST',
@@ -355,18 +565,16 @@ try {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    const card = document.getElementById('card-msg-' + idCard);
-                    if (card) card.remove();
+                    location.reload();
                 } else {
-                    alert('Error al eliminar: ' + (data.message || 'Error desconocido'));
+                    alert('Error al eliminar chat.');
                 }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Error al procesar la eliminación.');
             });
         }
-    </script>
 
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
 </body>
 </html>

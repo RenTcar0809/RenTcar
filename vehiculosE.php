@@ -68,28 +68,31 @@ try {
         </div>
 
         <nav class="nav-menu">
-            <a href="dashboardE.php" class="nav-link">
-                <i class="fa-solid fa-chart-pie"></i>
-                <span>Panel</span>
-            </a>
-            <a href="vehiculosE.php" class="nav-link active">
-                <i class="fa-solid fa-car-side"></i>
-                <span>Mi Flota</span>
-            </a>
-            <a href="alquileres.php" class="nav-link">
-                <i class="fa-solid fa-calendar-check"></i>
-                <span>Alquileres</span>
-            </a>
-            <a href="clientes.php" class="nav-link">
-                <i class="fa-solid fa-users"></i>
-                <span>Clientes</span>
-            </a>
-            <a href="perfil_empresa.php" class="nav-link highlight-company">
-                <i class="fa-solid fa-building"></i>
-                <span>Mi Empresa</span>
-            </a>
-        </nav>
-
+    <a href="dashboardE.php" class="nav-link">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Panel</span>
+    </a>
+    <a href="mensajes.php" class="nav-link">
+        <i class="fa-solid fa-comments"></i>
+        <span>Mensajes</span>
+    </a>
+    <a href="vehiculosE.php" class="nav-link active">
+        <i class="fa-solid fa-car-side"></i>
+        <span>Mi Flota</span>
+    </a>
+    <a href="alquileres.php" class="nav-link">
+        <i class="fa-solid fa-calendar-check"></i>
+        <span>Alquileres</span>
+    </a>
+    <a href="clientes.php" class="nav-link">
+        <i class="fa-solid fa-users"></i>
+        <span>Clientes</span>
+    </a>
+    <a href="perfil_empresa.php" class="nav-link highlight-company">
+        <i class="fa-solid fa-building"></i>
+        <span>Mi Empresa</span>
+    </a>
+</nav>
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
                 <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
