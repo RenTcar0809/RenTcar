@@ -20,13 +20,16 @@ if (empty($mensaje) || empty($destinatario)) {
 }
 
 try {
-    // Se cambia 'false' por '0' para alinearse con el tipo integer de la columna 'leido'
-    $stmt = $pdo->prepare("INSERT INTO mensajes_chat (remitente, id_vehiculo, mensaje, fecha, leido) 
-                           VALUES (:remitente, :id_v, :mensaje, NOW(), 0)");
+    // 1. Agregamos 'destinatario' a las columnas y su respectivo marcador ':destinatario'
+    $stmt = $pdo->prepare("INSERT INTO mensajes_chat (remitente, destinatario, id_vehiculo, mensaje, fecha, leido) 
+                           VALUES (:remitente, :destinatario, :id_v, :mensaje, NOW(), 0)");
+    
+    // 2. Pasamos el valor en el array de ejecución
     $stmt->execute([
-        ':remitente' => $remitente,
-        ':id_v'      => $idVehiculo,
-        ':mensaje'   => $mensaje
+        ':remitente'    => $remitente,
+        ':destinatario' => $destinatario, // <-- ¡Este era el que faltaba!
+        ':id_v'         => $idVehiculo,
+        ':mensaje'      => $mensaje
     ]);
 
     echo json_encode(['success' => true]);
