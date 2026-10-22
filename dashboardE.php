@@ -278,45 +278,8 @@ try {
             </div>
         <?php endif; ?>
 
-        <h2 class="section-title">Resumen General</h2>
-
-        <!-- Tarjetas de métricas -->
-        <section class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Vehículos Totales</h3>
-                    <p><?php echo number_format($totalVehiculos); ?></p>
-                </div>
-                <div class="metric-icon"><i class="fa-solid fa-car"></i></div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Alquileres Activos</h3>
-                    <p><?php echo number_format($rentasActivas); ?></p>
-                </div>
-                <div class="metric-icon"><i class="fa-solid fa-key"></i></div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Clientes Totales</h3>
-                    <p><?php echo number_format($totalClientes); ?></p>
-                </div>
-                <div class="metric-icon"><i class="fa-solid fa-user-check"></i></div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Ingresos del Mes</h3>
-                    <p>$<?php echo number_format($gananciasMes, 2); ?></p>
-                </div>
-                <div class="metric-icon"><i class="fa-solid fa-dollar-sign"></i></div>
-            </div>
-        </section>
-
-        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
-        <section id="seccion-mensajes" class="table-container" style="margin-top: 30px;">
+        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES (AHORA ARRIBA) --- -->
+        <section id="seccion-mensajes" class="table-container" style="margin-bottom: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
             </div>
@@ -355,6 +318,43 @@ try {
                     <p>No hay mensajes nuevos de los clientes por el momento.</p>
                 </div>
             <?php endif; ?>
+        </section>
+
+        <h2 class="section-title">Resumen General</h2>
+
+        <!-- Tarjetas de métricas -->
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Vehículos Totales</h3>
+                    <p><?php echo number_format($totalVehiculos); ?></p>
+                </div>
+                <div class="metric-icon"><i class="fa-solid fa-car"></i></div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Alquileres Activos</h3>
+                    <p><?php echo number_format($rentasActivas); ?></p>
+                </div>
+                <div class="metric-icon"><i class="fa-solid fa-key"></i></div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Clientes Totales</h3>
+                    <p><?php echo number_format($totalClientes); ?></p>
+                </div>
+                <div class="metric-icon"><i class="fa-solid fa-user-check"></i></div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-info">
+                    <h3>Ingresos del Mes</h3>
+                    <p>$<?php echo number_format($gananciasMes, 2); ?></p>
+                </div>
+                <div class="metric-icon"><i class="fa-solid fa-dollar-sign"></i></div>
+            </div>
         </section>
 
         <!-- --- REGISTRO DE ALQUILERES --- -->
