@@ -95,7 +95,7 @@ $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
         <i class="fa-solid fa-chart-pie"></i>
         <span>Panel</span>
     </a>
-    <a href="mensajes.php" class="nav-link">
+    <a href="mensajese.php" class="nav-link">
         <i class="fa-solid fa-comments"></i>
         <span>Mensajes</span>
     </a>
