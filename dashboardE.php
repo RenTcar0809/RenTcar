@@ -8,7 +8,7 @@ if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
     exit();
 }
 
-// Prevenir caché para que no se pueda regresar con el botón de "Atrás" tras cerrar sesión
+// Prevenir caché
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
@@ -16,15 +16,16 @@ header("Expires: 0");
 // Obtención de datos del usuario
 $idProveedor    = $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
-$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1)); // Primera letra para el avatar
+$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 
-// Variables para estadísticas (valores por defecto)
-$totalVehiculos  = 0;
-$rentasActivas   = 0;
-$gananciasMes    = 0;
-$totalClientes   = 0;
-$historialRentas = [];
+// Variables para estadísticas
+$totalVehiculos   = 0;
+$rentasActivas    = 0;
+$gananciasMes     = 0;
+$totalClientes    = 0;
+$historialRentas  = [];
 $mensajesClientes = []; 
+$errorConsulta    = null;
 
 try {
     // 1. Contar vehículos de la empresa
@@ -33,33 +34,33 @@ try {
     $totalVehiculos = $stmtVeh->fetchColumn();
 
     // 2. Contar rentas activas
-    $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM reserva r 
-                                INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+    $stmtActivas = $pdo->prepare("SELECT COUNT(*) FROM prestamo r 
+                                INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                 WHERE v.id_proveedor = :id AND r.estado = 'activa'");
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
     // 3. Obtener ganancias del mes
-    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto_total), 0) FROM reserva r 
-                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+    $stmtGanancias = $pdo->prepare("SELECT COALESCE(SUM(r.monto), 0) FROM prestamo r 
+                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id AND r.estado = 'completada'");
     $stmtGanancias->execute([':id' => $idProveedor]);
     $gananciasMes = $stmtGanancias->fetchColumn();
 
     // 4. Contar clientes únicos que han alquilado
-    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_usuario) FROM reserva r 
-                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo 
+    $stmtClientes = $pdo->prepare("SELECT COUNT(DISTINCT r.id_arrendatario) FROM prestamo r 
+                                   INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v 
                                    WHERE v.id_proveedor = :id");
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar los últimos usuarios que han usado los vehículos
-    $sqlRentas = "SELECT u.nombre AS cliente, u.correo, u.telefono, 
+    // 5. Consultar el historial de rentas
+    $sqlRentas = "SELECT r.id_prestamo AS id_reserva, u.nombre AS cliente, u.correo, u.num_telefono AS telefono, 
                          v.marca, v.modelo, v.placa, 
-                         r.fecha_inicio, r.fecha_fin, r.estado, r.monto_total
-                  FROM reserva r
-                  INNER JOIN usuario u ON r.id_usuario = u.IdUsuario
-                  INNER JOIN vehiculo v ON r.id_vehiculo = v.id_vehiculo
+                         r.fecha_inicio, r.fecha_fin, r.estado, r.monto AS monto_total
+                  FROM prestamo r
+                  INNER JOIN usuario u ON r.id_arrendatario = u.id_usuario
+                  INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v
                   WHERE v.id_proveedor = :id
                   ORDER BY r.fecha_inicio DESC LIMIT 10";
     
@@ -67,19 +68,24 @@ try {
     $stmtRentas->execute([':id' => $idProveedor]);
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Consultar mensajes de los clientes vinculados a los vehículos de la empresa
-    $sqlMensajes = "SELECT m.mensaje, m.fecha, m.remitente AS cliente, v.marca, v.modelo, v.placa 
+    // 6. Consultar mensajes AGRUPADOS (Solo el último mensaje de cada cliente por vehículo)
+    $sqlMensajes = "SELECT DISTINCT ON (m.remitente, m.id_vehiculo) 
+                           m.id_mensaje, m.mensaje, m.fecha, m.leido, 
+                           m.remitente AS cliente, 
+                           u.id_usuario, u.num_telefono AS telefono, 
+                           v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa 
                     FROM mensajes_chat m
                     INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
+                    LEFT JOIN usuario u ON u.nombre = m.remitente OR u.correo = m.remitente
                     WHERE v.id_proveedor = :id
-                    ORDER BY m.fecha DESC LIMIT 10";
+                    ORDER BY m.remitente, m.id_vehiculo, m.fecha DESC";
     
     $stmtMensajes = $pdo->prepare($sqlMensajes);
     $stmtMensajes->execute([':id' => $idProveedor]);
     $mensajesClientes = $stmtMensajes->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Si alguna tabla (como 'mensajes_chat') no existe todavía, evita que rompa el panel completo
+    $errorConsulta = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -88,31 +94,144 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Control - <?php echo htmlspecialchars($nombreEmpresa); ?></title>
-    <!-- Iconos FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Estilos CSS -->
     <link rel="stylesheet" href="admindashboard.css">
     <style>
-        /* Estilos rápidos adicionales para la sección de mensajes */
-        .messages-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-        .message-card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; color: #fff; }
-        .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #2a2a2a; padding-bottom: 8px; }
+        .messages-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px; 
+            margin-top: 20px; 
+        }
+        .message-card { 
+            background: #1e1e1e; 
+            border: 1px solid #333; 
+            border-radius: 10px; 
+            padding: 20px; 
+            color: #fff; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+        .message-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 10px; 
+            border-bottom: 1px solid #2a2a2a; 
+            padding-bottom: 8px; 
+        }
         .message-header strong { color: #fff; font-size: 1rem; }
         .message-header small { color: #8e8e93; }
         .message-vehicle { font-size: 0.85rem; color: #e50914; margin-bottom: 10px; font-weight: bold; }
-        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; }
+        .message-body { font-size: 0.95rem; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
+
+        .select-estado {
+            background-color: #2a2a2a;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .select-estado:focus {
+            outline: none;
+            border-color: #e50914;
+        }
+
+        /* Botón de Borrar Mensaje */
+        .btn-delete-msg {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-delete-msg:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Estilos del Modal de Respuesta */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            padding: 25px;
+            color: #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+        .modal-header h3 { margin: 0; color: #e50914; }
+        .close-modal {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .close-modal:hover { color: #fff; }
+        .modal-body textarea {
+            width: 100%;
+            height: 120px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            padding: 10px;
+            font-size: 0.95rem;
+            resize: vertical;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+        .modal-body textarea:focus { outline: none; border-color: #e50914; }
+        .btn-reply {
+            background: #e50914;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-reply:hover { background: #b80710; }
     </style>
 </head>
 <body>
 
-    <!-- --- BARRA DE NAVEGACIÓN SUPERIOR (HORIZONTAL) --- -->
+    <!-- --- BARRA DE NAVEGACIÓN SUPERIOR --- -->
     <header class="top-navbar">
-        <!-- Logo con el resalte en rojo -->
         <div class="logo-container">
             <h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1>
         </div>
 
-        <!-- Opciones del menú -->
         <nav class="nav-menu">
             <a href="dashboardE.php" class="nav-link active">
                 <i class="fa-solid fa-chart-pie"></i>
@@ -136,7 +255,6 @@ try {
             </a>
         </nav>
 
-        <!-- Perfil dinámico del Proveedor / Empresa -->
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
                 <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
@@ -154,18 +272,22 @@ try {
     <!-- --- CONTENIDO PRINCIPAL --- -->
     <main class="main-content">
         
+        <?php if ($errorConsulta): ?>
+            <div style="background: #2b0000; color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4d4d;">
+                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Error SQL detectado:</strong> <?php echo htmlspecialchars($errorConsulta); ?>
+            </div>
+        <?php endif; ?>
+
         <h2 class="section-title">Resumen General</h2>
 
-        <!-- Tarjetas de métricas (KPIs) con datos reales de la BD -->
+        <!-- Tarjetas de métricas -->
         <section class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-info">
                     <h3>Vehículos Totales</h3>
                     <p><?php echo number_format($totalVehiculos); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-car"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-car"></i></div>
             </div>
 
             <div class="metric-card">
@@ -173,9 +295,7 @@ try {
                     <h3>Alquileres Activos</h3>
                     <p><?php echo number_format($rentasActivas); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-key"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-key"></i></div>
             </div>
 
             <div class="metric-card">
@@ -183,9 +303,7 @@ try {
                     <h3>Clientes Totales</h3>
                     <p><?php echo number_format($totalClientes); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-user-check"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-user-check"></i></div>
             </div>
 
             <div class="metric-card">
@@ -193,13 +311,11 @@ try {
                     <h3>Ingresos del Mes</h3>
                     <p>$<?php echo number_format($gananciasMes, 2); ?></p>
                 </div>
-                <div class="metric-icon">
-                    <i class="fa-solid fa-dollar-sign"></i>
-                </div>
+                <div class="metric-icon"><i class="fa-solid fa-dollar-sign"></i></div>
             </div>
         </section>
 
-        <!-- --- APARTADO: MENSAJES DE LOS CLIENTES --- -->
+        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
@@ -208,16 +324,27 @@ try {
             <?php if (!empty($mensajesClientes)): ?>
                 <div class="messages-grid">
                     <?php foreach ($mensajesClientes as $msg): ?>
-                        <div class="message-card">
-                            <div class="message-header">
-                                <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
-                                <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
+                        <div class="message-card" id="card-msg-<?php echo $msg['id_mensaje']; ?>">
+                            <div>
+                                <div class="message-header">
+                                    <strong><?php echo htmlspecialchars($msg['cliente']); ?></strong>
+                                    <small><?php echo date('d/m/Y H:i', strtotime($msg['fecha'])); ?></small>
+                                </div>
+                                <div class="message-vehicle">
+                                    <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? '')); ?> (Placa: <?php echo htmlspecialchars($msg['placa'] ?? 'N/D'); ?>)
+                                </div>
+                                <div class="message-body">
+                                    "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
+                                </div>
                             </div>
-                            <div class="message-vehicle">
-                                <i class="fa-solid fa-car-side"></i> Vehículo: <?php echo htmlspecialchars($msg['marca'] . ' ' . $msg['modelo']); ?> (Placa: <?php echo htmlspecialchars($msg['placa']); ?>)
-                            </div>
-                            <div class="message-body">
-                                "<?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?>"
+
+                            <div class="message-footer" style="border-top: 1px solid #2a2a2a; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                <button type="button" class="btn-delete-msg" onclick="eliminarChat('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>', '<?php echo $msg['id_mensaje']; ?>')" title="Eliminar conversación">
+                                    <i class="fa-solid fa-trash-can"></i> Borrar
+                                </button>
+                                <button type="button" class="btn-reply" onclick="abrirModalRespuesta('<?php echo htmlspecialchars($msg['cliente']); ?>', '<?php echo $msg['id_vehiculo']; ?>')">
+                                    <i class="fa-solid fa-reply"></i> Responder en la App
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -230,7 +357,7 @@ try {
             <?php endif; ?>
         </section>
 
-        <!-- Registro de Usuarios y Alquileres -->
+        <!-- --- REGISTRO DE ALQUILERES --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-clock-rotate-left"></i> Registro de Usuarios y Alquileres</h3>
@@ -246,7 +373,8 @@ try {
                             <th>Fecha Inicio</th>
                             <th>Fecha Fin</th>
                             <th>Monto</th>
-                            <th>Estado</th>
+                            <th>Estado Actual</th>
+                            <th>Acción / Cambiar Estado</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -266,6 +394,13 @@ try {
                                         <?php echo htmlspecialchars($renta['estado']); ?>
                                     </span>
                                 </td>
+                                <td>
+                                    <select class="select-estado" onchange="cambiarEstadoReserva(<?php echo $renta['id_reserva']; ?>, this.value)">
+                                        <option value="activa" <?php echo ($renta['estado'] === 'activa') ? 'selected' : ''; ?>>Activa (Rentado)</option>
+                                        <option value="completada" <?php echo ($renta['estado'] === 'completada') ? 'selected' : ''; ?>>Completada (Disponible)</option>
+                                        <option value="cancelada" <?php echo ($renta['estado'] === 'cancelada') ? 'selected' : ''; ?>>Cancelada (Disponible)</option>
+                                    </select>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -280,7 +415,31 @@ try {
 
     </main>
 
-    <!-- Script del Menú Desplegable -->
+    <!-- --- MODAL DE RESPUESTA DIRECTA --- -->
+    <div class="modal-overlay" id="replyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-paper-plane"></i> Responder Mensaje</h3>
+                <button type="button" class="close-modal" onclick="cerrarModalRespuesta()">&times;</button>
+            </div>
+            <form id="replyForm" onsubmit="enviarRespuestaInterna(event)">
+                <div class="modal-body">
+                    <p style="margin-bottom: 5px; color: #aaa;">Para: <strong id="modalClienteNombre" style="color: #fff;">-</strong></p>
+                    <input type="hidden" id="modalDestinatario" name="destinatario">
+                    <input type="hidden" id="modalIdVehiculo" name="id_vehiculo">
+
+                    <label for="modalMensajeTexto" style="font-size: 0.9rem; color: #888;">Tu respuesta:</label>
+                    <textarea id="modalMensajeTexto" name="mensaje" placeholder="Escribe tu mensaje para el cliente aquí..." required></textarea>
+                </div>
+                <div style="text-align: right; margin-top: 15px;">
+                    <button type="button" onclick="cerrarModalRespuesta()" style="background: #444; color: #fff; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-right: 8px;">Cancelar</button>
+                    <button type="submit" class="btn-reply"><i class="fa-solid fa-paper-plane"></i> Enviar Respuesta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
     <script>
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');
@@ -295,6 +454,93 @@ try {
                 dropdown.classList.remove('show');
             }
         });
+
+        // Funciones del Modal
+        function abrirModalRespuesta(clienteNombre, idVehiculo) {
+            document.getElementById('modalClienteNombre').innerText = clienteNombre;
+            document.getElementById('modalDestinatario').value = clienteNombre;
+            document.getElementById('modalIdVehiculo').value = idVehiculo;
+            document.getElementById('modalMensajeTexto').value = '';
+            document.getElementById('replyModal').classList.add('active');
+        }
+
+        function cerrarModalRespuesta() {
+            document.getElementById('replyModal').classList.remove('active');
+        }
+
+        function enviarRespuestaInterna(e) {
+            e.preventDefault();
+            const formData = new FormData(document.getElementById('replyForm'));
+
+            fetch('responder_mensaje.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    alert('¡Respuesta enviada exitosamente!');
+                    cerrarModalRespuesta();
+                    location.reload();
+                } else {
+                    alert('Error al enviar el mensaje: ' + (data.message || 'Intente nuevamente'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ocurrió un error al enviar la respuesta.');
+            });
+        }
+
+        // Función para Eliminar Mensajes / Chat
+        function eliminarChat(remitente, idVehiculo, idCard) {
+            if (!confirm('¿Deseas borrar esta conversación con el cliente?')) return;
+
+            const formData = new FormData();
+            formData.append('remitente', remitente);
+            formData.append('id_vehiculo', idVehiculo);
+
+            fetch('eliminar_mensaje.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById('card-msg-' + idCard);
+                    if (card) card.remove();
+                } else {
+                    alert('Error al eliminar: ' + (data.message || 'Error desconocido'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error al procesar la eliminación.');
+            });
+        }
+
+        function cambiarEstadoReserva(idReserva, nuevoEstado) {
+            const formData = new FormData();
+            formData.append('id_reserva', idReserva);
+            formData.append('estado', nuevoEstado);
+
+            fetch('actualizar_estado_reserva.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocurrió un error al procesar la solicitud.');
+            });
+        }
     </script>
 
 </body>
