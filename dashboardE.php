@@ -316,7 +316,7 @@ try {
         </section>
 
         <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
-        <section class="table-container" style="margin-top: 30px;">
+        <section id="seccion-mensajes" class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
             </div>
@@ -481,7 +481,21 @@ try {
                 if(data.success) {
                     alert('¡Respuesta enviada exitosamente!');
                     cerrarModalRespuesta();
-                    location.reload();
+                    
+                    // Desplazamiento suave hacia la sección de mensajes arriba
+                    const seccionMensajes = document.getElementById('seccion-mensajes');
+                    if (seccionMensajes) {
+                        seccionMensajes.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start' 
+                        });
+                    }
+                    
+                    // Recargar la página después de un breve momento
+                    setTimeout(() => {
+                        location.reload();
+                    }, 800);
+
                 } else {
                     alert('Error al enviar el mensaje: ' + (data.message || 'Intente nuevamente'));
                 }
