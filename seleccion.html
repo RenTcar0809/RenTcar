@@ -3,32 +3,249 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Selección | RentCar</title>
-    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="seleccion.css">
+    <title>Selección de Vehículo | RentCar</title>
+    <!-- Fuentes de Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Iconos FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* RESET & BASE */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body.selection-page {
+            font-family: 'Poppins', sans-serif;
+            background: #0f0f10;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(229, 9, 20, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(229, 9, 20, 0.08) 0%, transparent 40%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* BOTÓN VOLVER */
+        .back-btn {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 22px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 30px;
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .back-btn:hover {
+            background: #e50914;
+            border-color: #e50914;
+            transform: translateX(-5px);
+            box-shadow: 0 5px 15px rgba(229, 9, 20, 0.4);
+        }
+
+        /* CONTENEDOR PRINCIPAL */
+        .selection-wrapper {
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            z-index: 2;
+        }
+
+        .main-title {
+            font-family: 'Bangers', cursive;
+            font-size: 3.5rem;
+            letter-spacing: 2px;
+            color: #ffffff;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+        }
+
+        .main-title span {
+            color: #e50914;
+            text-shadow: 0 0 15px rgba(229, 9, 20, 0.5);
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: #a0a0a0;
+            margin-bottom: 45px;
+            font-weight: 300;
+        }
+
+        /* GRID DE OPCIONES */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            padding: 10px;
+        }
+
+        /* TARJETAS DE VEHÍCULOS */
+        .vehicle-option {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-decoration: none;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(15px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .vehicle-option::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(229, 9, 20, 0.15) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .icon-box {
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: #e50914;
+            margin-bottom: 25px;
+            transition: all 0.4s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .vehicle-option h2 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #ffffff;
+            position: relative;
+            z-index: 2;
+            transition: color 0.3s ease;
+        }
+
+        .cta {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #e50914;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+
+        .cta i {
+            font-size: 0.8rem;
+            transition: transform 0.3s ease;
+        }
+
+        /* EFECTOS HOVER DE TARJETAS */
+        .vehicle-option:hover {
+            transform: translateY(-10px);
+            border-color: rgba(229, 9, 20, 0.5);
+            box-shadow: 0 20px 40px rgba(229, 9, 20, 0.25);
+        }
+
+        .vehicle-option:hover::before {
+            opacity: 1;
+        }
+
+        .vehicle-option:hover .icon-box {
+            background: #e50914;
+            color: #ffffff;
+            border-color: #e50914;
+            box-shadow: 0 0 25px rgba(229, 9, 20, 0.6);
+            transform: scale(1.1);
+        }
+
+        .vehicle-option:hover .cta {
+            color: #ffffff;
+        }
+
+        .vehicle-option:hover .cta i {
+            transform: translateX(5px);
+        }
+
+        /* RESPONSIVO */
+        @media (max-width: 768px) {
+            .back-btn {
+                top: 20px;
+                left: 20px;
+                padding: 8px 18px;
+            }
+
+            .main-title {
+                font-size: 2.6rem;
+                margin-top: 50px;
+            }
+
+            .vehicle-option {
+                padding: 30px 20px;
+            }
+        }
+    </style>
 </head>
 <body class="selection-page">
 
-    <!-- Botón Volver fijo -->
-    <a href="dashboardf.php" class="back-btn">Volver</a>
+    <!-- Botón Volver con Icono -->
+    <a href="dashboardf.php" class="back-btn">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+    </a>
 
     <div class="selection-wrapper">
         <h1 class="main-title">¿Qué tipo de <span>vehículo</span> buscas?</h1>
-        <p class="subtitle">Selecciona tu opción para continuar con el proceso de renta</p>
+        <p class="subtitle">Selecciona tu preferencia para explorar los mejores modelos disponibles</p>
 
         <div class="grid-container">
             <!-- Opción Motocicleta -->
             <a href="Motocicletas.php" class="vehicle-option motorcycle">
-                <div class="icon-box"></div>
+                <div class="icon-box">
+                    <i class="fa-solid fa-motorcycle"></i>
+                </div>
                 <h2>Motocicleta</h2>
-                <span class="cta">Ver modelos</span>
+                <span class="cta">Ver modelos <i class="fa-solid fa-chevron-right"></i></span>
             </a>
 
             <!-- Opción Automóvil -->
             <a href="automoviles.php" class="vehicle-option car">
-                <div class="icon-box"></div>
+                <div class="icon-box">
+                    <i class="fa-solid fa-car-side"></i>
+                </div>
                 <h2>Automóvil</h2>
-                <span class="cta">Ver modelos</span>
+                <span class="cta">Ver modelos <i class="fa-solid fa-chevron-right"></i></span>
             </a>
         </div>
     </div>
