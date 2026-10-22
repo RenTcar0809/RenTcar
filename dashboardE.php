@@ -237,6 +237,11 @@ try {
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Panel</span>
             </a>
+            <!-- Botón para ir al apartado de mensajes -->
+            <a href="#seccion-mensajes" class="nav-link">
+                <i class="fa-solid fa-comments"></i>
+                <span>Mensajes</span>
+            </a>
             <a href="vehiculosE.php" class="nav-link">
                 <i class="fa-solid fa-car-side"></i>
                 <span>Mi Flota</span>
@@ -278,7 +283,7 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES (AHORA ARRIBA) --- -->
+        <!-- --- APARTADO: MENSAJES Y DUDAS DE CLIENTES --- -->
         <section id="seccion-mensajes" class="table-container" style="margin-bottom: 30px;">
             <div class="table-header-title">
                 <h3><i class="fa-solid fa-comments"></i> Mensajes y Dudas de Clientes</h3>
@@ -482,7 +487,7 @@ try {
                     alert('¡Respuesta enviada exitosamente!');
                     cerrarModalRespuesta();
                     
-                    // Desplazamiento suave hacia la sección de mensajes arriba
+                    // Desplazamiento suave hacia la sección de mensajes
                     const seccionMensajes = document.getElementById('seccion-mensajes');
                     if (seccionMensajes) {
                         seccionMensajes.scrollIntoView({ 
@@ -491,7 +496,6 @@ try {
                         });
                     }
                     
-                    // Recargar la página después de un breve momento
                     setTimeout(() => {
                         location.reload();
                     }, 800);
