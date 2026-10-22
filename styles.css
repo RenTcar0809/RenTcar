@@ -188,16 +188,18 @@ body {
     overflow: hidden;
     align-items: center;
     padding-left: 10px;
+    border: 2px solid #000000; /* Aplica el borde negro al contenedor exterior */
 }
 
-
-
 .phone-input-container input {
-    border: none;
-    background: transparent;
+    border: none !important; /* Fuerza la eliminación del borde heredado */
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
     flex: 1;
     height: 100%;
-    padding: 0;
+    padding: 0 10px;
+    box-sizing: border-box;
 }
 
 .flag-dropdown {
