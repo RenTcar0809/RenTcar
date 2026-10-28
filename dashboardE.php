@@ -96,6 +96,21 @@ try {
             outline: none;
             border-color: #e50914;
         }
+
+        /* NUEVA DISTRIBUCIÓN DE TARJETAS (GRID 2x2 en lugar de línea horizontal) */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 columnas */
+            gap: 20px;
+            max-width: 900px; /* Opcional: limita el ancho para que no se estiren demasiado */
+        }
+
+        /* Ajuste responsivo para pantallas pequeñas (se vuelven de 1 columna en móviles) */
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -156,7 +171,7 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- SALUDO Y RESUMEN HUMANO -->
+        <!-- SALUDO Y BIENVENIDA -->
         <div style="margin-bottom: 25px;">
             <h2 class="section-title" style="margin-bottom: 5px;">¡Hola, <?php echo htmlspecialchars($nombreEmpresa); ?>! 👋</h2>
             <p style="color: #8e8e93; font-size: 0.95rem;">
@@ -168,6 +183,7 @@ try {
             </p>
         </div>
 
+        <!-- TARJETAS DISTRIBUIDAS EN CUADRÍCULA (2x2) -->
         <section class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-info">
