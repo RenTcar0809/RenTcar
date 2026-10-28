@@ -97,71 +97,72 @@ try {
             border-color: #e50914;
         }
 
-        /* DISEÑO INNOVADOR: Panel de Resumen Unificado (Estilo CINTA / HUD de control) */
-        .executive-hud {
+        /* DISEÑO INNOVADOR: Panel de Píldoras / Estadísticas en línea fluida */
+        .analytics-pills-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .pill-card {
+            background: #141416;
+            border: 1px solid #222226;
+            border-radius: 10px;
+            padding: 18px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: linear-gradient(135deg, #18181b 0%, #121214 100%);
-            border: 1px solid #27272a;
-            border-radius: 12px;
-            padding: 20px 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
-            flex-wrap: wrap;
-            gap: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
-        .hud-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex: 1;
-            min-width: 200px;
+        .pill-card:hover {
+            transform: translateY(-2px);
+            border-color: #3f3f46;
         }
 
-        .hud-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
+        /* Línea sutil de acento superior en cada píldora */
+        .pill-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
         }
 
-        /* Variaciones de colores para los iconos del HUD */
-        .hud-icon.car { background: rgba(229, 9, 20, 0.15); color: #e50914; }
-        .hud-icon.key { background: rgba(0, 113, 227, 0.15); color: #0071e3; }
-        .hud-icon.user { background: rgba(52, 199, 89, 0.15); color: #34c759; }
-        .hud-icon.money { background: rgba(255, 159, 10, 0.15); color: #ff9f0a; }
+        .pill-card.c-red::before { background-color: #e50914; }
+        .pill-card.c-blue::before { background-color: #0071e3; }
+        .pill-card.c-green::before { background-color: #34c759; }
+        .pill-card.c-yellow::before { background-color: #ff9f0a; }
 
-        .hud-details span {
+        .pill-info span {
             display: block;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #8e8e93;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
         }
 
-        .hud-details strong {
-            font-size: 1.35rem;
+        .pill-info h4 {
+            font-size: 1.4rem;
             color: #ffffff;
             font-weight: 700;
+            margin: 0;
         }
 
-        .hud-divider {
-            width: 1px;
-            height: 40px;
-            background-color: #27272a;
+        .pill-icon {
+            font-size: 1.5rem;
+            opacity: 0.8;
         }
 
-        /* Ocultar divisores en pantallas pequeñas */
-        @media (max-width: 900px) {
-            .hud-divider { display: none; }
-            .executive-hud { flex-direction: column; align-items: stretch; }
-        }
+        .pill-card.c-red .pill-icon { color: #e50914; }
+        .pill-card.c-blue .pill-icon { color: #0071e3; }
+        .pill-card.c-green .pill-icon { color: #34c759; }
+        .pill-card.c-yellow .pill-icon { color: #ff9f0a; }
     </style>
 </head>
 <body>
@@ -227,52 +228,46 @@ try {
             <h2 class="section-title" style="margin-bottom: 5px;">¡Hola, <?php echo htmlspecialchars($nombreEmpresa); ?>! 👋</h2>
             <p style="color: #8e8e93; font-size: 0.95rem;">
                 <?php if ($rentasActivas > 0): ?>
-                    Tienes <strong><?php echo $rentasActivas; ?> vehículo(s)</strong> en ruta actualmente. Aquí tienes el pulso de tu negocio al instante:
+                    Tienes <strong><?php echo $rentasActivas; ?> vehículo(s)</strong> en ruta actualmente. Aquí tienes un resumen rápido de tu actividad:
                 <?php else: ?>
-                    Tu flota se encuentra disponible y lista para generar nuevas reservas.
+                    Tu flota se encuentra disponible y lista para recibir nuevas reservas.
                 <?php endif; ?>
             </p>
         </div>
 
-        <!-- NUEVO DISEÑO INNOVADOR: BARRA / CINTA DE CONTROL EJECUTIVA (HUD) -->
-        <section class="executive-hud">
+        <!-- NUEVO DISEÑO INNOVADOR: PÍLDORAS DE MÉTRICAS FLOTANTES -->
+        <section class="analytics-pills-container">
             
-            <div class="hud-item">
-                <div class="hud-icon car"><i class="fa-solid fa-car"></i></div>
-                <div class="hud-details">
+            <div class="pill-card c-red">
+                <div class="pill-info">
                     <span>Vehículos en Flota</span>
-                    <strong><?php echo number_format($totalVehiculos); ?></strong>
+                    <h4><?php echo number_format($totalVehiculos); ?></h4>
                 </div>
+                <div class="pill-icon"><i class="fa-solid fa-car"></i></div>
             </div>
 
-            <div class="hud-divider"></div>
-
-            <div class="hud-item">
-                <div class="hud-icon key"><i class="fa-solid fa-key"></i></div>
-                <div class="hud-details">
+            <div class="pill-card c-blue">
+                <div class="pill-info">
                     <span>Alquileres Activos</span>
-                    <strong><?php echo number_format($rentasActivas); ?></strong>
+                    <h4><?php echo number_format($rentasActivas); ?></h4>
                 </div>
+                <div class="pill-icon"><i class="fa-solid fa-key"></i></div>
             </div>
 
-            <div class="hud-divider"></div>
-
-            <div class="hud-item">
-                <div class="hud-icon user"><i class="fa-solid fa-user-check"></i></div>
-                <div class="hud-details">
+            <div class="pill-card c-green">
+                <div class="pill-info">
                     <span>Clientes Totales</span>
-                    <strong><?php echo number_format($totalClientes); ?></strong>
+                    <h4><?php echo number_format($totalClientes); ?></h4>
                 </div>
+                <div class="pill-icon"><i class="fa-solid fa-user-check"></i></div>
             </div>
 
-            <div class="hud-divider"></div>
-
-            <div class="hud-item">
-                <div class="hud-icon money"><i class="fa-solid fa-dollar-sign"></i></div>
-                <div class="hud-details">
+            <div class="pill-card c-yellow">
+                <div class="pill-info">
                     <span>Ingresos del Mes</span>
-                    <strong>$<?php echo number_format($gananciasMes, 2); ?></strong>
+                    <h4>$<?php echo number_format($gananciasMes, 2); ?></h4>
                 </div>
+                <div class="pill-icon"><i class="fa-solid fa-dollar-sign"></i></div>
             </div>
 
         </section>
