@@ -97,19 +97,70 @@ try {
             border-color: #e50914;
         }
 
-        /* NUEVA DISTRIBUCIÓN DE TARJETAS (GRID 2x2 en lugar de línea horizontal) */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 2 columnas */
+        /* DISEÑO INNOVADOR: Panel de Resumen Unificado (Estilo CINTA / HUD de control) */
+        .executive-hud {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #18181b 0%, #121214 100%);
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+            flex-wrap: wrap;
             gap: 20px;
-            max-width: 900px; /* Opcional: limita el ancho para que no se estiren demasiado */
         }
 
-        /* Ajuste responsivo para pantallas pequeñas (se vuelven de 1 columna en móviles) */
-        @media (max-width: 768px) {
-            .metrics-grid {
-                grid-template-columns: 1fr;
-            }
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .hud-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        /* Variaciones de colores para los iconos del HUD */
+        .hud-icon.car { background: rgba(229, 9, 20, 0.15); color: #e50914; }
+        .hud-icon.key { background: rgba(0, 113, 227, 0.15); color: #0071e3; }
+        .hud-icon.user { background: rgba(52, 199, 89, 0.15); color: #34c759; }
+        .hud-icon.money { background: rgba(255, 159, 10, 0.15); color: #ff9f0a; }
+
+        .hud-details span {
+            display: block;
+            font-size: 0.8rem;
+            color: #8e8e93;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .hud-details strong {
+            font-size: 1.35rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .hud-divider {
+            width: 1px;
+            height: 40px;
+            background-color: #27272a;
+        }
+
+        /* Ocultar divisores en pantallas pequeñas */
+        @media (max-width: 900px) {
+            .hud-divider { display: none; }
+            .executive-hud { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -171,51 +222,59 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- SALUDO Y BIENVENIDA -->
-        <div style="margin-bottom: 25px;">
+        <!-- SALUDO Y BIENVENIDA HUMANA -->
+        <div style="margin-bottom: 20px;">
             <h2 class="section-title" style="margin-bottom: 5px;">¡Hola, <?php echo htmlspecialchars($nombreEmpresa); ?>! 👋</h2>
             <p style="color: #8e8e93; font-size: 0.95rem;">
                 <?php if ($rentasActivas > 0): ?>
-                    Tienes <strong><?php echo $rentasActivas; ?> vehículo(s)</strong> rodando en las calles ahora mismo. ¡Excelente trabajo!
+                    Tienes <strong><?php echo $rentasActivas; ?> vehículo(s)</strong> en ruta actualmente. Aquí tienes el pulso de tu negocio al instante:
                 <?php else: ?>
-                    Tu flota está lista y a la espera de su próxima gran reserva.
+                    Tu flota se encuentra disponible y lista para generar nuevas reservas.
                 <?php endif; ?>
             </p>
         </div>
 
-        <!-- TARJETAS DISTRIBUIDAS EN CUADRÍCULA (2x2) -->
-        <section class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Vehículos en Flota</h3>
-                    <p><?php echo number_format($totalVehiculos); ?></p>
+        <!-- NUEVO DISEÑO INNOVADOR: BARRA / CINTA DE CONTROL EJECUTIVA (HUD) -->
+        <section class="executive-hud">
+            
+            <div class="hud-item">
+                <div class="hud-icon car"><i class="fa-solid fa-car"></i></div>
+                <div class="hud-details">
+                    <span>Vehículos en Flota</span>
+                    <strong><?php echo number_format($totalVehiculos); ?></strong>
                 </div>
-                <div class="metric-icon"><i class="fa-solid fa-car"></i></div>
             </div>
 
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Alquileres Activos</h3>
-                    <p><?php echo number_format($rentasActivas); ?></p>
+            <div class="hud-divider"></div>
+
+            <div class="hud-item">
+                <div class="hud-icon key"><i class="fa-solid fa-key"></i></div>
+                <div class="hud-details">
+                    <span>Alquileres Activos</span>
+                    <strong><?php echo number_format($rentasActivas); ?></strong>
                 </div>
-                <div class="metric-icon"><i class="fa-solid fa-key"></i></div>
             </div>
 
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Clientes Totales</h3>
-                    <p><?php echo number_format($totalClientes); ?></p>
+            <div class="hud-divider"></div>
+
+            <div class="hud-item">
+                <div class="hud-icon user"><i class="fa-solid fa-user-check"></i></div>
+                <div class="hud-details">
+                    <span>Clientes Totales</span>
+                    <strong><?php echo number_format($totalClientes); ?></strong>
                 </div>
-                <div class="metric-icon"><i class="fa-solid fa-user-check"></i></div>
             </div>
 
-            <div class="metric-card">
-                <div class="metric-info">
-                    <h3>Ingresos del Mes</h3>
-                    <p>$<?php echo number_format($gananciasMes, 2); ?></p>
+            <div class="hud-divider"></div>
+
+            <div class="hud-item">
+                <div class="hud-icon money"><i class="fa-solid fa-dollar-sign"></i></div>
+                <div class="hud-details">
+                    <span>Ingresos del Mes</span>
+                    <strong>$<?php echo number_format($gananciasMes, 2); ?></strong>
                 </div>
-                <div class="metric-icon"><i class="fa-solid fa-dollar-sign"></i></div>
             </div>
+
         </section>
 
         <!-- --- REGISTRO DE ALQUILERES --- -->
