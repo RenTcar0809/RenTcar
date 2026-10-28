@@ -4,12 +4,10 @@ require_once 'conexion.php'; // Archivo de conexión PDO
 
 // 1. SEGURIDAD REFORZADA: Verificar que exista sesión Y que sea de tipo Empresa (tipo = 1)
 if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] != 1) {
-    // Si la sesión actual en el navegador es de un cliente (tipo 2), enviarlo a su panel
     if (isset($_SESSION['tipo']) && $_SESSION['tipo'] == 2) {
         header("Location: dashboardf.php");
         exit();
     }
-    // Si no hay sesión iniciada, enviarlo al login
     header("Location: inicioSesion.php");
     exit();
 }
@@ -154,17 +152,26 @@ try {
         
         <?php if ($errorConsulta): ?>
             <div style="background: #2b0000; color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4d4d;">
-                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Error SQL detectado:</strong> <?php echo htmlspecialchars($errorConsulta); ?>
+                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Algo salió mal con la base de datos:</strong> <?php echo htmlspecialchars($errorConsulta); ?>
             </div>
         <?php endif; ?>
 
-        <!-- RESUMEN GENERAL (INICIO DE PÁGINA) -->
-        <h2 class="section-title">Resumen General</h2>
+        <!-- SALUDO Y RESUMEN HUMANO -->
+        <div style="margin-bottom: 25px;">
+            <h2 class="section-title" style="margin-bottom: 5px;">¡Hola, <?php echo htmlspecialchars($nombreEmpresa); ?>! 👋</h2>
+            <p style="color: #8e8e93; font-size: 0.95rem;">
+                <?php if ($rentasActivas > 0): ?>
+                    Tienes <strong><?php echo $rentasActivas; ?> vehículo(s)</strong> rodando en las calles ahora mismo. ¡Excelente trabajo!
+                <?php else: ?>
+                    Tu flota está lista y a la espera de su próxima gran reserva.
+                <?php endif; ?>
+            </p>
+        </div>
 
         <section class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-info">
-                    <h3>Vehículos Totales</h3>
+                    <h3>Vehículos en Flota</h3>
                     <p><?php echo number_format($totalVehiculos); ?></p>
                 </div>
                 <div class="metric-icon"><i class="fa-solid fa-car"></i></div>
@@ -198,7 +205,7 @@ try {
         <!-- --- REGISTRO DE ALQUILERES --- -->
         <section class="table-container" style="margin-top: 30px;">
             <div class="table-header-title">
-                <h3><i class="fa-solid fa-clock-rotate-left"></i> Registro de Usuarios y Alquileres</h3>
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> Actividad reciente de tus clientes</h3>
             </div>
 
             <?php if (!empty($historialRentas)): ?>
@@ -244,9 +251,9 @@ try {
                     </tbody>
                 </table>
             <?php else: ?>
-                <div class="no-data" style="text-align: center; padding: 20px; color: #888;">
-                    <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                    <p>Aún no hay usuarios que hayan alquilado vehículos de tu flota.</p>
+                <div class="no-data" style="text-align: center; padding: 30px; color: #888;">
+                    <i class="fa-solid fa-face-smile" style="font-size: 2.5rem; margin-bottom: 10px; color: #555;"></i>
+                    <p>Todavía no registras alquileres. ¡Tus próximos clientes están por llegar!</p>
                 </div>
             <?php endif; ?>
         </section>
@@ -283,12 +290,12 @@ try {
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                    alert('No pudimos actualizar el estado: ' + (data.message || 'Inténtalo de nuevo'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Ocurrió un error al procesar la solicitud.');
+                alert('Ocurrió un pequeño problema al procesar tu solicitud.');
             });
         }
     </script>
