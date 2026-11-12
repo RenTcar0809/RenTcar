@@ -30,6 +30,29 @@ $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 $errorConsulta  = null;
 $conversaciones = [];
 
+function obtenerUrlImagen($ruta) {
+    $ruta = trim(str_replace('\\', '/', $ruta));
+    if (empty($ruta)) {
+        return 'unnamed.png';
+    }
+    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
+        return $ruta;
+    }
+    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) {
+        return $ruta;
+    }
+    if (file_exists('uploads/' . $ruta)) {
+        return 'uploads/' . $ruta;
+    }
+    if (file_exists('imagenes/' . $ruta)) {
+        return 'imagenes/' . $ruta;
+    }
+    if (file_exists($ruta)) {
+        return $ruta;
+    }
+    return 'unnamed.png';
+}
+
 // 2. CONSULTAR LISTA DE CONVERSACIONES (Búsqueda robusta por ID de proveedor o nombre)
 try {
     $sqlLista = "SELECT DISTINCT ON (
@@ -38,7 +61,9 @@ try {
                  ) 
                     m.id_mensaje, m.mensaje, m.fecha, 
                     CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END AS cliente, 
-                    v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa, v.imagen_principal
+                    v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa, v.tipo,
+                    v.imagen AS imagen_principal_vehiculo,
+                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = m.id_vehiculo LIMIT 1) AS imagen_fotos_tabla
                  FROM mensajes_chat m
                  INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
                  WHERE v.id_proveedor = :id_proveedor 
@@ -386,13 +411,15 @@ try {
                     <?php if (!empty($conversaciones)): ?>
                         <?php foreach ($conversaciones as $index => $chat): 
                             $claveKey = $chat['id_vehiculo'] . '_' . $chat['cliente'];
+                            $url_foto_bruta = !empty($chat['imagen_fotos_tabla']) ? $chat['imagen_fotos_tabla'] : ($chat['imagen_principal_vehiculo'] ?? '');
+                            $imagenFinal = obtenerUrlImagen($url_foto_bruta);
                         ?>
                             <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" 
                                  data-key="<?php echo htmlspecialchars($claveKey); ?>"
                                  onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo'], ENT_QUOTES); ?>', this)">
                                 
                                 <div class="chat-avatar" style="position: relative;">
-                                    <?php echo strtoupper(substr($chat['cliente'], 0, 1)); ?>
+                                    <img src="<?php echo htmlspecialchars($imagenFinal); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
                                     <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: #e50914; border-radius: 50%; border: 2px solid #181818;"></span>
                                 </div>
 
