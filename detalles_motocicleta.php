@@ -71,15 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
-// 4. Obtener datos del vehículo, galerías y validar si el usuario tiene licencia registrada
+// 4. Obtener datos del vehículo, galerías y validar la licencia APROBADA del usuario
 try {
-    // Verificar si el usuario conectado ya tiene licencia registrada
-    $stmtLic = $pdo->prepare("SELECT licencia_numero FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+    $stmtLic = $pdo->prepare("SELECT licencia_numero, licencia_verificada FROM usuario WHERE (nombre = ? OR empresa = ?) LIMIT 1");
     $stmtLic->execute([$_SESSION['usuario_nombre'], $_SESSION['usuario_nombre']]);
     $userLicData = $stmtLic->fetch(PDO::FETCH_ASSOC);
-    
-    // Bandera booleana para JS (true si ya la tiene, false si falta)
-    $tieneLicencia = (!empty($userLicData) && !empty($userLicData['licencia_numero'])) ? 'true' : 'false';
+
+    // Bandera booleana para JS: solo es true si existe la licencia Y su estado verificado es 1 (Aprobada)
+    $tieneLicencia = (!empty($userLicData) && !empty($userLicData['licencia_numero']) && isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1) ? 'true' : 'false';
 
     $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
     $stmt->execute([$id_vehiculo]);
@@ -289,7 +288,7 @@ try {
 
 <script>
 const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
-const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>; // Inyectado desde PHP (true/false)
+const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>; // True solo si está aprobada (1), de lo contrario false
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
@@ -309,9 +308,8 @@ function ocultarEditor(id) {
 }
 
 function toggleChatFlotante() {
-    // Validar licencia antes de abrir el chat flotante libremente también si se desea
     if (!usuarioTieneLicencia) {
-        alert("Debes registrar tu licencia de conducir antes de interactuar para reservar.");
+        alert("Tu licencia aún no ha sido aprobada por un administrador o no está registrada. No puedes realizar reservas en este momento.");
         window.location.href = "subir_licencia.php";
         return;
     }
@@ -336,9 +334,8 @@ function toggleChatFlotante() {
 }
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
-    // 1. VALIDACIÓN CRÍTICA DE LICENCIA
     if (!usuarioTieneLicencia) {
-        alert("Para realizar una reserva necesitas registrar tu licencia de conducir primero. Serás redirigido.");
+        alert("Para realizar una reserva necesitas tener tu licencia registrada y aprobada por el administrador. Serás redirigido.");
         window.location.href = "subir_licencia.php";
         return;
     }
