@@ -341,9 +341,10 @@ try {
         try {
             $pdo->beginTransaction();
 
-            // 1. Buscar el ID del cliente (arrendatario) en la tabla usuario usando su nombre/username
+            // 1. Buscar al cliente y verificar su estado de licencia en la tabla usuario
             $stmtCli = $pdo->prepare("
-                SELECT id_usuario FROM usuario 
+                SELECT id_usuario, licencia_verificada, licencia_numero 
+                FROM usuario 
                 WHERE nombre = :cliente OR empresa = :cliente 
                 LIMIT 1
             ");
@@ -353,15 +354,29 @@ try {
             if (!$arrendatario) {
                 throw new Exception("No se encontró el usuario cliente en la base de datos.");
             }
+
+            // 2. VALIDACIÓN DE SEGURIDAD: Comprobar si tiene licencia
+            // Puedes exigir que 'licencia_verificada' sea 1, o simplemente que el número no esté vacío
+            if (empty($arrendatario['licencia_numero'])) {
+                throw new Exception("El usuario no ha registrado un número de licencia de conducir en su perfil.");
+            }
+            
+            // Si manejas un estatus de aprobación por parte del admin:
+            /*
+            if ((int)$arrendatario['licencia_verificada'] !== 1) {
+                throw new Exception("La licencia del cliente aún no ha sido verificada por la empresa.");
+            }
+            */
+
             $id_arrendatario = $arrendatario['id_usuario'];
 
-            // 2. Opcional: Obtener el precio/monto del vehículo si lo tienes registrado, o asignar 0 por defecto
+            // 3. Obtener precio del vehículo
             $stmtVeh = $pdo->prepare("SELECT precio FROM vehiculo WHERE id_v = :id");
             $stmtVeh->execute([':id' => $id_item]);
             $vehData = $stmtVeh->fetch(PDO::FETCH_ASSOC);
             $monto_vehiculo = $vehData['precio'] ?? 0.00;
 
-            // 3. Insertar el registro en la tabla 'prestamo' con los campos exactos de tu esquema
+            // 4. Insertar en la tabla 'prestamo'
             $stmtPrestamo = $pdo->prepare("
                 INSERT INTO prestamo (id_vehiculo, id_arrendatario, fecha_inicio, fecha_fin, estado, monto)
                 VALUES (:vehiculo, :arrendatario, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', 'activo', :monto)
@@ -372,7 +387,7 @@ try {
                 ':monto'         => $monto_vehiculo
             ]);
 
-            // 4. Actualizar el estado del vehículo a no disponible (ej: disponible = 0)
+            // 5. Actualizar vehículo a no disponible
             $stmtVehiculoUpd = $pdo->prepare("
                 UPDATE vehiculo 
                 SET disponible = 0 
@@ -380,25 +395,13 @@ try {
             ");
             $stmtVehiculoUpd->execute([':vehiculo' => $id_item]);
 
-            // 5. Enviar un mensaje automático en el chat informando al cliente
-            $stmtMsg = $pdo->prepare("
-                INSERT INTO mensajes_chat (id_vehiculo, remitente, destinatario, mensaje, fecha, leido)
-                VALUES (:vehiculo, :remitente, :destinatario, :mensaje, NOW(), 0)
-            ");
-            $stmtMsg->execute([
-                ':vehiculo'    => $id_item,
-                ':remitente'   => $usuario_actual,
-                ':destinatario'=> $interlocutor_enviado,
-                ':mensaje'     => '¡Reserva confirmada! Su proceso de alquiler ha sido formalizado exitosamente en el sistema.'
-            ]);
-
             $pdo->commit();
 
-            responder('success', 'Préstamo/Reserva generado y vehículo actualizado correctamente.');
+            responder('success', 'Préstamo generado correctamente.');
 
         } catch (Exception $e) {
             $pdo->rollBack();
-            responder('error', 'Error al procesar el préstamo: ' . $e->getMessage());
+            responder('error', 'No se pudo formalizar el alquiler: ' . $e->getMessage());
         }
     }
 ?>
