@@ -1,168 +1,329 @@
+
 <?php
 session_start();
 require_once 'conexion.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-// Soportar diferentes nombres de sesión por seguridad
-$usuario_actual = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? '';
+// Evitar que PHP muestre errores dentro de la respuesta JSON
+ini_set('display_errors', '0');
 
-if (empty($usuario_actual)) {
-    echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-    exit();
-}
-
-$accion = $_POST['accion'] ?? $_GET['accion'] ?? '';
-$tipo = $_REQUEST['tipo_vehiculo'] ?? 'auto'; 
-$id_item = intval($_REQUEST['id_item'] ?? $_REQUEST['id_vehiculo'] ?? 0);
-
-// 1. VERIFICAR MENSAJES NUEVOS / NOTIFICACIONES (Solo cuenta no leídos)
-if ($accion === 'verificar_nuevos') {
-    try {
-        $stmtN = $pdo->prepare("
-            SELECT id_vehiculo, remitente, COUNT(*) as total 
-            FROM mensajes_chat 
-            WHERE destinatario = ? AND leido = 0
-            GROUP BY id_vehiculo, remitente
-        ");
-        $stmtN->execute([$usuario_actual]);
-        $conteo = $stmtN->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'status' => 'success', 
-            'notificaciones' => $conteo
-        ]);
-        exit();
-    } catch (PDOException $e) {
-        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-        exit();
-    }
-}
-
-// 2. ELIMINAR / TERMINAR CONVERSACIÓN
-if ($accion === 'eliminar_chat') {
-    $destinatario_borrar = trim($_POST['destinatario'] ?? $_GET['destinatario'] ?? '');
-
-    if (!empty($destinatario_borrar)) {
-        if ($id_item > 0) {
-            $stmtDel = $pdo->prepare("
-                DELETE FROM mensajes_chat 
-                WHERE id_vehiculo = ? 
-                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
-            ");
-            $stmtDel->execute([$id_item, $usuario_actual, $destinatario_borrar, $destinatario_borrar, $usuario_actual]);
-        } else {
-            $stmtDel = $pdo->prepare("
-                DELETE FROM mensajes_chat 
-                WHERE (id_vehiculo IS NULL OR id_vehiculo = 0) 
-                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
-            ");
-            $stmtDel->execute([$usuario_actual, $destinatario_borrar, $destinatario_borrar, $usuario_actual]);
-        }
-
-        echo json_encode(['status' => 'success']);
-        exit();
-    }
-
-    echo json_encode(['status' => 'error', 'message' => 'Faltan datos para eliminar la conversación']);
+function responder($status, $message = '', $extra = []) {
+    echo json_encode(array_merge([
+        'status' => $status,
+        'message' => $message
+    ], $extra), JSON_UNESCAPED_UNICODE);
     exit();
 }
 
 try {
-    $dueno = '';
-    if ($id_item > 0) {
-        $stmtV = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
-        $stmtV->execute([$id_item]);
-        $item = $stmtV->fetch(PDO::FETCH_ASSOC);
 
-        if ($item && isset($item['id_proveedor'])) {
-            // Corrección aplicada: Se cambia "IdUsuario" por id_usuario en minúsculas
-            $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
-            $stmtU->execute([$item['id_proveedor']]);
-            $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
-            if ($uData) {
-                $dueno = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
-            }
+    // ==========================================
+    // 1. IDENTIFICAR AL USUARIO ACTUAL
+    // ==========================================
+
+    $usuario_actual = trim(
+        $_SESSION['usuario_nombre']
+        ?? $_SESSION['usuario']
+        ?? ''
+    );
+
+    if ($usuario_actual === '') {
+        responder('error', 'No hay una sesión activa. Inicia sesión nuevamente.');
+    }
+
+    // ==========================================
+    // 2. OBTENER ACCIÓN Y DATOS
+    // ==========================================
+
+    $accion = $_POST['accion'] ?? $_GET['accion'] ?? '';
+
+    $id_item = filter_var(
+        $_POST['id_item']
+        ?? $_POST['id_vehiculo']
+        ?? $_GET['id_item']
+        ?? $_GET['id_vehiculo']
+        ?? 0,
+        FILTER_VALIDATE_INT
+    );
+
+    $id_item = $id_item ?: 0;
+
+    $interlocutor_enviado = trim(
+        $_POST['destinatario']
+        ?? $_GET['destinatario']
+        ?? ''
+    );
+
+    // ==========================================
+    // 3. VERIFICAR NOTIFICACIONES
+    // ==========================================
+
+    if ($accion === 'verificar_nuevos') {
+
+        $stmtN = $pdo->prepare("
+            SELECT
+                id_vehiculo,
+                remitente,
+                COUNT(*) AS total
+            FROM mensajes_chat
+            WHERE destinatario = :usuario
+              AND leido = 0
+            GROUP BY id_vehiculo, remitente
+        ");
+
+        $stmtN->execute([
+            ':usuario' => $usuario_actual
+        ]);
+
+        $conteo = $stmtN->fetchAll(PDO::FETCH_ASSOC);
+
+        responder('success', '', [
+            'notificaciones' => $conteo
+        ]);
+    }
+
+    // ==========================================
+    // 4. OBTENER EMPRESA PROPIETARIA DEL VEHÍCULO
+    // ==========================================
+
+    $dueno = '';
+
+    if ($id_item > 0) {
+
+        $stmtV = $pdo->prepare("
+            SELECT id_v, id_proveedor
+            FROM vehiculo
+            WHERE id_v = :id
+        ");
+
+        $stmtV->execute([
+            ':id' => $id_item
+        ]);
+
+        $vehiculo = $stmtV->fetch(PDO::FETCH_ASSOC);
+
+        if (!$vehiculo) {
+            responder('error', 'El vehículo no existe.');
+        }
+
+        if (empty($vehiculo['id_proveedor'])) {
+            responder('error', 'El vehículo no tiene un proveedor asignado.');
+        }
+
+        $stmtU = $pdo->prepare("
+            SELECT nombre, empresa, tipo
+            FROM usuario
+            WHERE id_usuario = :id
+        ");
+
+        $stmtU->execute([
+            ':id' => $vehiculo['id_proveedor']
+        ]);
+
+        $proveedor = $stmtU->fetch(PDO::FETCH_ASSOC);
+
+        if (!$proveedor) {
+            responder('error', 'No se encontró el propietario del vehículo.');
+        }
+
+        if ((int)$proveedor['tipo'] === 1) {
+            $dueno = trim($proveedor['empresa'] ?? '');
+        } else {
+            $dueno = trim($proveedor['nombre'] ?? '');
+        }
+
+        if ($dueno === '') {
+            responder('error', 'El propietario no tiene un nombre registrado.');
         }
     }
 
-    if (empty($dueno)) {
-        $dueno = 'Arrendatario';
+    // ==========================================
+    // 5. ELIMINAR CONVERSACIÓN
+    // ==========================================
+
+    if ($accion === 'eliminar_chat') {
+
+        if ($id_item <= 0 || $interlocutor_enviado === '') {
+            responder('error', 'Faltan datos para eliminar la conversación.');
+        }
+
+        $stmtDel = $pdo->prepare("
+            DELETE FROM mensajes_chat
+            WHERE id_vehiculo = :vehiculo
+              AND (
+                    (remitente = :usuario1 AND destinatario = :destino1)
+                    OR
+                    (remitente = :destino2 AND destinatario = :usuario2)
+              )
+        ");
+
+        $stmtDel->execute([
+            ':vehiculo' => $id_item,
+            ':usuario1' => $usuario_actual,
+            ':destino1' => $interlocutor_enviado,
+            ':destino2' => $interlocutor_enviado,
+            ':usuario2' => $usuario_actual
+        ]);
+
+        responder('success', 'Conversación eliminada correctamente.');
     }
 
-    $interlocutor_enviado = trim($_POST['destinatario'] ?? $_GET['destinatario'] ?? '');
+    // ==========================================
+    // 6. ENVIAR MENSAJE DEL CLIENTE A LA EMPRESA
+    // ==========================================
 
-    // 3. ENVIAR MENSAJE (Inserta con leido = 0 por defecto)
     if ($accion === 'enviar') {
+
         $mensaje = trim($_POST['mensaje'] ?? '');
 
-        if (!empty($mensaje) && $id_item > 0) {
-            $destinatario_final = !empty($interlocutor_enviado) ? $interlocutor_enviado : $dueno;
-
-            if ($usuario_actual === $destinatario_final) {
-                $stmtUltimo = $pdo->prepare("SELECT remitente FROM mensajes_chat WHERE id_vehiculo = ? AND remitente != ? ORDER BY fecha DESC LIMIT 1");
-                $stmtUltimo->execute([$id_item, $usuario_actual]);
-                $ultimo_cliente = $stmtUltimo->fetchColumn();
-                if ($ultimo_cliente) {
-                    $destinatario_final = $ultimo_cliente;
-                }
-            }
-
-            if ($usuario_actual === $destinatario_final) {
-                echo json_encode(['status' => 'error', 'message' => 'No puedes enviarte mensajes a ti mismo.']);
-                exit();
-            }
-
-            $stmt = $pdo->prepare("INSERT INTO mensajes_chat (id_vehiculo, remitente, destinatario, mensaje, fecha, leido) VALUES (?, ?, ?, ?, NOW(), 0)");
-            $stmt->execute([$id_item, $usuario_actual, $destinatario_final, $mensaje]);
-            
-            echo json_encode(['status' => 'success']);
-            exit();
+        if ($id_item <= 0) {
+            responder('error', 'El identificador del vehículo no es válido.');
         }
-        
-        echo json_encode(['status' => 'empty', 'message' => 'Faltan datos, ID de vehículo inválido o mensaje vacío', 'id_recibido' => $id_item]);
-        exit();
+
+        if ($mensaje === '') {
+            responder('error', 'No puedes enviar un mensaje vacío.');
+        }
+
+        if ($dueno === '') {
+            responder('error', 'No se encontró la empresa propietaria.');
+        }
+
+        // El destinatario se obtiene de la base de datos.
+        // No se confía en un destinatario enviado desde JavaScript.
+        $destinatario_final = $dueno;
+
+        if ($usuario_actual === $destinatario_final) {
+            responder('error', 'No puedes enviarte mensajes a ti mismo.');
+        }
+
+        $stmt = $pdo->prepare("
+            INSERT INTO mensajes_chat (
+                id_vehiculo,
+                remitente,
+                destinatario,
+                mensaje,
+                fecha,
+                leido
+            )
+            VALUES (
+                :vehiculo,
+                :remitente,
+                :destinatario,
+                :mensaje,
+                NOW(),
+                0
+            )
+            RETURNING id_mensaje
+        ");
+
+        $stmt->execute([
+            ':vehiculo' => $id_item,
+            ':remitente' => $usuario_actual,
+            ':destinatario' => $destinatario_final,
+            ':mensaje' => $mensaje
+        ]);
+
+        $idMensaje = $stmt->fetchColumn();
+
+        responder('success', 'Mensaje enviado correctamente.', [
+            'id_mensaje' => $idMensaje,
+            'destinatario' => $destinatario_final,
+            'id_vehiculo' => $id_item
+        ]);
     }
 
-    // 4. OBTENER MENSAJES (Y marcar automáticamente como leídos los recibidos)
-    if ($accion === 'obtener') {
-        $otro_usuario = !empty($interlocutor_enviado) ? $interlocutor_enviado : $dueno;
+    // ==========================================
+    // 7. OBTENER MENSAJES DE LA CONVERSACIÓN
+    // ==========================================
 
-        // Marcar como leídos los mensajes que este usuario recibió de este interlocutor
-        if ($id_item > 0) {
-            $stmtMarcar = $pdo->prepare("UPDATE mensajes_chat SET leido = 1 WHERE destinatario = ? AND remitente = ? AND id_vehiculo = ? AND leido = 0");
-            $stmtMarcar->execute([$usuario_actual, $otro_usuario, $id_item]);
-        } else {
-            $stmtMarcar = $pdo->prepare("UPDATE mensajes_chat SET leido = 1 WHERE destinatario = ? AND remitente = ? AND (id_vehiculo IS NULL OR id_vehiculo = 0) AND leido = 0");
-            $stmtMarcar->execute([$usuario_actual, $otro_usuario]);
+    if ($accion === 'obtener') {
+
+        if ($id_item <= 0) {
+            responder('error', 'Identificador del vehículo inválido.');
         }
 
-        $sql = "SELECT * FROM mensajes_chat 
-                WHERE id_vehiculo = ? 
-                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?)) 
-                ORDER BY fecha ASC";
+        if ($dueno === '') {
+            responder('error', 'No se encontró la empresa del vehículo.');
+        }
+
+        $otro_usuario = $dueno;
+
+        // Marcar como leídos únicamente los mensajes
+        // recibidos por el usuario actual.
+
+        $stmtMarcar = $pdo->prepare("
+            UPDATE mensajes_chat
+            SET leido = 1
+            WHERE destinatario = :usuario
+              AND remitente = :empresa
+              AND id_vehiculo = :vehiculo
+              AND leido = 0
+        ");
+
+        $stmtMarcar->execute([
+            ':usuario' => $usuario_actual,
+            ':empresa' => $otro_usuario,
+            ':vehiculo' => $id_item
+        ]);
+
+        // Obtener exclusivamente la conversación
+        // entre el cliente y la empresa.
+
+        $sql = "
+            SELECT
+                id_mensaje,
+                id_vehiculo,
+                remitente,
+                destinatario,
+                mensaje,
+                fecha,
+                leido
+            FROM mensajes_chat
+            WHERE id_vehiculo = :vehiculo
+              AND (
+                    (remitente = :usuario1 AND destinatario = :empresa1)
+                    OR
+                    (remitente = :empresa2 AND destinatario = :usuario2)
+              )
+            ORDER BY fecha ASC, id_mensaje ASC
+        ";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$id_item, $usuario_actual, $otro_usuario, $otro_usuario, $usuario_actual]);
+
+        $stmt->execute([
+            ':vehiculo' => $id_item,
+            ':usuario1' => $usuario_actual,
+            ':empresa1' => $otro_usuario,
+            ':empresa2' => $otro_usuario,
+            ':usuario2' => $usuario_actual
+        ]);
+
         $mensajes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        if (empty($mensajes)) {
-            $stmtG = $pdo->prepare("SELECT * FROM mensajes_chat WHERE id_vehiculo = ? ORDER BY fecha ASC");
-            $stmtG->execute([$id_item]);
-            $mensajes = $stmtG->fetchAll(PDO::FETCH_ASSOC) ?? [];
-        }
-
-        echo json_encode([
-            'status' => 'success', 
-            'mensajes' => $mensajes, 
+        responder('success', '', [
+            'mensajes' => $mensajes,
             'usuario_actual' => $usuario_actual,
-            'dueno' => $dueno
+            'dueno' => $otro_usuario
         ]);
-        exit();
     }
 
+    // ==========================================
+    // 8. ACCIÓN NO RECONOCIDA
+    // ==========================================
+
+    responder('error', 'Acción no reconocida.');
+
 } catch (PDOException $e) {
-    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-    exit();
+
+    error_log('Error chat_backend.php: ' . $e->getMessage());
+
+    responder('error', 'Error al procesar el mensaje en la base de datos.');
+    
+} catch (Throwable $e) {
+
+    error_log('Error general chat_backend.php: ' . $e->getMessage());
+
+    responder('error', 'Ocurrió un error inesperado.');
 }
 ?>

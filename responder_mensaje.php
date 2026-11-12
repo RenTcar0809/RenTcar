@@ -1,38 +1,77 @@
+
 <?php
 session_start();
 require_once 'conexion.php';
 
-header('Content-Type: application/json');
-
-if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
-    echo json_encode(['success' => false, 'message' => 'Sesión no válida']);
-    exit();
-}
-
-$remitente = $_SESSION['nombre_empresa'] ?? 'Empresa';
-$destinatario = $_POST['destinatario'] ?? '';
-$idVehiculo = $_POST['id_vehiculo'] ?? null;
-$mensaje = trim($_POST['mensaje'] ?? '');
-
-if (empty($mensaje) || empty($destinatario)) {
-    echo json_encode(['success' => false, 'message' => 'Campos incompletos']);
-    exit();
-}
+header('Content-Type: application/json; charset=utf-8');
 
 try {
-    // 1. Agregamos 'destinatario' a las columnas y su respectivo marcador ':destinatario'
-    $stmt = $pdo->prepare("INSERT INTO mensajes_chat (remitente, destinatario, id_vehiculo, mensaje, fecha, leido) 
-                           VALUES (:remitente, :destinatario, :id_v, :mensaje, NOW(), 0)");
-    
-    // 2. Pasamos el valor en el array de ejecución
+
+    // Verificar sesión de empresa
+    if (
+        !isset($_SESSION['id_proveedor']) &&
+        !isset($_SESSION['IdUsuario']) &&
+        !isset($_SESSION['nombre_empresa']) &&
+        !isset($_SESSION['usuario_nombre'])
+    ) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Sesión no válida. Inicia sesión nuevamente.'
+        ]);
+        exit();
+    }
+
+    // IMPORTANTE: utilizar el nombre real de la empresa
+    $remitente = trim(
+        $_SESSION['nombre_empresa']
+        ?? $_SESSION['usuario_nombre']
+        ?? ''
+    );
+
+    $destinatario = trim($_POST['destinatario'] ?? '');
+    $idVehiculo = filter_var(
+        $_POST['id_vehiculo'] ?? null,
+        FILTER_VALIDATE_INT
+    );
+    $mensaje = trim($_POST['mensaje'] ?? '');
+
+    // Validaciones
+    if ($remitente === '' || $destinatario === '' ||
+        $mensaje === '' || !$idVehiculo || $idVehiculo <= 0) {
+
+        echo json_encode([
+            'success' => false,
+            'message' => 'Faltan datos para enviar el mensaje.'
+        ]);
+        exit();
+    }
+
+    // Guardar mensaje
+    $sql = "INSERT INTO mensajes_chat
+            (id_vehiculo, remitente, destinatario, mensaje, fecha, leido)
+            VALUES
+            (:id_vehiculo, :remitente, :destinatario, :mensaje, NOW(), 0)";
+
+    $stmt = $pdo->prepare($sql);
+
     $stmt->execute([
-        ':remitente'    => $remitente,
-        ':destinatario' => $destinatario, // <-- ¡Este era el que faltaba!
-        ':id_v'         => $idVehiculo,
-        ':mensaje'      => $mensaje
+        ':id_vehiculo' => $idVehiculo,
+        ':remitente' => $remitente,
+        ':destinatario' => $destinatario,
+        ':mensaje' => $mensaje
     ]);
 
-    echo json_encode(['success' => true]);
+    echo json_encode([
+        'success' => true,
+        'message' => 'Mensaje enviado correctamente.'
+    ]);
+
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+
+    error_log('Error al enviar mensaje: ' . $e->getMessage());
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error al guardar el mensaje en la base de datos.'
+    ]);
 }
