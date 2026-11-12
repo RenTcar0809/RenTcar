@@ -261,28 +261,28 @@ if (!empty($interlocutor_real)) {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        const formEnviar = document.getElementById('formEnviarMensaje');
-        if (formEnviar) {
-            formEnviar.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const formData = new FormData(this);
+      const formEnviar = document.getElementById('formEnviarMensaje');
+    if (formEnviar) {
+        formEnviar.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
 
-                fetch('chat_backend.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        location.reload(); 
-                    } else {
-                        alert(data.message || 'Ocurrió un error al enviar el mensaje.');
-                    }
-                })
-                .catch(err => console.error('Error al enviar:', err));
-            });
-        }
-
+            fetch('chat_backend.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload(); 
+                } else {
+                    console.error("Detalle del error del backend:", data);
+                    alert('Error al enviar: ' + (data.message || 'Ocurrió un error desconocido.'));
+                }
+            })
+            .catch(err => console.error('Error de red al enviar:', err));
+        });
+    }
         function eliminarConversacion(idVehiculo, interlocutor) {
             if (!confirm('¿Estás seguro de que deseas terminar y eliminar esta conversación? Se borrarán todos los mensajes de este chat.')) {
                 return;
