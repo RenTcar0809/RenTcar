@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 require_once 'conexion.php';
@@ -84,7 +83,7 @@ try {
     }
 
     // ==========================================
-    // 4. OBTENER EMPRESA PROPIETARIA DEL VEHÍCULO
+    // 4. OBTENER EMPRESA PROPIETARIA Y DETERMINAR INTERLOCUTOR
     // ==========================================
 
     $dueno = '';
@@ -103,39 +102,37 @@ try {
 
         $vehiculo = $stmtV->fetch(PDO::FETCH_ASSOC);
 
-        if (!$vehiculo) {
-            responder('error', 'El vehículo no existe.');
+        if ($vehiculo && !empty($vehiculo['id_proveedor'])) {
+            $stmtU = $pdo->prepare("
+                SELECT nombre, empresa, tipo
+                FROM usuario
+                WHERE id_usuario = :id
+            ");
+
+            $stmtU->execute([
+                ':id' => $vehiculo['id_proveedor']
+            ]);
+
+            $proveedor = $stmtU->fetch(PDO::FETCH_ASSOC);
+
+            if ($proveedor) {
+                if ((int)$proveedor['tipo'] === 1) {
+                    $dueno = trim($proveedor['empresa'] ?? '');
+                } else {
+                    $dueno = trim($proveedor['nombre'] ?? '');
+                }
+            }
         }
+    }
 
-        if (empty($vehiculo['id_proveedor'])) {
-            responder('error', 'El vehículo no tiene un proveedor asignado.');
-        }
-
-        $stmtU = $pdo->prepare("
-            SELECT nombre, empresa, tipo
-            FROM usuario
-            WHERE id_usuario = :id
-        ");
-
-        $stmtU->execute([
-            ':id' => $vehiculo['id_proveedor']
-        ]);
-
-        $proveedor = $stmtU->fetch(PDO::FETCH_ASSOC);
-
-        if (!$proveedor) {
-            responder('error', 'No se encontró el propietario del vehículo.');
-        }
-
-        if ((int)$proveedor['tipo'] === 1) {
-            $dueno = trim($proveedor['empresa'] ?? '');
-        } else {
-            $dueno = trim($proveedor['nombre'] ?? '');
-        }
-
-        if ($dueno === '') {
-            responder('error', 'El propietario no tiene un nombre registrado.');
-        }
+    // Definir quién es el otro usuario según quién esté realizando la petición (la empresa o el cliente)
+    $otro_usuario = '';
+    if ($usuario_actual === $dueno) {
+        // Si el usuario actual es la empresa, el interlocutor es el cliente enviado desde la interfaz
+        $otro_usuario = $interlocutor_enviado;
+    } else {
+        // Si el usuario actual es el cliente, el interlocutor es la empresa propietaria
+        $otro_usuario = $dueno;
     }
 
     // ==========================================
@@ -170,7 +167,7 @@ try {
     }
 
     // ==========================================
-    // 6. ENVIAR MENSAJE DEL CLIENTE A LA EMPRESA
+    // 6. ENVIAR MENSAJE
     // ==========================================
 
     if ($accion === 'enviar') {
@@ -186,12 +183,20 @@ try {
         }
 
         if ($dueno === '') {
-            responder('error', 'No se encontró la empresa propietaria.');
+            responder('error', 'No se encontró la empresa propietaria del vehículo.');
         }
 
-        // El destinatario se obtiene de la base de datos.
-        // No se confía en un destinatario enviado desde JavaScript.
-        $destinatario_final = $dueno;
+        // Si la empresa es la que envía, el destinatario debe ser el cliente con el que está chateando
+        $destinatario_final = '';
+        if ($usuario_actual === $dueno) {
+            $destinatario_final = $interlocutor_enviado;
+            if ($destinatario_final === '') {
+                responder('error', 'No se especificó el cliente destinatario.');
+            }
+        } else {
+            // Si el cliente es el que envía, el destinatario es la empresa
+            $destinatario_final = $dueno;
+        }
 
         if ($usuario_actual === $destinatario_final) {
             responder('error', 'No puedes enviarte mensajes a ti mismo.');
@@ -243,33 +248,27 @@ try {
             responder('error', 'Identificador del vehículo inválido.');
         }
 
-        if ($dueno === '') {
-            responder('error', 'No se encontró la empresa del vehículo.');
+        if ($otro_usuario === '') {
+            responder('error', 'No se pudo identificar al interlocutor de la conversación.');
         }
 
-        $otro_usuario = $dueno;
-
-        // Marcar como leídos únicamente los mensajes
-        // recibidos por el usuario actual.
-
+        // Marcar como leídos únicamente los mensajes recibidos por el usuario actual de parte de este interlocutor
         $stmtMarcar = $pdo->prepare("
             UPDATE mensajes_chat
             SET leido = 1
             WHERE destinatario = :usuario
-              AND remitente = :empresa
+              AND remitente = :interlocutor
               AND id_vehiculo = :vehiculo
               AND leido = 0
         ");
 
         $stmtMarcar->execute([
             ':usuario' => $usuario_actual,
-            ':empresa' => $otro_usuario,
+            ':interlocutor' => $otro_usuario,
             ':vehiculo' => $id_item
         ]);
 
-        // Obtener exclusivamente la conversación
-        // entre el cliente y la empresa.
-
+        // Obtener la conversación bidireccional entre ambos usuarios
         $sql = "
             SELECT
                 id_mensaje,
@@ -282,9 +281,9 @@ try {
             FROM mensajes_chat
             WHERE id_vehiculo = :vehiculo
               AND (
-                    (remitente = :usuario1 AND destinatario = :empresa1)
+                    (remitente = :usuario1 AND destinatario = :interlocutor1)
                     OR
-                    (remitente = :empresa2 AND destinatario = :usuario2)
+                    (remitente = :interlocutor2 AND destinatario = :usuario2)
               )
             ORDER BY fecha ASC, id_mensaje ASC
         ";
@@ -294,8 +293,8 @@ try {
         $stmt->execute([
             ':vehiculo' => $id_item,
             ':usuario1' => $usuario_actual,
-            ':empresa1' => $otro_usuario,
-            ':empresa2' => $otro_usuario,
+            ':interlocutor1' => $otro_usuario,
+            ':interlocutor2' => $otro_usuario,
             ':usuario2' => $usuario_actual
         ]);
 
@@ -317,13 +316,11 @@ try {
 } catch (PDOException $e) {
 
     error_log('Error chat_backend.php: ' . $e->getMessage());
-
     responder('error', 'Error al procesar el mensaje en la base de datos.');
     
 } catch (Throwable $e) {
 
     error_log('Error general chat_backend.php: ' . $e->getMessage());
-
     responder('error', 'Ocurrió un error inesperado.');
 }
 ?>
