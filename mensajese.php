@@ -449,16 +449,22 @@ try {
             <!-- ÁREA DERECHA DE CHAT ACTIVO -->
             <div class="chat-main">
                 
-                <div class="chat-main-header" id="chatMainHeader" style="display: none;">
-                    <div class="chat-header-user">
-                        <div class="chat-avatar" id="activeAvatar">A</div>
-                        <div>
-                            <div style="font-weight: bold; color: #fff;" id="activeCliente">-</div>
-                            <div style="font-size: 0.8rem; color: #e50914;" id="activeVehiculo">-</div>
-                        </div>
-                    </div>
-                    <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
-                </div>
+               <div class="chat-main-header" id="chatMainHeader" style="display: none;">
+    <div class="chat-header-user">
+        <div class="chat-avatar" id="activeAvatar">A</div>
+        <div>
+            <div style="font-weight: bold; color: #fff;" id="activeCliente">-</div>
+            <div style="font-size: 0.8rem; color: #e50914;" id="activeVehiculo">-</div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <!-- Botón para confirmar el alquiler y pasarlo a la tabla préstamo -->
+        <button onclick="convertirEnReserva()" style="background: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-file-contract"></i> Confirmar Alquiler
+        </button>
+        <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
+    </div>
+</div>
 
                 <!-- Lista de Burbujas de Mensaje -->
                 <div class="chat-messages-area" id="chatMessagesArea">
@@ -653,6 +659,36 @@ try {
         function escapeHtml(text) {
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
+
+        function convertirEnReserva() {
+    if (!vehiculoActualId || !clienteActual) {
+        alert('Selecciona una conversación válida primero.');
+        return;
+    }
+
+    if (!confirm(`¿Deseas formalizar el alquiler de este vehículo con el cliente ${clienteActual}? Esto registrará el préstamo y marcará el vehículo como no disponible.`)) return;
+
+    const formData = new URLSearchParams();
+    formData.append('accion', 'crear_reserva');
+    formData.append('id_item', vehiculoActualId);
+    formData.append('destinatario', clienteActual);
+
+    fetch('chat_backend.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('¡Préstamo/Reserva creado con éxito!');
+            location.reload(); // Recarga para actualizar los datos
+        } else {
+            alert('Error al crear la reserva: ' + (data.message || 'Intente nuevamente'));
+        }
+    })
+    .catch(err => console.error('Error de red:', err));
+}
     </script>
 </body>
 </html>
