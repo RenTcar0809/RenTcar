@@ -23,17 +23,21 @@ function limpiarInsultos($texto) {
 }
 
 // 2. Procesar NUEVO comentario al presionar el botón
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {$comentario_bruto = trim($_POST['comentario'] ?? '');$puntuacion = isset($_POST['rating']) ? intval($_POST['rating']) : 5;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {
+    $comentario_bruto = trim($_POST['comentario'] ?? '');
+    $puntuacion = isset($_POST['rating']) ? intval($_POST['rating']) : 5;
     $comentario_final = limpiarInsultos($comentario_bruto);
 
     if (!empty($comentario_final)) {
         try {
             $sql = "INSERT INTO comentarios_vehiculos (id_vehiculo, usuario_nombre, comentario, puntuacion) VALUES (?, ?, ?, ?)";
-            $ins =$pdo->prepare($sql);$ins->execute([$id_vehiculo,$_SESSION['usuario_nombre'], $comentario_final,$puntuacion]);
+            $ins = $pdo->prepare($sql);
+            $ins->execute([$id_vehiculo, $_SESSION['usuario_nombre'], $comentario_final, $puntuacion]);
             
             header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=ok#comentarios");
             exit();
-        } catch (PDOException $e) {$error_msg = "Error en la base de datos: " . $e->getMessage();
+        } catch (PDOException $e) {
+            $error_msg = "Error en la base de datos: " . $e->getMessage();
         }
     } else {
         $error_msg = "El comentario no puede estar vacío.";
@@ -41,33 +45,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
 }
 
 // 3. Procesar ACTUALIZACIÓN de comentario (Edición)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {$id_com = intval($_POST['id_comentario'] ?? 0);$comentario_edit_bruto = trim($_POST['comentario_edit'] ?? '');$puntuacion_edit = isset($_POST['rating_edit']) ? intval($_POST['rating_edit']) : 5;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
+    $id_com = intval($_POST['id_comentario'] ?? 0);
+    $comentario_edit_bruto = trim($_POST['comentario_edit'] ?? '');
+    $puntuacion_edit = isset($_POST['rating_edit']) ? intval($_POST['rating_edit']) : 5;
     $comentario_edit_final = limpiarInsultos($comentario_edit_bruto);
 
     if (!empty($comentario_edit_final)) {
         try {
-            $chk =$pdo->prepare("SELECT usuario_nombre FROM comentarios_vehiculos WHERE id_comentario = ?");
+            $chk = $pdo->prepare("SELECT usuario_nombre FROM comentarios_vehiculos WHERE id_comentario = ?");
             $chk->execute([$id_com]);
-            $c_data =$chk->fetch(PDO::FETCH_ASSOC);
+            $c_data = $chk->fetch(PDO::FETCH_ASSOC);
 
-            if ($c_data && $c_data['usuario_nombre'] ===$_SESSION['usuario_nombre']) {
-                $upd =$pdo->prepare("UPDATE comentarios_vehiculos SET comentario = ?, puntuacion = ? WHERE id_comentario = ?");
-                $upd->execute([$comentario_edit_final, $puntuacion_edit,$id_com]);
+            if ($c_data && $c_data['usuario_nombre'] === $_SESSION['usuario_nombre']) {
+                $upd = $pdo->prepare("UPDATE comentarios_vehiculos SET comentario = ?, puntuacion = ? WHERE id_comentario = ?");
+                $upd->execute([$comentario_edit_final, $puntuacion_edit, $id_com]);
             }
             header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=updated#comentarios");
             exit();
-        } catch (PDOException $e) {$error_msg = "Error al actualizar: " . $e->getMessage();
+        } catch (PDOException $e) {
+            $error_msg = "Error al actualizar: " . $e->getMessage();
         }
     } else {
         $error_msg = "El comentario editado no puede estar vacío.";
     }
 }
 
-// 4. Obtener datos del vehículo y sus galerías (Cloudinary o Local)
+// 4. Obtener datos del vehículo, galerías y validar si el usuario tiene licencia registrada
 try {
-    $stmt =$pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
+    // Verificar si el usuario conectado ya tiene licencia registrada
+    $stmtLic = $pdo->prepare("SELECT licencia_numero FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+    $stmtLic->execute([$_SESSION['usuario_nombre'], $_SESSION['usuario_nombre']]);
+    $userLicData = $stmtLic->fetch(PDO::FETCH_ASSOC);
+    
+    // Bandera booleana para JS (true si ya la tiene, false si falta)
+    $tieneLicencia = (!empty($userLicData) && !empty($userLicData['licencia_numero'])) ? 'true' : 'false';
+
+    $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
     $stmt->execute([$id_vehiculo]);
-    $vehiculo =$stmt->fetch(PDO::FETCH_ASSOC);
+    $vehiculo = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$vehiculo) { 
         header("Location: automoviles.php"); 
@@ -75,29 +91,30 @@ try {
     }
 
     // Consulta de fotos usando la tabla 'fotos_vehiculos'
-    $stmtFotos =$pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
+    $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
     $stmtFotos->execute([$id_vehiculo]);
-    $fotosBD =$stmtFotos->fetchAll(PDO::FETCH_COLUMN);
+    $fotosBD = $stmtFotos->fetchAll(PDO::FETCH_COLUMN);
 
     $fotosFinales = [];
     function normalizarRuta($ruta) {
         $ruta = str_replace('\\', '/', trim($ruta));
-        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return$ruta;
-        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return$ruta;
-        if (file_exists('uploads/' . $ruta)) return 'uploads/' .$ruta;
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
+        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
+        if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
         return 'imagenes/' . $ruta;
     }
     
-    foreach ($fotosBD as$f) { $fotosFinales[] = normalizarRuta($f); }
-    if (empty($fotosFinales) && !empty($vehiculo['imagen'])) {$fotosFinales[] = normalizarRuta($vehiculo['imagen']); }$imagenPrincipal = !empty($fotosFinales) ?$fotosFinales[0] : 'unnamed.png';
+    foreach ($fotosBD as $f) { $fotosFinales[] = normalizarRuta($f); }
+    if (empty($fotosFinales) && !empty($vehiculo['imagen'])) { $fotosFinales[] = normalizarRuta($vehiculo['imagen']); }
+    $imagenPrincipal = !empty($fotosFinales) ? $fotosFinales[0] : 'unnamed.png';
 
     // Obtener comentarios de este vehículo
-    $stmtCom =$pdo->prepare("SELECT * FROM comentarios_vehiculos WHERE id_vehiculo = ? ORDER BY fecha DESC");
+    $stmtCom = $pdo->prepare("SELECT * FROM comentarios_vehiculos WHERE id_vehiculo = ? ORDER BY fecha DESC");
     $stmtCom->execute([$id_vehiculo]);
-    $comentarios =$stmtCom->fetchAll(PDO::FETCH_ASSOC);
+    $comentarios = $stmtCom->fetchAll(PDO::FETCH_ASSOC);
 
     $total_p = 0;
-    foreach($comentarios as$c) { $total_p += ($c['puntuacion'] ?? 5); }
+    foreach($comentarios as $c) { $total_p += ($c['puntuacion'] ?? 5); }
     $promedio = count($comentarios) > 0 ? round($total_p / count($comentarios), 1) : 0;
 
 } catch (PDOException $e) { 
@@ -133,7 +150,7 @@ try {
             </div>
             <?php if (count($fotosFinales) > 1): ?>
             <div class="thumbs-grid">
-                <?php foreach ($fotosFinales as $index =>$ruta): ?>
+                <?php foreach ($fotosFinales as $index => $ruta): ?>
                     <img src="<?php echo htmlspecialchars($ruta); ?>" class="thumb <?php echo ($index===0)?'active':''; ?>" onclick="cambiarImagen(this, '<?php echo htmlspecialchars($ruta); ?>')" onerror="this.src='unnamed.png'">
                 <?php endforeach; ?>
             </div>
@@ -203,7 +220,7 @@ try {
             <?php if (empty($comentarios)): ?>
                 <p style="color: var(--texto-gris); text-align: center; padding: 20px;">Sé el primero en dejar una opinión sobre este vehículo.</p>
             <?php else: ?>
-                <?php foreach ($comentarios as$c): ?>
+                <?php foreach ($comentarios as $c): ?>
                     <div class="review-card">
                         <div class="r-avatar"><?php echo strtoupper(substr($c['usuario_nombre'], 0, 1)); ?></div>
                         <div class="r-body">
@@ -219,10 +236,10 @@ try {
                                 
                                 <div class="r-footer-card">
                                     <span style="font-size: 0.8rem; color: var(--texto-gris);">RentCar Review</span>
-                                    <?php if(isset($_SESSION['usuario_nombre']) && $_SESSION['usuario_nombre'] ===$c['usuario_nombre']): ?>
+                                    <?php if(isset($_SESSION['usuario_nombre']) && $_SESSION['usuario_nombre'] === $c['usuario_nombre']): ?>
                                         <div class="r-actions">
                                             <button type="button" class="btn-action edit" onclick="mostrarEditor(<?php echo $c['id_comentario']; ?>)"><i class="fas fa-pen"></i> Editar</button>
-                                            <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo$id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');"><i class="fas fa-trash"></i> Borrar</a>
+                                            <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo $id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');"><i class="fas fa-trash"></i> Borrar</a>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -234,8 +251,8 @@ try {
                                     <input type="hidden" name="id_comentario" value="<?php echo $c['id_comentario']; ?>">
                                     <div class="rating-selector-edit">
                                         <?php for($i=5; $i>=1; $i--): ?>
-                                            <input type="radio" id="edit_r<?php echo $c['id_comentario'] . '_' .$i; ?>" name="rating_edit" value="<?php echo $i; ?>" <?php echo ($i == ($c['puntuacion'] ?? 5)) ? 'checked' : ''; ?>>
-                                            <label for="edit_r<?php echo $c['id_comentario'] . '_' .$i; ?>"><i class="fas fa-star"></i></label>
+                                            <input type="radio" id="edit_r<?php echo $c['id_comentario'] . '_' . $i; ?>" name="rating_edit" value="<?php echo $i; ?>" <?php echo ($i == ($c['puntuacion'] ?? 5)) ? 'checked' : ''; ?>>
+                                            <label for="edit_r<?php echo $c['id_comentario'] . '_' . $i; ?>"><i class="fas fa-star"></i></label>
                                         <?php endfor; ?>
                                     </div>
                                     <textarea name="comentario_edit" required><?php echo htmlspecialchars($c['comentario']); ?></textarea>
@@ -272,6 +289,7 @@ try {
 
 <script>
 const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
+const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>; // Inyectado desde PHP (true/false)
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
@@ -291,10 +309,16 @@ function ocultarEditor(id) {
 }
 
 function toggleChatFlotante() {
+    // Validar licencia antes de abrir el chat flotante libremente también si se desea
+    if (!usuarioTieneLicencia) {
+        alert("Debes registrar tu licencia de conducir antes de interactuar para reservar.");
+        window.location.href = "subir_licencia.php";
+        return;
+    }
+
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
 
-    // Asegurar que tome el ID del vehículo actual de la página si no está asignado
     if (!chatContainer.dataset.id || chatContainer.dataset.id === "0") {
         chatContainer.dataset.id = "<?php echo $id_vehiculo; ?>";
         chatContainer.dataset.tipo = "auto";
@@ -312,6 +336,13 @@ function toggleChatFlotante() {
 }
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
+    // 1. VALIDACIÓN CRÍTICA DE LICENCIA
+    if (!usuarioTieneLicencia) {
+        alert("Para realizar una reserva necesitas registrar tu licencia de conducir primero. Serás redirigido.");
+        window.location.href = "subir_licencia.php";
+        return;
+    }
+
     const chatContainer = document.getElementById('chat-float-container');
     if (chatContainer) chatContainer.style.display = 'flex';
 
@@ -368,6 +399,7 @@ function enviarMensajeBot() {
     })
     .catch(err => console.error("Error de red en el chat:", err));
 }
+
 function enviarMensajeAutomatico(texto) {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
