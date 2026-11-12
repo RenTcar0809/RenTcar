@@ -1,8 +1,11 @@
 <?php
 session_start();
-require_once 'conexion.php'; // Archivo de conexión PDO
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// 1. SEGURIDAD REFORZADA: Verificar que exista sesión Y que sea de tipo Empresa (tipo = 1)
+require_once 'conexion.php'; 
+
+// 1. SEGURIDAD: Verificar sesión y que sea tipo Empresa (tipo = 1)
 if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] != 1) {
     if (isset($_SESSION['tipo']) && $_SESSION['tipo'] == 2) {
         header("Location: dashboardf.php");
@@ -24,11 +27,10 @@ $nombreEmpresa  = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 
 $_SESSION['usuario_nombre'] = $nombreEmpresa;
 
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
-
-// 2. CONSULTAR LISTA DE CONVERSACIONES (Agrupadas por el cliente involucrado y vehículo)
-$conversaciones = [];
 $errorConsulta  = null;
+$conversaciones = [];
 
+// 2. CONSULTAR LISTA DE CONVERSACIONES (Búsqueda robusta por ID de proveedor o nombre)
 try {
     $sqlLista = "SELECT DISTINCT ON (
                     CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
@@ -39,8 +41,9 @@ try {
                     v.id_v AS id_vehiculo, v.marca, v.modelo, v.placa, v.imagen_principal
                  FROM mensajes_chat m
                  INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
-                 WHERE v.id_proveedor = :id 
-                   AND (m.remitente = :empresa OR m.destinatario = :empresa)
+                 WHERE v.id_proveedor = :id_proveedor 
+                    OR m.destinatario = :empresa 
+                    OR m.remitente = :empresa
                  ORDER BY 
                     CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
                     m.id_vehiculo, 
@@ -48,8 +51,8 @@ try {
     
     $stmtLista = $pdo->prepare($sqlLista);
     $stmtLista->execute([
-        ':id'      => $idProveedor, 
-        ':empresa' => $nombreEmpresa
+        ':id_proveedor' => $idProveedor, 
+        ':empresa'      => $nombreEmpresa
     ]);
     $conversaciones = $stmtLista->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -111,6 +114,7 @@ try {
             border-bottom: 1px solid #222;
             cursor: pointer;
             transition: background 0.2s;
+            position: relative;
         }
 
         .chat-item:hover { background: #242424; }
@@ -364,6 +368,12 @@ try {
     <!-- --- CONTENIDO PRINCIPAL --- -->
     <main class="main-content" style="padding-top: 10px;">
         
+        <?php if (!empty($errorConsulta)): ?>
+            <div style="padding: 15px; background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 8px; margin-bottom: 15px;">
+                Error en la consulta: <?php echo htmlspecialchars($errorConsulta); ?>
+            </div>
+        <?php endif; ?>
+
         <div class="chat-app-container">
             
             <!-- LISTA IZQUIERDA DE CONVERSACIONES -->
@@ -374,12 +384,16 @@ try {
 
                 <div class="chat-list">
                     <?php if (!empty($conversaciones)): ?>
-                        <?php foreach ($conversaciones as $index => $chat): ?>
+                        <?php foreach ($conversaciones as $index => $chat): 
+                            $claveKey = $chat['id_vehiculo'] . '_' . $chat['cliente'];
+                        ?>
                             <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" 
-                                 onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente']); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo']); ?>', this)">
+                                 data-key="<?php echo htmlspecialchars($claveKey); ?>"
+                                 onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo'], ENT_QUOTES); ?>', this)">
                                 
-                                <div class="chat-avatar">
+                                <div class="chat-avatar" style="position: relative;">
                                     <?php echo strtoupper(substr($chat['cliente'], 0, 1)); ?>
+                                    <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: #e50914; border-radius: 50%; border: 2px solid #181818;"></span>
                                 </div>
 
                                 <div class="chat-info">
@@ -476,9 +490,13 @@ try {
             clienteActual = cliente;
             vehiculoActualId = idVehiculo;
 
-            // Marcar ítem activo en la lista
+            // Marcar ítem activo en la lista y ocultar su notificación si la tenía
             document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-            if (elemento) elemento.classList.add('active');
+            if (elemento) {
+                elemento.classList.add('active');
+                let badge = elemento.querySelector('.badge-nuevo');
+                if (badge) badge.style.display = 'none';
+            }
 
             // Actualizar Cabecera
             document.getElementById('chatMainHeader').style.display = 'flex';
@@ -492,7 +510,7 @@ try {
             document.getElementById('inputDestinatario').value = cliente;
             document.getElementById('inputIdVehiculo').value = idVehiculo;
 
-            // Iniciar carga de mensajes y loop de actualización para la empresa usando chat_backend.php
+            // Iniciar carga de mensajes y loop de actualización usando chat_backend.php
             obtenerMensajesEmpresa();
             
             if (intervaloEmpresa) clearInterval(intervaloEmpresa);
@@ -502,7 +520,6 @@ try {
         function obtenerMensajesEmpresa() {
             if (!clienteActual || !vehiculoActualId) return;
 
-            // Petición directa a chat_backend.php unificado
             fetch(`chat_backend.php?accion=obtener&id_item=${vehiculoActualId}&destinatario=${encodeURIComponent(clienteActual)}`)
                 .then(res => res.json())
                 .then(data => {
@@ -582,6 +599,29 @@ try {
             })
             .catch(err => console.error(err));
         }
+
+        function revisarNotificaciones() {
+            fetch('chat_backend.php?accion=verificar_nuevos')
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.notificaciones) {
+                    data.notificaciones.forEach(notif => {
+                        let claveContacto = notif.id_vehiculo + '_' + notif.remitente;
+                        let elementoContacto = document.querySelector(`.chat-item[data-key="${claveContacto}"]`);
+                        
+                        if (elementoContacto && !elementoContacto.classList.contains('active')) {
+                            let badge = elementoContacto.querySelector('.badge-nuevo');
+                            if (badge) {
+                                badge.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(err => console.error('Error al revisar notificaciones:', err));
+        }
+
+        setInterval(revisarNotificaciones, 5000);
 
         function escapeHtml(text) {
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
