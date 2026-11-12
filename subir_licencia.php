@@ -18,9 +18,9 @@ $mensaje = "";
 $tipoAlerta = "";
 
 // Credenciales de Cloudinary desde variables de entorno (.env o Render)
-$cloudName     = $_ENV['CLOUDINARY_CLOUD_NAME'] ?? getenv('CLOUDINARY_CLOUD_NAME');
-$apiKey        = $_ENV['CLOUDINARY_API_KEY'] ?? getenv('CLOUDINARY_API_KEY');
-$apiKeySecret  = $_ENV['CLOUDINARY_API_SECRET'] ?? getenv('CLOUDINARY_API_SECRET');
+$cloudName     = getenv('CLOUDINARY_CLOUD_NAME') ?: 'bsd1wma1';
+$apiKey        = getenv('CLOUDINARY_API_KEY') ?: '219554281638733';
+$apiKeySecret  = getenv('CLOUDINARY_API_SECRET') ?: 'RTx7SRXjxf0eBi5nWoqQMrxkuv8';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $licenciaNumero = trim($_POST['licencia_numero'] ?? '');
