@@ -4,12 +4,10 @@ require_once 'conexion.php'; // Archivo de conexión PDO
 
 // 1. SEGURIDAD REFORZADA: Verificar que exista sesión Y que sea de tipo Empresa (tipo = 1)
 if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] != 1) {
-    // Si la sesión actual en el navegador es de un cliente (tipo 2), enviarlo a su panel
     if (isset($_SESSION['tipo']) && $_SESSION['tipo'] == 2) {
         header("Location: dashboardf.php");
         exit();
     }
-    // Si no hay sesión iniciada, enviarlo al login
     header("Location: inicioSesion.php");
     exit();
 }
@@ -20,45 +18,18 @@ header("Pragma: no-cache");
 header("Expires: 0");
 
 $idProveedor    = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0;
-$nombreEmpresa = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
+$nombreEmpresa  = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
+
+// Sincronizar con la variable que usa chat_backend.php
+$_SESSION['usuario_nombre'] = $nombreEmpresa;
+
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
-// 1. OBTENER MENSAJES DE UN CHAT ESPECÍFICO (AJAX)
-if (isset($_GET['action']) && $_GET['action'] === 'get_chat') {
-    header('Content-Type: application/json');
-    $cliente = $_GET['cliente'] ?? '';
-    $idVehiculo = $_GET['id_vehiculo'] ?? 0;
 
-    try {
-        $sqlChat = "SELECT m.id_mensaje, m.remitente, m.destinatario, m.mensaje, m.fecha, m.leido
-                    FROM mensajes_chat m
-                    WHERE m.id_vehiculo = :id_v 
-                      AND (
-                           (m.remitente = :cliente AND m.destinatario = :empresa) OR 
-                           (m.remitente = :empresa AND m.destinatario = :cliente)
-                          )
-                    ORDER BY m.fecha ASC";
-        
-        $stmtChat = $pdo->prepare($sqlChat);
-        $stmtChat->execute([
-            ':id_v'    => $idVehiculo, 
-            ':cliente' => $cliente,
-            ':empresa' => $nombreEmpresa
-        ]);
-        $mensajes = $stmtChat->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode(['success' => true, 'mensajes' => $mensajes]);
-    } catch (PDOException $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-    exit();
-}
-
-// 2. CONSULTAR LISTA DE CONVERSACIONES (Agrupadas por el cliente involucrado)
+// 2. CONSULTAR LISTA DE CONVERSACIONES (Agrupadas por el cliente involucrado y vehículo)
 $conversaciones = [];
 $errorConsulta  = null;
 
 try {
-    // Definimos cuál es el 'cliente' (si la empresa es el remitente, el cliente es el destinatario y viceversa)
     $sqlLista = "SELECT DISTINCT ON (
                     CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
                     m.id_vehiculo
@@ -472,151 +443,149 @@ try {
 
     <!-- JS -->
     <script>
-// Dropdown del Perfil
-    const btnProfile = document.getElementById('userProfileBtn');
-    const dropdownProfile = document.getElementById('userDropdown');
+        // Dropdown del Perfil
+        const btnProfile = document.getElementById('userProfileBtn');
+        const dropdownProfile = document.getElementById('userDropdown');
 
-    if (btnProfile && dropdownProfile) {
-        btnProfile.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdownProfile.classList.toggle('show');
-        });
+        if (btnProfile && dropdownProfile) {
+            btnProfile.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdownProfile.classList.toggle('show');
+            });
 
-        window.addEventListener('click', () => {
-            if (dropdownProfile.classList.contains('show')) {
-                dropdownProfile.classList.remove('show');
+            window.addEventListener('click', () => {
+                if (dropdownProfile.classList.contains('show')) {
+                    dropdownProfile.classList.remove('show');
+                }
+            });
+        }
+
+        let clienteActual = '';
+        let vehiculoActualId = '';
+        let intervaloEmpresa = null;
+
+        // Cargar primera conversación al iniciar si existe
+        document.addEventListener('DOMContentLoaded', () => {
+            const primerChat = document.querySelector('.chat-item');
+            if (primerChat) {
+                primerChat.click();
             }
         });
-    }
 
-    let clienteActual = '';
-    let vehiculoActualId = '';
-    let intervaloEmpresa = null;
+        function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
+            clienteActual = cliente;
+            vehiculoActualId = idVehiculo;
 
-    // Cargar primera conversación al iniciar si existe
-    document.addEventListener('DOMContentLoaded', () => {
-        const primerChat = document.querySelector('.chat-item');
-        if (primerChat) {
-            primerChat.click();
+            // Marcar ítem activo en la lista
+            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
+            if (elemento) elemento.classList.add('active');
+
+            // Actualizar Cabecera
+            document.getElementById('chatMainHeader').style.display = 'flex';
+            document.getElementById('chatInputForm').style.display = 'flex';
+            document.getElementById('emptyChatState').style.display = 'none';
+
+            document.getElementById('activeCliente').innerText = cliente;
+            document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
+            document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
+
+            document.getElementById('inputDestinatario').value = cliente;
+            document.getElementById('inputIdVehiculo').value = idVehiculo;
+
+            // Iniciar carga de mensajes y loop de actualización para la empresa usando chat_backend.php
+            obtenerMensajesEmpresa();
+            
+            if (intervaloEmpresa) clearInterval(intervaloEmpresa);
+            intervaloEmpresa = setInterval(obtenerMensajesEmpresa, 3000); // Actualiza cada 3 segundos
         }
-    });
 
-    function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
-        clienteActual = cliente;
-        vehiculoActualId = idVehiculo;
+        function obtenerMensajesEmpresa() {
+            if (!clienteActual || !vehiculoActualId) return;
 
-        // Marcar ítem activo en la lista
-        document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-        if (elemento) elemento.classList.add('active');
+            // Petición directa a chat_backend.php unificado
+            fetch(`chat_backend.php?accion=obtener&id_item=${vehiculoActualId}&destinatario=${encodeURIComponent(clienteActual)}`)
+                .then(res => res.json())
+                .then(data => {
+                    const area = document.getElementById('chatMessagesArea');
+                    if (!area) return;
+                    
+                    area.innerHTML = '';
 
-        // Actualizar Cabecera
-        document.getElementById('chatMainHeader').style.display = 'flex';
-        document.getElementById('chatInputForm').style.display = 'flex';
-        document.getElementById('emptyChatState').style.display = 'none';
+                    if (data.status === 'success' && data.mensajes && data.mensajes.length > 0) {
+                        data.mensajes.forEach(msg => {
+                            const esEnviado = (msg.remitente === data.usuario_actual);
+                            const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        document.getElementById('activeCliente').innerText = cliente;
-        document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
-        document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
+                            const bubble = document.createElement('div');
+                            bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
+                            bubble.innerHTML = `
+                                <div>${escapeHtml(msg.mensaje)}</div>
+                                <div class="msg-time">${hora}</div>
+                            `;
+                            area.appendChild(bubble);
+                        });
+                        area.scrollTop = area.scrollHeight;
+                    }
+                })
+                .catch(err => console.error('Error al cargar chat:', err));
+        }
 
-        document.getElementById('inputDestinatario').value = cliente;
-        document.getElementById('inputIdVehiculo').value = idVehiculo;
+        function enviarMensajePro(e) {
+            e.preventDefault();
+            const mensajeInput = document.getElementById('inputTextoMensaje');
+            const texto = mensajeInput.value.trim();
+            if (!texto || !clienteActual || !vehiculoActualId) return;
 
-        // Iniciar carga de mensajes y loop de actualización para la empresa
-        obtenerMensajesEmpresa();
-        
-        if (intervaloEmpresa) clearInterval(intervaloEmpresa);
-        intervaloEmpresa = setInterval(obtenerMensajesEmpresa, 3000); // Actualiza cada 3 segundos
-    }
+            const formData = new URLSearchParams();
+            formData.append('accion', 'enviar');
+            formData.append('id_item', vehiculoActualId);
+            formData.append('destinatario', clienteActual);
+            formData.append('mensaje', texto);
 
-    function obtenerMensajesEmpresa() {
-        if (!clienteActual || !vehiculoActualId) return;
-
-        // Usamos chat_backend.php con la acción 'obtener', pasando el id_item y el destinatario (el cliente)
-        fetch(`chat_backend.php?accion=obtener&id_item=${vehiculoActualId}&destinatario=${encodeURIComponent(clienteActual)}`)
+            fetch('chat_backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
             .then(res => res.json())
             .then(data => {
-                const area = document.getElementById('chatMessagesArea');
-                if (!area) return;
-                
-                area.innerHTML = '';
-
-                if (data.status === 'success' && data.mensajes && data.mensajes.length > 0) {
-                    data.mensajes.forEach(msg => {
-                        // Si el remitente es igual al usuario actual (la empresa), es un mensaje enviado ('sent')
-                        const esEnviado = (msg.remitente === data.usuario_actual);
-                        const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                        const bubble = document.createElement('div');
-                        bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
-                        bubble.innerHTML = `
-                            <div>${escapeHtml(msg.mensaje)}</div>
-                            <div class="msg-time">${hora}</div>
-                        `;
-                        area.appendChild(bubble);
-                    });
-                    // Scroll automático al final
-                    area.scrollTop = area.scrollHeight;
+                if (data.status === 'success') {
+                    mensajeInput.value = '';
+                    obtenerMensajesEmpresa(); // Recargar chat de inmediato
+                } else {
+                    alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
                 }
             })
-            .catch(err => console.error('Error al cargar chat:', err));
-    }
+            .catch(err => console.error(err));
+        }
 
-    function enviarMensajePro(e) {
-        e.preventDefault();
-        const mensajeInput = document.getElementById('inputTextoMensaje');
-        const texto = mensajeInput.value.trim();
-        if (!texto || !clienteActual || !vehiculoActualId) return;
+        function eliminarChatActual() {
+            if (!confirm(`¿Estás seguro de eliminar el historial de chat con ${clienteActual}?`)) return;
 
-        const formData = new URLSearchParams();
-        formData.append('accion', 'enviar');
-        formData.append('id_item', vehiculoActualId);
-        formData.append('destinatario', clienteActual); // Importante para que la empresa sepa a qué cliente le escribe
-        formData.append('mensaje', texto);
+            const formData = new URLSearchParams();
+            formData.append('accion', 'eliminar_chat');
+            formData.append('id_item', vehiculoActualId);
+            formData.append('destinatario', clienteActual);
 
-        fetch('chat_backend.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                mensajeInput.value = '';
-                obtenerMensajesEmpresa(); // Recargar chat de inmediato
-            } else {
-                alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
-            }
-        })
-        .catch(err => console.error(err));
-    }
+            fetch('chat_backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error al eliminar chat: ' + (data.message || ''));
+                }
+            })
+            .catch(err => console.error(err));
+        }
 
-    function eliminarChatActual() {
-        if (!confirm(`¿Estás seguro de eliminar el historial de chat con ${clienteActual}?`)) return;
-
-        const formData = new URLSearchParams();
-        formData.append('accion', 'eliminar_chat');
-        formData.append('id_item', vehiculoActualId);
-        formData.append('destinatario', clienteActual);
-
-        fetch('chat_backend.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                location.reload();
-            } else {
-                alert('Error al eliminar chat: ' + (data.message || ''));
-            }
-        })
-        .catch(err => console.error(err));
-    }
-
-    function escapeHtml(text) {
-        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
- </script>
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
 </body>
 </html>
