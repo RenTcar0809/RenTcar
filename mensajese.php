@@ -472,10 +472,11 @@ try {
 
     <!-- JS -->
     <script>
-        // Dropdown del Perfil
-        const btnProfile = document.getElementById('userProfileBtn');
-        const dropdownProfile = document.getElementById('userDropdown');
+// Dropdown del Perfil
+    const btnProfile = document.getElementById('userProfileBtn');
+    const dropdownProfile = document.getElementById('userDropdown');
 
+    if (btnProfile && dropdownProfile) {
         btnProfile.addEventListener('click', (e) => {
             e.stopPropagation();
             dropdownProfile.classList.toggle('show');
@@ -486,119 +487,136 @@ try {
                 dropdownProfile.classList.remove('show');
             }
         });
+    }
 
-        let clienteActual = '';
-        let vehiculoActualId = '';
+    let clienteActual = '';
+    let vehiculoActualId = '';
+    let intervaloEmpresa = null;
 
-        // Cargar primera conversación al iniciar si existe
-        document.addEventListener('DOMContentLoaded', () => {
-            const primerChat = document.querySelector('.chat-item');
-            if (primerChat) {
-                primerChat.click();
+    // Cargar primera conversación al iniciar si existe
+    document.addEventListener('DOMContentLoaded', () => {
+        const primerChat = document.querySelector('.chat-item');
+        if (primerChat) {
+            primerChat.click();
+        }
+    });
+
+    function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
+        clienteActual = cliente;
+        vehiculoActualId = idVehiculo;
+
+        // Marcar ítem activo en la lista
+        document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
+        if (elemento) elemento.classList.add('active');
+
+        // Actualizar Cabecera
+        document.getElementById('chatMainHeader').style.display = 'flex';
+        document.getElementById('chatInputForm').style.display = 'flex';
+        document.getElementById('emptyChatState').style.display = 'none';
+
+        document.getElementById('activeCliente').innerText = cliente;
+        document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
+        document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
+
+        document.getElementById('inputDestinatario').value = cliente;
+        document.getElementById('inputIdVehiculo').value = idVehiculo;
+
+        // Iniciar carga de mensajes y loop de actualización para la empresa
+        obtenerMensajesEmpresa();
+        
+        if (intervaloEmpresa) clearInterval(intervaloEmpresa);
+        intervaloEmpresa = setInterval(obtenerMensajesEmpresa, 3000); // Actualiza cada 3 segundos
+    }
+
+    function obtenerMensajesEmpresa() {
+        if (!clienteActual || !vehiculoActualId) return;
+
+        // Usamos chat_backend.php con la acción 'obtener', pasando el id_item y el destinatario (el cliente)
+        fetch(`chat_backend.php?accion=obtener&id_item=${vehiculoActualId}&destinatario=${encodeURIComponent(clienteActual)}`)
+            .then(res => res.json())
+            .then(data => {
+                const area = document.getElementById('chatMessagesArea');
+                if (!area) return;
+                
+                area.innerHTML = '';
+
+                if (data.status === 'success' && data.mensajes && data.mensajes.length > 0) {
+                    data.mensajes.forEach(msg => {
+                        // Si el remitente es igual al usuario actual (la empresa), es un mensaje enviado ('sent')
+                        const esEnviado = (msg.remitente === data.usuario_actual);
+                        const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        const bubble = document.createElement('div');
+                        bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
+                        bubble.innerHTML = `
+                            <div>${escapeHtml(msg.mensaje)}</div>
+                            <div class="msg-time">${hora}</div>
+                        `;
+                        area.appendChild(bubble);
+                    });
+                    // Scroll automático al final
+                    area.scrollTop = area.scrollHeight;
+                }
+            })
+            .catch(err => console.error('Error al cargar chat:', err));
+    }
+
+    function enviarMensajePro(e) {
+        e.preventDefault();
+        const mensajeInput = document.getElementById('inputTextoMensaje');
+        const texto = mensajeInput.value.trim();
+        if (!texto || !clienteActual || !vehiculoActualId) return;
+
+        const formData = new URLSearchParams();
+        formData.append('accion', 'enviar');
+        formData.append('id_item', vehiculoActualId);
+        formData.append('destinatario', clienteActual); // Importante para que la empresa sepa a qué cliente le escribe
+        formData.append('mensaje', texto);
+
+        fetch('chat_backend.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                mensajeInput.value = '';
+                obtenerMensajesEmpresa(); // Recargar chat de inmediato
+            } else {
+                alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
             }
-        });
+        })
+        .catch(err => console.error(err));
+    }
 
-        function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
-            clienteActual = cliente;
-            vehiculoActualId = idVehiculo;
+    function eliminarChatActual() {
+        if (!confirm(`¿Estás seguro de eliminar el historial de chat con ${clienteActual}?`)) return;
 
-            // Marcar ítem activo en la lista
-            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-            if (elemento) elemento.classList.add('active');
+        const formData = new URLSearchParams();
+        formData.append('accion', 'eliminar_chat');
+        formData.append('id_item', vehiculoActualId);
+        formData.append('destinatario', clienteActual);
 
-            // Actualizar Cabecera
-            document.getElementById('chatMainHeader').style.display = 'flex';
-            document.getElementById('chatInputForm').style.display = 'flex';
-            document.getElementById('emptyChatState').style.display = 'none';
+        fetch('chat_backend.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error al eliminar chat: ' + (data.message || ''));
+            }
+        })
+        .catch(err => console.error(err));
+    }
 
-            document.getElementById('activeCliente').innerText = cliente;
-            document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
-            document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
-
-            document.getElementById('inputDestinatario').value = cliente;
-            document.getElementById('inputIdVehiculo').value = idVehiculo;
-
-            // Obtener Mensajes por AJAX
-            fetch(`mensajes.php?action=get_chat&cliente=${encodeURIComponent(cliente)}&id_vehiculo=${idVehiculo}`)
-                .then(res => res.json())
-                .then(data => {
-                    const area = document.getElementById('chatMessagesArea');
-                    area.innerHTML = '';
-
-                    if (data.success && data.mensajes.length > 0) {
-                        data.mensajes.forEach(msg => {
-                            // Determinar si fue enviado por la empresa o recibido por el cliente
-                            const esEnviado = (msg.remitente !== cliente);
-                            const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                            const bubble = document.createElement('div');
-                            bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
-                            bubble.innerHTML = `
-                                <div>${escapeHtml(msg.mensaje)}</div>
-                                <div class="msg-time">${hora}</div>
-                            `;
-                            area.appendChild(bubble);
-                        });
-                        // Scroll automático al final
-                        area.scrollTop = area.scrollHeight;
-                    }
-                })
-                .catch(err => console.error('Error al cargar chat:', err));
-        }
-
-        function enviarMensajePro(e) {
-            e.preventDefault();
-            const mensajeInput = document.getElementById('inputTextoMensaje');
-            const texto = mensajeInput.value.trim();
-            if (!texto) return;
-
-            const formData = new FormData();
-            formData.append('destinatario', clienteActual);
-            formData.append('id_vehiculo', vehiculoActualId);
-            formData.append('mensaje', texto);
-
-            fetch('responder_mensaje.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    mensajeInput.value = '';
-                    // Recargar conversación
-                    const activo = document.querySelector('.chat-item.active');
-                    if (activo) activo.click();
-                } else {
-                    alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
-                }
-            })
-            .catch(err => console.error(err));
-        }
-
-        function eliminarChatActual() {
-            if (!confirm(`¿Estás seguro de eliminar el historial de chat con ${clienteActual}?`)) return;
-
-            const formData = new FormData();
-            formData.append('remitente', clienteActual);
-            formData.append('id_vehiculo', vehiculoActualId);
-
-            fetch('eliminar_mensaje.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error al eliminar chat.');
-                }
-            });
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-    </script>
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+ </script>
 </body>
 </html>
