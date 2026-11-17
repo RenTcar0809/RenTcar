@@ -10,7 +10,7 @@ if (!isset($_SESSION['tipo']) && !isset($_SESSION['usuario_nombre'])) {
 
 // Identificar datos del usuario conectado (sea empresa o particular)
 $tipoUsuario = $_SESSION['tipo'] ?? 0;
-$idUsuario = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? $_SESSION['id_usuario'] ?? 0;
+$idUsuario = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0;
 $nombreUsuario = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Propietario';
 $inicialUsuario = strtoupper(substr($nombreUsuario, 0, 1));
 
@@ -24,12 +24,12 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
 
     try {
         if ($accion === 'aprobar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE id_usuario = :id");
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE IdUsuario = :id");
             $stmt->execute([':id' => $idSolicitante]);
             $mensaje = "Has aprobado la licencia del solicitante correctamente.";
             $tipoAlerta = "success";
         } elseif ($accion === 'rechazar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE id_usuario = :id");
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE IdUsuario = :id");
             $stmt->execute([':id' => $idSolicitante]);
             $mensaje = "Has rechazado la licencia. Se le solicitará al usuario que cargue un documento válido.";
             $tipoAlerta = "error";
@@ -40,48 +40,48 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
     }
 }
 
-// 3. Consultar solicitantes adaptado tanto para empresas (id_proveedor) como particulares (propietario_nombre)
+// 3. Consultar solicitantes usando mensajes_chat y la estructura de tu BD
 $solicitantes = [];
 $errorConsulta = null;
 
 try {
-   if ($tipoUsuario == 1) {
-        // Consulta para EMPRESAS (usan id_proveedor)
+    if ($tipoUsuario == 1) {
+        // Consulta para EMPRESAS (usan id_proveedor en la tabla vehiculo y IdUsuario en usuario)
         $sql = "
             SELECT DISTINCT 
-                u.id_usuario, u.nombre, u.correo, u.num_telefono,
+                u.IdUsuario AS id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
-            INNER JOIN chat m ON m.id_vehiculo = v.id_v
+            INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
             WHERE v.id_proveedor = :id_ref
-              AND u.id_usuario != :id_self
+              AND u.IdUsuario != :id_self
               AND u.licencia_numero IS NOT NULL 
               AND u.licencia_numero != ''
-            ORDER BY u.licencia_verificada ASC, u.id_usuario DESC
+            ORDER BY u.licencia_verificada ASC, u.IdUsuario DESC
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id_ref' => $idUsuario, ':id_self' => $idUsuario]);
 
     } else {
-        // Consulta para USUARIOS PARTICULARES (usan su nombre en propietario_nombre)
+        // Consulta para USUARIOS PARTICULARES
         $sql = "
             SELECT DISTINCT 
-                u.id_usuario, u.nombre, u.correo, u.num_telefono,
+                u.IdUsuario AS id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
-            INNER JOIN chat m ON m.id_vehiculo = v.id_v
+            INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
-            WHERE v.propietario_nombre = :nombre_ref
-              AND u.nombre != :nombre_self
+            WHERE v.id_arrendatario = :id_ref_arrendatario
+              AND u.IdUsuario != :id_self_2
               AND u.licencia_numero IS NOT NULL 
               AND u.licencia_numero != ''
-            ORDER BY u.licencia_verificada ASC, u.id_usuario DESC
+            ORDER BY u.licencia_verificada ASC, u.IdUsuario DESC
         ";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([':nombre_ref' => $nombreUsuario, ':nombre_self' => $nombreUsuario]);
+        $stmt->execute([':id_ref_arrendatario' => $idUsuario, ':id_self_2' => $idUsuario]);
     }
 
     $solicitantes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -102,7 +102,7 @@ try {
 </head>
 <body>
 
-    <!-- BARRA DE NAVEGACIÓN DINÁMICA (Empresa y Usuario Particular) -->
+    <!-- BARRA DE NAVEGACIÓN DINÁMICA -->
     <header class="top-navbar">
         <div class="logo-container">
             <h1 class="logo-text">
@@ -112,45 +112,16 @@ try {
 
         <nav class="nav-menu">
             <?php if ($tipoUsuario == 1): ?>
-                <!-- Menú para EMPRESA -->
-                <a href="dashboardE.php" class="nav-link">
-                    <i class="fa-solid fa-chart-pie"></i>
-                    <span>Panel.</span>
-                </a>
-                <a href="mensajese.php" class="nav-link">
-                    <i class="fa-solid fa-comments"></i>
-                    <span>Mensajes.</span>
-                </a>
-                <a href="vehiculosE.php" class="nav-link">
-                    <i class="fa-solid fa-car-side"></i>
-                    <span>Mi Flota.</span>
-                </a>
-                <a href="alquileres.php" class="nav-link">
-                    <i class="fa-solid fa-calendar-check"></i>
-                    <span>Alquileres.</span>
-                </a>
-                <a href="panel_propietario_licencias.php" class="nav-link active">
-                    <i class="fa-solid fa-id-card"></i>
-                    <span>Licencias.</span>
-                </a>
-                <a href="clientes.php" class="nav-link">
-                    <i class="fa-solid fa-users"></i>
-                    <span>Clientes.</span>
-                </a>
-                <a href="perfil_empresa.php" class="nav-link highlight-company">
-                    <i class="fa-solid fa-building"></i>
-                    <span>Mi Empresa.</span>
-                </a>
+                <a href="dashboardE.php" class="nav-link"><i class="fa-solid fa-chart-pie"></i> <span>Panel</span></a>
+                <a href="mensajese.php" class="nav-link"><i class="fa-solid fa-comments"></i> <span>Mensajes</span></a>
+                <a href="vehiculosE.php" class="nav-link"><i class="fa-solid fa-car-side"></i> <span>Mi Flota</span></a>
+                <a href="alquileres.php" class="nav-link"><i class="fa-solid fa-calendar-check"></i> <span>Alquileres</span></a>
+                <a href="panel_propietario_licencias.php" class="nav-link active"><i class="fa-solid fa-id-card"></i> <span>Licencias</span></a>
+                <a href="clientes.php" class="nav-link"><i class="fa-solid fa-users"></i> <span>Clientes</span></a>
+                <a href="perfil_empresa.php" class="nav-link highlight-company"><i class="fa-solid fa-building"></i> <span>Mi Empresa</span></a>
             <?php else: ?>
-                <!-- Menú para USUARIO PARTICULAR -->
-                <a href="dashboardf.php" class="nav-link">
-                    <i class="fa-solid fa-house"></i>
-                    <span>Inicio.</span>
-                </a>
-                <a href="panel_propietario_licencias.php" class="nav-link active">
-                    <i class="fa-solid fa-id-card"></i>
-                    <span>Licencias.</span>
-                </a>
+                <a href="dashboardf.php" class="nav-link"><i class="fa-solid fa-house"></i> <span>Inicio</span></a>
+                <a href="panel_propietario_licencias.php" class="nav-link active"><i class="fa-solid fa-id-card"></i> <span>Licencias</span></a>
             <?php endif; ?>
         </nav>
 
@@ -177,7 +148,7 @@ try {
                 Verificación de Licencias de Solicitantes
             </h2>
 
-            <!-- AVISO DE VERIFICACIÓN EN EL RUNT -->
+            <!-- AVISO RUNT -->
             <div class="runt-notice">
                 <i class="fa-solid fa-shield-halved"></i>
                 <div>
