@@ -79,6 +79,7 @@ try {
 
     // Bandera booleana para JS: solo es true si existe la licencia Y su estado verificado es 1 (Aprobada)
     $tieneLicencia = (!empty($userLicData) && !empty($userLicData['licencia_numero']) && isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1) ? 'true' : 'false';
+    $licenciaEstaAprobada = isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1;
 
     $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
     $stmt->execute([$id_vehiculo]);
@@ -139,6 +140,22 @@ try {
         <a href="Motocicletas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
     </div>
 </nav>
+
+<!-- BANNER DE AVISO DE LICENCIA (Solo se muestra si el dueño NO la ha aprobado) -->
+<?php if (!$licenciaEstaAprobada): ?>
+    <section class="licencia-warning-banner" style="background: rgba(255, 159, 10, 0.12); border-left: 5px solid #ff9f0a; padding: 15px 20px; max-width: 1200px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 1.8rem; color: #ff9f0a;"></i>
+            <div>
+                <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 1rem;">Licencia de Conducción Pendiente o No Verificada</h4>
+                <p style="margin: 0; color: #a1a1aa; font-size: 0.9rem;">Para poder reservar este vehículo y comunicarte con el propietario, necesitas registrar y tener tu licencia aprobada.</p>
+            </div>
+        </div>
+        <a href="subir_licencia.php" style="background: #e50914; color: #fff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; white-space: nowrap;">
+            Gestionar Licencia
+        </a>
+    </section>
+<?php endif; ?>
 
 <main class="main-wrapper">
     <!-- SECCIÓN 1: FICHA TÉCNICA PRINCIPAL -->
