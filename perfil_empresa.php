@@ -111,6 +111,10 @@ $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
         <i class="fa-solid fa-users"></i>
         <span>Clientes</span>
     </a>
+           <a href="panel_propietario_licencias.php" class="nav-link">
+                <i class="fa-solid fa-id-card"></i>
+                <span>Licencias</span>
+            </a>
     <a href="perfil_empresa.php" class="nav-link active highlight-company">
         <i class="fa-solid fa-building"></i>
         <span>Mi Empresa</span>

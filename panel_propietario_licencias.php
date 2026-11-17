@@ -16,36 +16,42 @@ $inicialUsuario = strtoupper(substr($nombreUsuario, 0, 1));
 $mensaje = "";
 $tipoAlerta = "";
 
-// 2. Procesar la decisión (Aprobar o Rechazar)
-if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
+// 2. Procesar acciones (Aprobar, Rechazar o Eliminar de la vista del propietario)
+if (isset($_GET['accion']) && isset($_GET['licencia'])) {
     $accion = $_GET['accion'];
-    $idSolicitante = intval($_GET['id_solicitante']);
+    $licenciaNumero = $_GET['licencia'];
 
     try {
         if ($accion === 'aprobar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE id_usuario = :id");
-            $stmt->execute([':id' => $idSolicitante]);
-            $mensaje = "Has aprobado la licencia del solicitante correctamente.";
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE licencia_numero = :licencia");
+            $stmt->execute([':licencia' => $licenciaNumero]);
+            $mensaje = "Has aprobado la licencia correctamente.";
             $tipoAlerta = "success";
         } elseif ($accion === 'rechazar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE id_usuario = :id");
-            $stmt->execute([':id' => $idSolicitante]);
-            $mensaje = "Has rechazado la licencia. Se le solicitará al usuario que cargue un documento válido.";
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE licencia_numero = :licencia");
+            $stmt->execute([':licencia' => $licenciaNumero]);
+            $mensaje = "Has rechazado la licencia. El usuario deberá cargar un documento válido.";
             $tipoAlerta = "error";
+        } elseif ($accion === 'eliminar') {
+            // Oculta la tarjeta temporalmente o marca el registro para que no aparezca en este panel
+            // (Si prefieres borrar el usuario por completo o marcarlo como archivado)
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE licencia_numero = :licencia");
+            $stmt->execute([':licencia' => $licenciaNumero]);
+            $mensaje = "La solicitud ha sido retirada de tu pantalla.";
+            $tipoAlerta = "success";
         }
     } catch (PDOException $e) {
-        $mensaje = "Error al actualizar el estado: " . $e->getMessage();
+        $mensaje = "Error al actualizar: " . $e->getMessage();
         $tipoAlerta = "error";
     }
 }
 
-// 3. Consulta optimizada agrupada por licencia para evitar duplicados en pantalla
+// 3. Consulta optimizada agrupada por licencia
 $solicitantes = [];
 $errorConsulta = null;
 
 try {
     if ($tipoUsuario == 1) {
-        // Consulta para EMPRESAS (agrupando por licencia para evitar duplicados)
         $sql = "
             SELECT 
                 MIN(u.id_usuario) AS id_usuario,
@@ -54,7 +60,7 @@ try {
                 MIN(u.num_telefono) AS num_telefono,
                 u.licencia_numero,
                 MIN(u.licencia_imagen) AS licencia_imagen,
-                MIN(u.licencia_verificada) AS licencia_verificada,
+                MAX(u.licencia_verificada) AS licencia_verificada,
                 MIN(v.marca) AS marca,
                 MIN(v.modelo) AS modelo,
                 MIN(v.placa) AS placa
@@ -72,7 +78,6 @@ try {
         $stmt->execute([':id_ref' => $idUsuario, ':id_self' => $idUsuario]);
 
     } else {
-        // Consulta para USUARIOS PARTICULARES (agrupando por licencia)
         $sql = "
             SELECT 
                 MIN(u.id_usuario) AS id_usuario,
@@ -81,7 +86,7 @@ try {
                 MIN(u.num_telefono) AS num_telefono,
                 u.licencia_numero,
                 MIN(u.licencia_imagen) AS licencia_imagen,
-                MIN(u.licencia_verificada) AS licencia_verificada,
+                MAX(u.licencia_verificada) AS licencia_verificada,
                 MIN(v.marca) AS marca,
                 MIN(v.modelo) AS modelo,
                 MIN(v.placa) AS placa
@@ -114,6 +119,34 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admindashboard.css">
     <link rel="stylesheet" href="panel_propietario.css">
+    <style>
+        .badge-estado {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .badge-estado.pendiente {
+            background-color: rgba(255, 159, 10, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(255, 159, 10, 0.3);
+        }
+        .badge-estado.aprobado {
+            background-color: rgba(52, 199, 89, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(52, 199, 89, 0.3);
+        }
+        .btn-eliminar {
+            background-color: #3f3f46;
+            color: #fff;
+        }
+        .btn-eliminar:hover {
+            background-color: #52525b;
+        }
+    </style>
 </head>
 <body>
 
@@ -182,7 +215,7 @@ try {
             <?php endif; ?>
 
             <?php if (!empty($mensaje)): ?>
-                <div class="alert <?php echo $tipoAlerta; ?>"><?php echo htmlspecialchars($mensaje); ?></div>
+                <div class="alert <?php echo $tipoAlerta; ?>"><?php echo htmlspecialchars($signal ?? $mensaje); ?></div>
             <?php endif; ?>
 
             <?php if (empty($solicitantes)): ?>
@@ -200,12 +233,12 @@ try {
                             <h3><?php echo htmlspecialchars($sol['nombre']); ?></h3>
                             <p><strong>Correo:</strong> <?php echo htmlspecialchars($sol['correo']); ?> | <strong>Tel:</strong> <?php echo htmlspecialchars($sol['num_telefono'] ?? 'N/A'); ?></p>
                             <p><strong>Nro. Licencia / Documento:</strong> <code><?php echo htmlspecialchars($sol['licencia_numero']); ?></code></p>
-                            <p style="margin-top: 8px;">
+                            <p style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
                                 <strong>Estado:</strong> 
                                 <?php if ((int)$sol['licencia_verificada'] === 1): ?>
-                                    <span class="badge-aprobado"><i class="fa-solid fa-circle-check"></i> Licencia Aprobada</span>
+                                    <span class="badge-estado aprobado"><i class="fa-solid fa-circle-check"></i> Aprobada</span>
                                 <?php else: ?>
-                                    <span class="badge-pendiente"><i class="fa-solid fa-clock"></i> Pendiente de revisión</span>
+                                    <span class="badge-estado pendiente"><i class="fa-solid fa-clock"></i> Pendiente de revisión</span>
                                 <?php endif; ?>
                             </p>
                         </div>
@@ -218,15 +251,23 @@ try {
                             <?php endif; ?>
 
                             <?php if ((int)$sol['licencia_verificada'] !== 1): ?>
-                                <a href="panel_propietario_licencias.php?accion=aprobar&id_solicitante=<?php echo $sol['id_usuario']; ?>" 
+                                <!-- Botones si está pendiente -->
+                                <a href="panel_propietario_licencias.php?accion=aprobar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
                                    class="btn btn-aprobar" 
                                    onclick="return confirm('¿Confirmas que verificaste los datos en el RUNT y deseas APROBAR esta licencia?');">
                                     <i class="fa-solid fa-check"></i> Aprobar
                                 </a>
-                                <a href="panel_propietario_licencias.php?accion=rechazar&id_solicitante=<?php echo $sol['id_usuario']; ?>" 
+                                <a href="panel_propietario_licencias.php?accion=rechazar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
                                    class="btn btn-rechazar" 
                                    onclick="return confirm('¿Estás seguro de RECHAZAR esta licencia? El solicitante deberá subirla nuevamente.');">
                                     <i class="fa-solid fa-xmark"></i> Rechazar
+                                </a>
+                            <?php else: ?>
+                                <!-- Botón para ocultar/eliminar de la pantalla una vez ya fue gestionada -->
+                                <a href="panel_propietario_licencias.php?accion=eliminar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
+                                   class="btn btn-eliminar" 
+                                   onclick="return confirm('¿Deseas quitar esta tarjeta de tu panel?');">
+                                    <i class="fa-solid fa-trash-can"></i> Limpiar / Borrar
                                 </a>
                             <?php endif; ?>
                         </div>
