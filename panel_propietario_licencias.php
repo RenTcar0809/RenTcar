@@ -24,12 +24,12 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
 
     try {
         if ($accion === 'aprobar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE IdUsuario = :id");
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE id_usuario = :id");
             $stmt->execute([':id' => $idSolicitante]);
             $mensaje = "Has aprobado la licencia del solicitante correctamente.";
             $tipoAlerta = "success";
         } elseif ($accion === 'rechazar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE IdUsuario = :id");
+            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE id_usuario = :id");
             $stmt->execute([':id' => $idSolicitante]);
             $mensaje = "Has rechazado la licencia. Se le solicitará al usuario que cargue un documento válido.";
             $tipoAlerta = "error";
@@ -40,26 +40,26 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
     }
 }
 
-// 3. Consultar solicitantes usando mensajes_chat y la estructura de tu BD
+// 3. Consultar solicitantes usando id_usuario corregido para PostgreSQL
 $solicitantes = [];
 $errorConsulta = null;
 
 try {
     if ($tipoUsuario == 1) {
-        // Consulta para EMPRESAS (usan id_proveedor en la tabla vehiculo y IdUsuario en usuario)
+        // Consulta para EMPRESAS (usan id_proveedor en la tabla vehiculo)
         $sql = "
             SELECT DISTINCT 
-                u.IdUsuario AS id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
+                u.id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
             INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
             WHERE v.id_proveedor = :id_ref
-              AND u.IdUsuario != :id_self
+              AND u.id_usuario != :id_self
               AND u.licencia_numero IS NOT NULL 
               AND u.licencia_numero != ''
-            ORDER BY u.licencia_verificada ASC, u.IdUsuario DESC
+            ORDER BY u.licencia_verificada ASC, u.id_usuario DESC
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id_ref' => $idUsuario, ':id_self' => $idUsuario]);
@@ -68,17 +68,17 @@ try {
         // Consulta para USUARIOS PARTICULARES
         $sql = "
             SELECT DISTINCT 
-                u.IdUsuario AS id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
+                u.id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
             INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
             WHERE v.id_arrendatario = :id_ref_arrendatario
-              AND u.IdUsuario != :id_self_2
+              AND u.id_usuario != :id_self_2
               AND u.licencia_numero IS NOT NULL 
               AND u.licencia_numero != ''
-            ORDER BY u.licencia_verificada ASC, u.IdUsuario DESC
+            ORDER BY u.licencia_verificada ASC, u.id_usuario DESC
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id_ref_arrendatario' => $idUsuario, ':id_self_2' => $idUsuario]);
