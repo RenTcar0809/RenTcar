@@ -115,41 +115,41 @@ try {
                 <!-- Menú para EMPRESA -->
                 <a href="dashboardE.php" class="nav-link">
                     <i class="fa-solid fa-chart-pie"></i>
-                    <span>Panel</span>
+                    <span>Panel.</span>
                 </a>
                 <a href="mensajese.php" class="nav-link">
                     <i class="fa-solid fa-comments"></i>
-                    <span>Mensajes</span>
+                    <span>Mensajes.</span>
                 </a>
                 <a href="vehiculosE.php" class="nav-link">
                     <i class="fa-solid fa-car-side"></i>
-                    <span>Mi Flota</span>
+                    <span>Mi Flota.</span>
                 </a>
                 <a href="alquileres.php" class="nav-link">
                     <i class="fa-solid fa-calendar-check"></i>
-                    <span>Alquileres</span>
+                    <span>Alquileres.</span>
                 </a>
                 <a href="panel_propietario_licencias.php" class="nav-link active">
                     <i class="fa-solid fa-id-card"></i>
-                    <span>Licencias</span>
+                    <span>Licencias.</span>
                 </a>
                 <a href="clientes.php" class="nav-link">
                     <i class="fa-solid fa-users"></i>
-                    <span>Clientes</span>
+                    <span>Clientes.</span>
                 </a>
                 <a href="perfil_empresa.php" class="nav-link highlight-company">
                     <i class="fa-solid fa-building"></i>
-                    <span>Mi Empresa</span>
+                    <span>Mi Empresa.</span>
                 </a>
             <?php else: ?>
                 <!-- Menú para USUARIO PARTICULAR -->
                 <a href="dashboardf.php" class="nav-link">
                     <i class="fa-solid fa-house"></i>
-                    <span>Inicio</span>
+                    <span>Inicio.</span>
                 </a>
                 <a href="panel_propietario_licencias.php" class="nav-link active">
                     <i class="fa-solid fa-id-card"></i>
-                    <span>Licencias</span>
+                    <span>Licencias.</span>
                 </a>
             <?php endif; ?>
         </nav>
