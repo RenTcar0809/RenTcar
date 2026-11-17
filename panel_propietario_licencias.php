@@ -10,7 +10,7 @@ if (!isset($_SESSION['tipo']) && !isset($_SESSION['usuario_nombre'])) {
 
 // Identificar datos del usuario conectado (sea empresa o particular)
 $tipoUsuario = $_SESSION['tipo'] ?? 0;
-$idUsuario = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0;
+$idUsuario = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? $_SESSION['id_usuario'] ?? 0;
 $nombreUsuario = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Propietario';
 $inicialUsuario = strtoupper(substr($nombreUsuario, 0, 1));
 
@@ -40,7 +40,7 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
     }
 }
 
-// 3. Consultar solicitantes usando id_usuario corregido para PostgreSQL
+// 3. Consultar solicitantes utilizando los nombres exactos de tu PostgreSQL (id_usuario, num_telefono)
 $solicitantes = [];
 $errorConsulta = null;
 
@@ -49,7 +49,7 @@ try {
         // Consulta para EMPRESAS (usan id_proveedor en la tabla vehiculo)
         $sql = "
             SELECT DISTINCT 
-                u.id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
+                u.id_usuario, u.nombre, u.correo, u.num_telefono,
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
@@ -68,7 +68,7 @@ try {
         // Consulta para USUARIOS PARTICULARES
         $sql = "
             SELECT DISTINCT 
-                u.id_usuario, u.nombre, u.correo, u.numTelefono AS num_telefono,
+                u.id_usuario, u.nombre, u.correo, u.num_telefono,
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
