@@ -2,13 +2,12 @@
 session_start();
 require_once 'conexion.php';
 
-// 1. Validar que cualquier tipo de usuario propietario/empresa tenga sesión activa
+// 1. Validar sesión activa
 if (!isset($_SESSION['tipo']) && !isset($_SESSION['usuario_nombre'])) {
     header("Location: inicioSesion.php");
     exit();
 }
 
-// Identificar datos del usuario conectado (sea empresa o particular)
 $tipoUsuario = $_SESSION['tipo'] ?? 0;
 $idUsuario = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? $_SESSION['id_usuario'] ?? 0;
 $nombreUsuario = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Propietario';
@@ -40,18 +39,25 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
     }
 }
 
-// 3. Consultar solicitantes utilizando los nombres exactos de tu PostgreSQL (id_usuario, num_telefono)
+// 3. Consulta optimizada agrupada por licencia para evitar duplicados en pantalla
 $solicitantes = [];
 $errorConsulta = null;
 
 try {
     if ($tipoUsuario == 1) {
-        // Consulta para EMPRESAS (usan id_proveedor en la tabla vehiculo)
+        // Consulta para EMPRESAS (agrupando por licencia para evitar duplicados)
         $sql = "
-            SELECT DISTINCT 
-                u.id_usuario, u.nombre, u.correo, u.num_telefono,
-                u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
-                v.marca, v.modelo, v.placa
+            SELECT 
+                MIN(u.id_usuario) AS id_usuario,
+                MIN(u.nombre) AS nombre,
+                MIN(u.correo) AS correo,
+                MIN(u.num_telefono) AS num_telefono,
+                u.licencia_numero,
+                MIN(u.licencia_imagen) AS licencia_imagen,
+                MIN(u.licencia_verificada) AS licencia_verificada,
+                MIN(v.marca) AS marca,
+                MIN(v.modelo) AS modelo,
+                MIN(v.placa) AS placa
             FROM vehiculo v
             INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
@@ -59,18 +65,26 @@ try {
               AND u.id_usuario != :id_self
               AND u.licencia_numero IS NOT NULL 
               AND u.licencia_numero != ''
-            ORDER BY u.licencia_verificada ASC, u.id_usuario DESC
+            GROUP BY u.licencia_numero
+            ORDER BY licencia_verificada ASC, id_usuario DESC
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id_ref' => $idUsuario, ':id_self' => $idUsuario]);
 
     } else {
-        // Consulta para USUARIOS PARTICULARES
+        // Consulta para USUARIOS PARTICULARES (agrupando por licencia)
         $sql = "
-            SELECT DISTINCT 
-                u.id_usuario, u.nombre, u.correo, u.num_telefono,
-                u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
-                v.marca, v.modelo, v.placa
+            SELECT 
+                MIN(u.id_usuario) AS id_usuario,
+                MIN(u.nombre) AS nombre,
+                MIN(u.correo) AS correo,
+                MIN(u.num_telefono) AS num_telefono,
+                u.licencia_numero,
+                MIN(u.licencia_imagen) AS licencia_imagen,
+                MIN(u.licencia_verificada) AS licencia_verificada,
+                MIN(v.marca) AS marca,
+                MIN(v.modelo) AS modelo,
+                MIN(v.placa) AS placa
             FROM vehiculo v
             INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
@@ -78,7 +92,8 @@ try {
               AND u.id_usuario != :id_self_2
               AND u.licencia_numero IS NOT NULL 
               AND u.licencia_numero != ''
-            ORDER BY u.licencia_verificada ASC, u.id_usuario DESC
+            GROUP BY u.licencia_numero
+            ORDER BY licencia_verificada ASC, id_usuario DESC
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':id_ref_arrendatario' => $idUsuario, ':id_self_2' => $idUsuario]);
