@@ -47,6 +47,11 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
                 <i class="fa-solid fa-folder-open"></i> <span>MIS VEHÍCULOS</span>
             </a>
 
+            <a href="panel_propietario_licencias.php" class="nav-link">
+                 <i class="fa-solid fa-id-card"></i>
+                <span>Licencias</span>
+            </a>
+
             <!-- Enlace de Mensajes con la burbuja roja de notificación -->
             <a href="mensajes.php" class="nav-link" style="position: relative;">
                 <i class="fa-solid fa-comments"></i> <span>MENSAJES</span>

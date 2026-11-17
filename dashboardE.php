@@ -327,6 +327,11 @@ try {
                 <span>Clientes</span>
             </a>
 
+            <a href="panel_propietario_licencias.php" class="nav-link">
+                <i class="fa-solid fa-id-card"></i>
+                <span>Licencias</span>
+            </a>
+
             <a href="perfil_empresa.php"
                class="nav-link highlight-company">
                 <i class="fa-solid fa-building"></i>
