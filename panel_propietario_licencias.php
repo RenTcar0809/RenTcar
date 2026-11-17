@@ -22,7 +22,6 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
 
     try {
         if ($accion === 'aprobar') {
-            // Upsert en la tabla de aprobaciones individuales
             $stmt = $pdo->prepare("
                 INSERT INTO aprobaciones_licencias (id_proveedor, id_usuario, estado, fecha_actualizacion) 
                 VALUES (:prov, :cli, 1, CURRENT_TIMESTAMP)
@@ -30,7 +29,7 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
                 DO UPDATE SET estado = 1, fecha_actualizacion = CURRENT_TIMESTAMP
             ");
             $stmt->execute([':prov' => $idUsuario, ':cli' => $idSolicitante]);
-            $mensaje = "Has aprobado la licencia de este usuario para tus vehículos.";
+            $mensaje = "Has aprobado la licencia de este usuario correctamente.";
             $tipoAlerta = "success";
         } elseif ($accion === 'rechazar') {
             $stmt = $pdo->prepare("
@@ -54,7 +53,7 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
     }
 }
 
-// 3. Consultar solicitantes que tienen vehículos de este proveedor y han subido licencia
+// 3. Consulta optimizada: Muestra usuarios que te escribieron por tus vehículos O tienen una solicitud contigo
 $solicitantes = [];
 $errorConsulta = null;
 
@@ -71,10 +70,10 @@ try {
             v.marca, 
             v.modelo, 
             v.placa
-        FROM vehiculo v
-        INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
-        INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
-        LEFT JOIN aprobaciones_licencias a ON a.id_proveedor = v.id_proveedor AND a.id_usuario = u.id_usuario
+        FROM usuario u
+        INNER JOIN mensajes_chat m ON (u.nombre = m.remitente OR u.empresa = m.remitente)
+        INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
+        LEFT JOIN aprobaciones_licencias a ON (a.id_proveedor = v.id_proveedor AND a.id_usuario = u.id_usuario)
         WHERE v.id_proveedor = :id_ref
           AND u.id_usuario != :id_self
           AND u.licencia_numero IS NOT NULL 
@@ -167,7 +166,7 @@ try {
             <?php if (empty($solicitantes)): ?>
                 <div class="card empty-card">
                     <i class="fa-regular fa-folder-open" style="font-size: 2.2rem; color: #555; margin-bottom: 10px;"></i>
-                    <p>No tienes solicitantes con licencias pendientes para tus vehículos.</p>
+                    <p>No tienes solicitantes con licencias pendientes para tus vehículos por el momento.</p>
                 </div>
             <?php else: ?>
                 <?php foreach ($solicitantes as $sol): ?>
