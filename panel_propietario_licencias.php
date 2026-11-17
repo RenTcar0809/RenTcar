@@ -2,7 +2,6 @@
 session_start();
 require_once 'conexion.php';
 
-// 1. Validar sesión activa
 if (!isset($_SESSION['tipo']) && !isset($_SESSION['usuario_nombre'])) {
     header("Location: inicioSesion.php");
     exit();
@@ -16,26 +15,37 @@ $inicialUsuario = strtoupper(substr($nombreUsuario, 0, 1));
 $mensaje = "";
 $tipoAlerta = "";
 
-// 2. Procesar acciones (Aprobar, Rechazar o Eliminar de la vista del propietario)
-if (isset($_GET['accion']) && isset($_GET['licencia'])) {
+// 2. Procesar acciones de aprobación individual
+if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
     $accion = $_GET['accion'];
-    $licenciaNumero = $_GET['licencia'];
+    $idSolicitante = intval($_GET['id_solicitante']);
 
     try {
         if ($accion === 'aprobar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_verificada = 1 WHERE licencia_numero = :licencia");
-            $stmt->execute([':licencia' => $licenciaNumero]);
-            $mensaje = "Has aprobado la licencia correctamente.";
+            // Upsert en la tabla de aprobaciones individuales
+            $stmt = $pdo->prepare("
+                INSERT INTO aprobaciones_licencias (id_proveedor, id_usuario, estado, fecha_actualizacion) 
+                VALUES (:prov, :cli, 1, CURRENT_TIMESTAMP)
+                ON CONFLICT (id_proveedor, id_usuario) 
+                DO UPDATE SET estado = 1, fecha_actualizacion = CURRENT_TIMESTAMP
+            ");
+            $stmt->execute([':prov' => $idUsuario, ':cli' => $idSolicitante]);
+            $mensaje = "Has aprobado la licencia de este usuario para tus vehículos.";
             $tipoAlerta = "success";
         } elseif ($accion === 'rechazar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE licencia_numero = :licencia");
-            $stmt->execute([':licencia' => $licenciaNumero]);
-            $mensaje = "Has rechazado la licencia. El usuario deberá cargar un documento válido.";
+            $stmt = $pdo->prepare("
+                INSERT INTO aprobaciones_licencias (id_proveedor, id_usuario, estado, fecha_actualizacion) 
+                VALUES (:prov, :cli, 2, CURRENT_TIMESTAMP)
+                ON CONFLICT (id_proveedor, id_usuario) 
+                DO UPDATE SET estado = 2, fecha_actualizacion = CURRENT_TIMESTAMP
+            ");
+            $stmt->execute([':prov' => $idUsuario, ':cli' => $idSolicitante]);
+            $mensaje = "Has rechazado la licencia de este usuario.";
             $tipoAlerta = "error";
         } elseif ($accion === 'eliminar') {
-            $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE licencia_numero = :licencia");
-            $stmt->execute([':licencia' => $licenciaNumero]);
-            $mensaje = "La solicitud ha sido retirada de tu pantalla.";
+            $stmt = $pdo->prepare("DELETE FROM aprobaciones_licencias WHERE id_proveedor = :prov AND id_usuario = :cli");
+            $stmt->execute([':prov' => $idUsuario, ':cli' => $idSolicitante]);
+            $mensaje = "La solicitud ha sido retirada de tu panel.";
             $tipoAlerta = "success";
         }
     } catch (PDOException $e) {
@@ -44,32 +54,32 @@ if (isset($_GET['accion']) && isset($_GET['licencia'])) {
     }
 }
 
-// 3. Consulta unificada usando id_proveedor para ambos perfiles (Empresas y Particulares)
+// 3. Consultar solicitantes que tienen vehículos de este proveedor y han subido licencia
 $solicitantes = [];
 $errorConsulta = null;
 
 try {
     $sql = "
-        SELECT 
-            MIN(u.id_usuario) AS id_usuario,
-            MIN(u.nombre) AS nombre,
-            MIN(u.correo) AS correo,
-            MIN(u.num_telefono) AS num_telefono,
-            u.licencia_numero,
-            MIN(u.licencia_imagen) AS licencia_imagen,
-            MAX(u.licencia_verificada) AS licencia_verificada,
-            MIN(v.marca) AS marca,
-            MIN(v.modelo) AS modelo,
-            MIN(v.placa) AS placa
+        SELECT DISTINCT 
+            u.id_usuario, 
+            u.nombre, 
+            u.correo, 
+            u.num_telefono,
+            u.licencia_numero, 
+            u.licencia_imagen,
+            COALESCE(a.estado, 0) AS licencia_verificada,
+            v.marca, 
+            v.modelo, 
+            v.placa
         FROM vehiculo v
         INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
         INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
+        LEFT JOIN aprobaciones_licencias a ON a.id_proveedor = v.id_proveedor AND a.id_usuario = u.id_usuario
         WHERE v.id_proveedor = :id_ref
           AND u.id_usuario != :id_self
           AND u.licencia_numero IS NOT NULL 
           AND u.licencia_numero != ''
-        GROUP BY u.licencia_numero
-        ORDER BY licencia_verificada ASC, id_usuario DESC
+        ORDER BY licencia_verificada ASC, u.id_usuario DESC
     ";
     
     $stmt = $pdo->prepare($sql);
@@ -90,44 +100,18 @@ try {
     <link rel="stylesheet" href="admindashboard.css">
     <link rel="stylesheet" href="panel_propietario.css">
     <style>
-        .badge-estado {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.82rem;
-            font-weight: 600;
-        }
-        .badge-estado.pendiente {
-            background-color: rgba(255, 159, 10, 0.15);
-            color: #fbbf24;
-            border: 1px solid rgba(255, 159, 10, 0.3);
-        }
-        .badge-estado.aprobado {
-            background-color: rgba(52, 199, 89, 0.15);
-            color: #4ade80;
-            border: 1px solid rgba(52, 199, 89, 0.3);
-        }
-        .btn-eliminar {
-            background-color: #3f3f46;
-            color: #fff;
-        }
-        .btn-eliminar:hover {
-            background-color: #52525b;
-        }
+        .badge-estado { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; }
+        .badge-estado.pendiente { background-color: rgba(255, 159, 10, 0.15); color: #fbbf24; border: 1px solid rgba(255, 159, 10, 0.3); }
+        .badge-estado.aprobado { background-color: rgba(52, 199, 89, 0.15); color: #4ade80; border: 1px solid rgba(52, 199, 89, 0.3); }
+        .badge-estado.rechazado { background-color: rgba(229, 9, 20, 0.15); color: #f87171; border: 1px solid rgba(229, 9, 20, 0.3); }
+        .btn-eliminar { background-color: #3f3f46; color: #fff; }
+        .btn-eliminar:hover { background-color: #52525b; }
     </style>
 </head>
 <body>
 
-    <!-- BARRA DE NAVEGACIÓN DINÁMICA -->
     <header class="top-navbar">
-        <div class="logo-container">
-            <h1 class="logo-text">
-                <span class="red-t">REN</span>T<span class="red-t">CAR</span>
-            </h1>
-        </div>
-
+        <div class="logo-container"><h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1></div>
         <nav class="nav-menu">
             <?php if ($tipoUsuario == 1): ?>
                 <a href="dashboardE.php" class="nav-link"><i class="fa-solid fa-chart-pie"></i> <span>Panel</span></a>
@@ -142,7 +126,6 @@ try {
                 <a href="panel_propietario_licencias.php" class="nav-link active"><i class="fa-solid fa-id-card"></i> <span>Licencias</span></a>
             <?php endif; ?>
         </nav>
-
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
                 <div class="user-avatar"><?php echo htmlspecialchars($inicialUsuario); ?></div>
@@ -150,28 +133,23 @@ try {
                 <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: #8e8e93;"></i>
             </div>
             <div class="dropdown-content" id="userDropdown">
-                <?php if ($tipoUsuario == 1): ?>
-                    <a href="perfil_empresa.php"><i class="fa-solid fa-user-gear"></i> Configuración</a>
-                <?php endif; ?>
+                <?php if ($tipoUsuario == 1): ?><a href="perfil_empresa.php"><i class="fa-solid fa-user-gear"></i> Configuración</a><?php endif; ?>
                 <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
             </div>
         </div>
     </header>
 
-    <!-- CONTENIDO PRINCIPAL -->
     <main class="main-content">
         <div class="container">
             <h2 class="section-title" style="margin-bottom: 15px;">
-                <i class="fa-solid fa-id-card-clip" style="color: #e50914;"></i>
-                Verificación de Licencias de Solicitantes
+                <i class="fa-solid fa-id-card-clip" style="color: #e50914;"></i> Verificación Individual de Licencias
             </h2>
 
-            <!-- AVISO RUNT -->
             <div class="runt-notice">
                 <i class="fa-solid fa-shield-halved"></i>
                 <div>
-                    <h4>Verificación Recomendada en el RUNT antes de Aprobar</h4>
-                    <p>Como propietario del vehículo, valida la autenticidad, vigencia y estado de la licencia de conducción del solicitante directamente en la plataforma oficial del <strong>RUNT (Registro Único Nacional de Tránsito)</strong> usando su número de documento antes de autorizar el alquiler.</p>
+                    <h4>Verificación en el RUNT</h4>
+                    <p>Valida la autenticidad de la licencia en el <strong>RUNT</strong> antes de aprobar la solicitud para tus vehículos.</p>
                     <a href="https://www.runt.gov.co/consultaCiudadana/#/consultaPersona" target="_blank" rel="noopener noreferrer" class="btn-runt">
                         <i class="fa-solid fa-arrow-up-right-from-square"></i> Consultar en el RUNT
                     </a>
@@ -179,9 +157,7 @@ try {
             </div>
 
             <?php if ($errorConsulta): ?>
-                <div class="alert error">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Error en la consulta: <?php echo htmlspecialchars($errorConsulta); ?>
-                </div>
+                <div class="alert error"><i class="fa-solid fa-triangle-exclamation"></i> Error: <?php echo htmlspecialchars($errorConsulta); ?></div>
             <?php endif; ?>
 
             <?php if (!empty($mensaje)): ?>
@@ -191,7 +167,7 @@ try {
             <?php if (empty($solicitantes)): ?>
                 <div class="card empty-card">
                     <i class="fa-regular fa-folder-open" style="font-size: 2.2rem; color: #555; margin-bottom: 10px;"></i>
-                    <p>No tienes solicitantes con licencias pendientes o registradas en tus vehículos por el momento.</p>
+                    <p>No tienes solicitantes con licencias pendientes para tus vehículos.</p>
                 </div>
             <?php else: ?>
                 <?php foreach ($solicitantes as $sol): ?>
@@ -202,11 +178,13 @@ try {
                             </span>
                             <h3><?php echo htmlspecialchars($sol['nombre']); ?></h3>
                             <p><strong>Correo:</strong> <?php echo htmlspecialchars($sol['correo']); ?> | <strong>Tel:</strong> <?php echo htmlspecialchars($sol['num_telefono'] ?? 'N/A'); ?></p>
-                            <p><strong>Nro. Licencia / Documento:</strong> <code><?php echo htmlspecialchars($sol['licencia_numero']); ?></code></p>
+                            <p><strong>Nro. Licencia:</strong> <code><?php echo htmlspecialchars($sol['licencia_numero']); ?></code></p>
                             <p style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
-                                <strong>Estado:</strong> 
+                                <strong>Estado para ti:</strong> 
                                 <?php if ((int)$sol['licencia_verificada'] === 1): ?>
-                                    <span class="badge-estado aprobado"><i class="fa-solid fa-circle-check"></i> Aprobada</span>
+                                    <span class="badge-estado aprobado"><i class="fa-solid fa-circle-check"></i> Aprobada por ti</span>
+                                <?php elseif ((int)$sol['licencia_verificada'] === 2): ?>
+                                    <span class="badge-estado rechazado"><i class="fa-solid fa-circle-xmark"></i> Rechazada</span>
                                 <?php else: ?>
                                     <span class="badge-estado pendiente"><i class="fa-solid fa-clock"></i> Pendiente de revisión</span>
                                 <?php endif; ?>
@@ -221,20 +199,17 @@ try {
                             <?php endif; ?>
 
                             <?php if ((int)$sol['licencia_verificada'] !== 1): ?>
-                                <a href="panel_propietario_licencias.php?accion=aprobar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
-                                   class="btn btn-aprobar" 
-                                   onclick="return confirm('¿Confirmas que verificaste los datos en el RUNT y deseas APROBAR esta licencia?');">
+                                <a href="panel_propietario_licencias.php?accion=aprobar&id_solicitante=<?php echo $sol['id_usuario']; ?>" 
+                                   class="btn btn-aprobar" onclick="return confirm('¿Aprobar esta licencia para tus vehículos?');">
                                     <i class="fa-solid fa-check"></i> Aprobar
                                 </a>
-                                <a href="panel_propietario_licencias.php?accion=rechazar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
-                                   class="btn btn-rechazar" 
-                                   onclick="return confirm('¿Estás seguro de RECHAZAR esta licencia? El solicitante deberá subirla nuevamente.');">
+                                <a href="panel_propietario_licencias.php?accion=rechazar&id_solicitante=<?php echo $sol['id_usuario']; ?>" 
+                                   class="btn btn-rechazar" onclick="return confirm('¿Rechazar esta licencia?');">
                                     <i class="fa-solid fa-xmark"></i> Rechazar
                                 </a>
                             <?php else: ?>
-                                <a href="panel_propietario_licencias.php?accion=eliminar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
-                                   class="btn btn-eliminar" 
-                                   onclick="return confirm('¿Deseas quitar esta tarjeta de tu panel?');">
+                                <a href="panel_propietario_licencias.php?accion=eliminar&id_solicitante=<?php echo $sol['id_usuario']; ?>" 
+                                   class="btn btn-eliminar" onclick="return confirm('¿Quitar esta tarjeta de tu panel?');">
                                     <i class="fa-solid fa-trash-can"></i> Limpiar / Borrar
                                 </a>
                             <?php endif; ?>
@@ -244,21 +219,11 @@ try {
             <?php endif; ?>
         </div>
     </main>
-
     <script>
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');
-
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('show');
-        });
-
-        window.addEventListener('click', () => {
-            if (dropdown.classList.contains('show')) {
-                dropdown.classList.remove('show');
-            }
-        });
+        btn.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.toggle('show'); });
+        window.addEventListener('click', () => { if (dropdown.classList.contains('show')) dropdown.classList.remove('show'); });
     </script>
 </body>
 </html>

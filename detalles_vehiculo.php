@@ -2,7 +2,6 @@
 session_start();
 require_once 'conexion.php';
 
-// 1. Verificar sesión activa
 if (!isset($_SESSION['usuario_nombre'])) {
     header("Location: inicioSesion.php");
     exit();
@@ -13,17 +12,12 @@ $usuario_actual = $_SESSION['usuario_nombre'];
 $error_msg = "";
 
 function limpiarInsultos($texto) {
-    $blacklist = [
-        'puto', 'pene', 'puta', 'mierda', 'hpta', 'hdp', 'malparido', 'gonorrea', 'pendejo', 
-        'pendeja', 'culiao', 'concha', 'marica', 'perra', 'pirobo', 'carechimba', 
-        'estupido', 'idiota', 'imbecil', 'basura', 'cabron', 'boludo', 'estafa', 
-        'fraude', 'robo', 'rateros', 'chupar'
-    ];
+    $blacklist = ['puto', 'pene', 'puta', 'mierda', 'hpta', 'hdp', 'malparido', 'gonorrea', 'pendejo', 'pendeja', 'culiao', 'concha', 'marica', 'perra', 'pirobo', 'carechimba', 'estupido', 'idiota', 'imbecil', 'basura', 'cabron', 'boludo', 'estafa', 'fraude', 'robo', 'rateros', 'chupar'];
     $patron = '/\b(' . implode('|', array_map('preg_quote', $blacklist)) . ')\b/i';
     return preg_replace($patron, '****', $texto);
 }
 
-// 2. Procesar NUEVO comentario al presionar el botón
+// 2. Procesar comentarios
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario'])) {
     $comentario_bruto = trim($_POST['comentario'] ?? '');
     $puntuacion = isset($_POST['rating']) ? intval($_POST['rating']) : 5;
@@ -34,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
             $sql = "INSERT INTO comentarios_vehiculos (id_vehiculo, usuario_nombre, comentario, puntuacion) VALUES (?, ?, ?, ?)";
             $ins = $pdo->prepare($sql);
             $ins->execute([$id_vehiculo, $_SESSION['usuario_nombre'], $comentario_final, $puntuacion]);
-            
             header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=ok#comentarios");
             exit();
         } catch (PDOException $e) {
@@ -45,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
     }
 }
 
-// 3. Procesar ACTUALIZACIÓN de comentario
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario'])) {
     $id_com = intval($_POST['id_comentario'] ?? 0);
     $comentario_edit_bruto = trim($_POST['comentario_edit'] ?? '');
@@ -72,17 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
-// 4. Obtener datos para la página y verificar la licencia del usuario actual
+// 4. Obtener datos del vehículo y verificar aprobación individual del dueño actual
 try {
-    // Validar estado de licencia del usuario logueado
-    $stmtLic = $pdo->prepare("SELECT licencia_numero, licencia_verificada FROM usuario WHERE (nombre = ? OR empresa = ?) LIMIT 1");
-    $stmtLic->execute([$usuario_actual, $usuario_actual]);
-    $userLicData = $stmtLic->fetch(PDO::FETCH_ASSOC);
-
-    // Bandera JavaScript: true solo si la licencia existe Y está aprobada (1)
-    $tieneLicenciaAprobada = (!empty($userLicData) && !empty($userLicData['licencia_numero']) && isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1) ? 'true' : 'false';
-    $licenciaEstaAprobada = (!empty($userLicData) && isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1);
-
     $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
     $stmt->execute([$id_vehiculo]);
     $vehiculo = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -91,6 +74,24 @@ try {
         header("Location: automoviles.php"); 
         exit(); 
     }
+
+    // Obtener ID del usuario actual logueado
+    $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+    $stmtUser->execute([$usuario_actual, $usuario_actual]);
+    $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
+    $idUsuarioActual = $userData['id_usuario'] ?? 0;
+
+    // Verificar si el dueño de ESTE vehículo aprobó a este usuario de forma individual
+    $idProveedorVehiculo = $vehiculo['id_proveedor'];
+    $stmtAprobacion = $pdo->prepare("SELECT estado FROM aprobaciones_licencias WHERE id_proveedor = ? AND id_usuario = ?");
+    $stmtAprobacion->execute([$idProveedorVehiculo, $idUsuarioActual]);
+    $aprobacionData = $stmtAprobacion->fetch(PDO::FETCH_ASSOC);
+
+    $estadoAprobacion = $aprobacionData ? (int)$aprobacionData['estado'] : 0;
+    $licenciaEstaAprobadaPorEsteDueño = ($estadoAprobacion === 1);
+    
+    // Asignación corregida y limpia del booleano para JavaScript
+    $tieneLicenciaAprobadaJS = $licenciaEstaAprobadaPorEsteDueño ? 'true' : 'false';
 
     $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
     $stmtFotos->execute([$id_vehiculo]);
@@ -141,14 +142,14 @@ try {
     </div>
 </nav>
 
-<!-- BANNER DE AVISO DE LICENCIA (Se oculta automáticamente si ya fue aprobada) -->
-<?php if (!$licenciaEstaAprobada): ?>
+<!-- BANNER DE AVISO INDIVIDUAL -->
+<?php if (!$licenciaEstaAprobadaPorEsteDueño): ?>
     <section class="licencia-warning-banner" style="background: rgba(255, 159, 10, 0.12); border-left: 5px solid #ff9f0a; padding: 15px 20px; max-width: 1200px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <i class="fas fa-exclamation-triangle" style="font-size: 1.8rem; color: #ff9f0a;"></i>
             <div>
-                <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 1rem;">Licencia de Conducción Pendiente o No Verificada</h4>
-                <p style="margin: 0; color: #a1a1aa; font-size: 0.9rem;">Para poder reservar este vehículo y comunicarte con el propietario, necesitas registrar y tener tu licencia aprobada.</p>
+                <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 1rem;">Licencia pendiente por este propietario</h4>
+                <p style="margin: 0; color: #a1a1aa; font-size: 0.9rem;">El dueño de este vehículo específico aún no ha aprobado tu licencia. Debes asegurarte de subirla y esperar su autorización.</p>
             </div>
         </div>
         <a href="subir_licencia.php" style="background: #e50914; color: #fff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; white-space: nowrap;">
@@ -158,7 +159,6 @@ try {
 <?php endif; ?>
 
 <main class="main-wrapper">
-    <!-- SECCIÓN 1: FICHA TÉCNICA PRINCIPAL -->
     <section class="hero-section">
         <div class="gallery-side">
             <div class="main-img-wrap">
@@ -186,14 +186,12 @@ try {
                 <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper(htmlspecialchars($vehiculo['traccion'] ?: 'N/A')); ?></strong></div></div>
             </div>
 
-            <!-- Botón estilo Marketplace conectado al chat en tiempo real -->
             <button class="main-btn" onclick="iniciarChatReserva('auto', <?php echo $vehiculo['id_v']; ?>, '<?php echo htmlspecialchars($vehiculo['marca'] . ' ' . $vehiculo['modelo']); ?>')">
                 RESERVAR AHORA <i class="fas fa-comments"></i>
             </button>
         </div>
     </section>
 
-    <!-- SECCIÓN 2: BANNER DE RECOGIDA -->
     <section class="pickup-banner">
         <div class="banner-content">
             <div class="b-header"><i class="fas fa-info-circle"></i> IMPORTANTE PARA TU RECOGIDA</div>
@@ -205,7 +203,6 @@ try {
         </div>
     </section>
 
-    <!-- SECCIÓN 3: COMENTARIOS -->
     <section id="comentarios" class="reviews-section">
         <div class="reviews-header">
             <div class="avg-box">
@@ -256,7 +253,7 @@ try {
                                     <?php if(isset($_SESSION['usuario_nombre']) && $_SESSION['usuario_nombre'] === $c['usuario_nombre']): ?>
                                         <div class="r-actions">
                                             <button type="button" class="btn-action edit" onclick="mostrarEditor(<?php echo $c['id_comentario']; ?>)"><i class="fas fa-pen"></i> Editar</button>
-                                            <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo $id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Estás seguro de borrar este comentario?');"><i class="fas fa-trash"></i> Borrar</a>
+                                            <a href="eliminar_comentario.php?id=<?php echo $c['id_comentario']; ?>&vehiculo=<?php echo $id_vehiculo; ?>" class="btn-action delete" onclick="return confirm('¿Borrar comentario?');"><i class="fas fa-trash"></i> Borrar</a>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -287,7 +284,6 @@ try {
     </section>
 </main>
 
-<!-- BOTÓN Y VENTANA FLOTANTE DEL CHAT EN TIEMPO REAL -->
 <button class="chat-float-btn" onclick="toggleChatFlotante()">
     <i class="fas fa-comment-dots"></i> Chat con Arrendatario
 </button>
@@ -297,9 +293,7 @@ try {
         <h3><i class="fas fa-comments"></i> Negociación RentCar</h3>
         <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
     </div>
-    <div id="chat-messages" class="chat-messages">
-        <!-- Los mensajes se cargarán dinámicamente -->
-    </div>
+    <div id="chat-messages" class="chat-messages"></div>
     <div class="chat-input-area">
         <input type="text" id="chat-input" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
         <button onclick="enviarMensajeBot()">Enviar</button>
@@ -308,7 +302,7 @@ try {
 
 <script>
 const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
-const usuarioTieneLicenciaAprobada = <?php echo $tieneLicenciaAprobada; ?>; // Control desde PHP (true o false)
+const usuarioTieneLicenciaAprobada = <?php echo $tieneLicenciaAprobadaJS; ?>;
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
@@ -329,11 +323,10 @@ function ocultarEditor(id) {
 
 function toggleChatFlotante() {
     if (!usuarioTieneLicenciaAprobada) {
-        alert("Tu licencia aún no ha sido aprobada por el propietario o administrador. No puedes iniciar el chat de reserva.");
+        alert("El dueño de este vehículo aún no ha aprobado tu licencia. No puedes iniciar el chat.");
         window.location.href = "subir_licencia.php";
         return;
     }
-
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
 
@@ -355,11 +348,10 @@ function toggleChatFlotante() {
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     if (!usuarioTieneLicenciaAprobada) {
-        alert("Para realizar una reserva necesitas tener tu licencia registrada y aprobada. Serás redirigido para gestionarla.");
+        alert("El propietario de este vehículo necesita aprobar tu licencia antes de iniciar la reserva.");
         window.location.href = "subir_licencia.php";
         return;
     }
-
     const chatContainer = document.getElementById('chat-float-container');
     if (chatContainer) chatContainer.style.display = 'flex';
 
@@ -400,11 +392,9 @@ function enviarMensajeBot() {
         if(data.status === 'success') {
             input.value = '';
             cargarMensajesServidor();
-        } else {
-            console.error("Error al enviar mensaje:", data.message || data);
         }
     })
-    .catch(err => console.error("Error de red en el chat:", err));
+    .catch(err => console.error("Error al enviar:", err));
 }
 
 function enviarMensajeAutomatico(texto) {
@@ -427,13 +417,9 @@ function enviarMensajeAutomatico(texto) {
     })
     .then(res => res.json())
     .then(data => {
-        if(data.status === 'success') {
-            cargarMensajesServidor();
-        } else {
-            console.error("Error en mensaje automático:", data.message || data);
-        }
+        if(data.status === 'success') cargarMensajesServidor();
     })
-    .catch(err => console.error("Error de red en mensaje automático:", err));
+    .catch(err => console.error("Error automático:", err));
 }
 
 function cargarMensajesServidor() {
@@ -449,7 +435,6 @@ function cargarMensajesServidor() {
         if(data.status === 'success') {
             const mensajesContainer = document.getElementById('chat-messages');
             mensajesContainer.innerHTML = '';
-
             data.mensajes.forEach(m => {
                 const div = document.createElement('div');
                 const esMio = m.remitente === data.usuario_actual;
@@ -460,26 +445,19 @@ function cargarMensajesServidor() {
             mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
         }
     })
-    .catch(err => console.error("Error al cargar mensajes:", err));
+    .catch(err => console.error("Error al cargar:", err));
 }
 
 function iniciarActualizacionChat() {
     cargarMensajesServidor();
-    if (!intervaloChat) {
-        intervaloChat = setInterval(cargarMensajesServidor, 3000);
-    }
+    if (!intervaloChat) intervaloChat = setInterval(cargarMensajesServidor, 3000);
 }
 
 function detenerActualizacionChat() {
-    if (intervaloChat) {
-        clearInterval(intervaloChat);
-        intervaloChat = null;
-    }
+    if (intervaloChat) { clearInterval(intervaloChat); intervaloChat = null; }
 }
 
-function handleKeyPress(e) {
-    if (e.key === 'Enter') enviarMensajeBot();
-}
+function handleKeyPress(e) { if (e.key === 'Enter') enviarMensajeBot(); }
 </script>
 </body>
 </html>
