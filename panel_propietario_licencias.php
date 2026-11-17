@@ -33,8 +33,6 @@ if (isset($_GET['accion']) && isset($_GET['licencia'])) {
             $mensaje = "Has rechazado la licencia. El usuario deberá cargar un documento válido.";
             $tipoAlerta = "error";
         } elseif ($accion === 'eliminar') {
-            // Oculta la tarjeta temporalmente o marca el registro para que no aparezca en este panel
-            // (Si prefieres borrar el usuario por completo o marcarlo como archivado)
             $stmt = $pdo->prepare("UPDATE usuario SET licencia_numero = NULL, licencia_imagen = NULL, licencia_verificada = 0 WHERE licencia_numero = :licencia");
             $stmt->execute([':licencia' => $licenciaNumero]);
             $mensaje = "La solicitud ha sido retirada de tu pantalla.";
@@ -46,64 +44,36 @@ if (isset($_GET['accion']) && isset($_GET['licencia'])) {
     }
 }
 
-// 3. Consulta optimizada agrupada por licencia
+// 3. Consulta unificada usando id_proveedor para ambos perfiles (Empresas y Particulares)
 $solicitantes = [];
 $errorConsulta = null;
 
 try {
-    if ($tipoUsuario == 1) {
-        $sql = "
-            SELECT 
-                MIN(u.id_usuario) AS id_usuario,
-                MIN(u.nombre) AS nombre,
-                MIN(u.correo) AS correo,
-                MIN(u.num_telefono) AS num_telefono,
-                u.licencia_numero,
-                MIN(u.licencia_imagen) AS licencia_imagen,
-                MAX(u.licencia_verificada) AS licencia_verificada,
-                MIN(v.marca) AS marca,
-                MIN(v.modelo) AS modelo,
-                MIN(v.placa) AS placa
-            FROM vehiculo v
-            INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
-            INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
-            WHERE v.id_proveedor = :id_ref
-              AND u.id_usuario != :id_self
-              AND u.licencia_numero IS NOT NULL 
-              AND u.licencia_numero != ''
-            GROUP BY u.licencia_numero
-            ORDER BY licencia_verificada ASC, id_usuario DESC
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':id_ref' => $idUsuario, ':id_self' => $idUsuario]);
-
-    } else {
-        $sql = "
-            SELECT 
-                MIN(u.id_usuario) AS id_usuario,
-                MIN(u.nombre) AS nombre,
-                MIN(u.correo) AS correo,
-                MIN(u.num_telefono) AS num_telefono,
-                u.licencia_numero,
-                MIN(u.licencia_imagen) AS licencia_imagen,
-                MAX(u.licencia_verificada) AS licencia_verificada,
-                MIN(v.marca) AS marca,
-                MIN(v.modelo) AS modelo,
-                MIN(v.placa) AS placa
-            FROM vehiculo v
-            INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
-            INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
-            WHERE v.id_arrendatario = :id_ref_arrendatario
-              AND u.id_usuario != :id_self_2
-              AND u.licencia_numero IS NOT NULL 
-              AND u.licencia_numero != ''
-            GROUP BY u.licencia_numero
-            ORDER BY licencia_verificada ASC, id_usuario DESC
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':id_ref_arrendatario' => $idUsuario, ':id_self_2' => $idUsuario]);
-    }
-
+    $sql = "
+        SELECT 
+            MIN(u.id_usuario) AS id_usuario,
+            MIN(u.nombre) AS nombre,
+            MIN(u.correo) AS correo,
+            MIN(u.num_telefono) AS num_telefono,
+            u.licencia_numero,
+            MIN(u.licencia_imagen) AS licencia_imagen,
+            MAX(u.licencia_verificada) AS licencia_verificada,
+            MIN(v.marca) AS marca,
+            MIN(v.modelo) AS modelo,
+            MIN(v.placa) AS placa
+        FROM vehiculo v
+        INNER JOIN mensajes_chat m ON m.id_vehiculo = v.id_v
+        INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
+        WHERE v.id_proveedor = :id_ref
+          AND u.id_usuario != :id_self
+          AND u.licencia_numero IS NOT NULL 
+          AND u.licencia_numero != ''
+        GROUP BY u.licencia_numero
+        ORDER BY licencia_verificada ASC, id_usuario DESC
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':id_ref' => $idUsuario, ':id_self' => $idUsuario]);
     $solicitantes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
@@ -215,7 +185,7 @@ try {
             <?php endif; ?>
 
             <?php if (!empty($mensaje)): ?>
-                <div class="alert <?php echo $tipoAlerta; ?>"><?php echo htmlspecialchars($signal ?? $mensaje); ?></div>
+                <div class="alert <?php echo $tipoAlerta; ?>"><?php echo htmlspecialchars($mensaje); ?></div>
             <?php endif; ?>
 
             <?php if (empty($solicitantes)): ?>
@@ -251,7 +221,6 @@ try {
                             <?php endif; ?>
 
                             <?php if ((int)$sol['licencia_verificada'] !== 1): ?>
-                                <!-- Botones si está pendiente -->
                                 <a href="panel_propietario_licencias.php?accion=aprobar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
                                    class="btn btn-aprobar" 
                                    onclick="return confirm('¿Confirmas que verificaste los datos en el RUNT y deseas APROBAR esta licencia?');">
@@ -263,7 +232,6 @@ try {
                                     <i class="fa-solid fa-xmark"></i> Rechazar
                                 </a>
                             <?php else: ?>
-                                <!-- Botón para ocultar/eliminar de la pantalla una vez ya fue gestionada -->
                                 <a href="panel_propietario_licencias.php?accion=eliminar&licencia=<?php echo urlencode($sol['licencia_numero']); ?>" 
                                    class="btn btn-eliminar" 
                                    onclick="return confirm('¿Deseas quitar esta tarjeta de tu panel?');">
