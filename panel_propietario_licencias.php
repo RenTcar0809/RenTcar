@@ -45,7 +45,7 @@ $solicitantes = [];
 $errorConsulta = null;
 
 try {
-    if ($tipoUsuario == 1) {
+   if ($tipoUsuario == 1) {
         // Consulta para EMPRESAS (usan id_proveedor)
         $sql = "
             SELECT DISTINCT 
@@ -53,7 +53,7 @@ try {
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
-            INNER JOIN mensajes m ON m.id_vehiculo = v.id_v
+            INNER JOIN chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
             WHERE v.id_proveedor = :id_ref
               AND u.id_usuario != :id_self
@@ -72,7 +72,7 @@ try {
                 u.licencia_numero, u.licencia_imagen, u.licencia_verificada,
                 v.marca, v.modelo, v.placa
             FROM vehiculo v
-            INNER JOIN mensajes m ON m.id_vehiculo = v.id_v
+            INNER JOIN chat m ON m.id_vehiculo = v.id_v
             INNER JOIN usuario u ON (u.nombre = m.remitente OR u.empresa = m.remitente)
             WHERE v.propietario_nombre = :nombre_ref
               AND u.nombre != :nombre_self
