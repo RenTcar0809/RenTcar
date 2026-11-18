@@ -36,12 +36,15 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 
     if (!$alquilerData) {
         $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, estado, confirmar_propietario) VALUES (?, 'pendiente', 1)");
-        $stmtCreate->execute([$idVehiculoAccion]);$msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
+        $stmtCreate->execute([$idVehiculoAccion]);
+        $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
     } else {
-        $idAlquiler = $alquilerData['id_prestamo'];$confCliente = intval($alquilerData['confirmar_cliente'] ?? 0);$confPropietario = 1;
+        $idAlquiler = $alquilerData['id_prestamo'];
+        $confCliente = intval($alquilerData['confirmar_cliente'] ?? 0);
+        $confPropietario = 1;
 
-        if ($confCliente === 1 &&$confPropietario === 1) {
-            $updAlq =$pdo->prepare("
+        if ($confCliente === 1 && $confPropietario === 1) {
+            $updAlq = $pdo->prepare("
                 UPDATE prestamo 
                 SET estado = 'activo', 
                     confirmar_cliente = 1, 
@@ -51,13 +54,13 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
             ");
             $updAlq->execute([$idAlquiler]);
 
-            $updVeh =$pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
+            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
 
-            $msgFinal = "¡Ambas partes han confirmado! El alquiler se ha activado y el vehículo figura como alquilado.";
+            $msgFinal = "¡Ambas partes han confirmado (2/2)! El alquiler se ha activado y el vehículo figura como alquilado.";
         } else {
-            $updParcial =$pdo->prepare("UPDATE prestamo SET confirmar_propietario = ? WHERE id_prestamo = ?");
-            $updParcial->execute([$confPropietario,$idAlquiler]);
+            $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_propietario = ? WHERE id_prestamo = ?");
+            $updParcial->execute([$confPropietario, $idAlquiler]);
 
             $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
         }
@@ -70,23 +73,26 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 // PROCESAR SOLICITUD DE FINALIZAR ALQUILER (EMPRESA)
 if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
-    $stmtAlq =$pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
+    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
-    $alquilerData =$stmtAlq->fetch(PDO::FETCH_ASSOC);
+    $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
-    if ($alquilerData) {$idAlquiler = $alquilerData['id_prestamo'];$finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);$finPropietario = 1;
+    if ($alquilerData) {
+        $idAlquiler = $alquilerData['id_prestamo'];
+        $finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);
+        $finPropietario = 1;
 
-        if ($finCliente === 1 &&$finPropietario === 1) {
-            $updAlq =$pdo->prepare("UPDATE prestamo SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_prestamo = ?");
+        if ($finCliente === 1 && $finPropietario === 1) {
+            $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_prestamo = ?");
             $updAlq->execute([$idAlquiler]);
 
-            $updVeh =$pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
+            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
 
-            $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
+            $msgFinal = "¡Ambas partes han confirmado finalizar (2/2)! El vehículo vuelve a estar disponible.";
         } else {
-            $updParcial =$pdo->prepare("UPDATE prestamo SET finalizar_propietario = ? WHERE id_prestamo = ?");
-            $updParcial->execute([$finPropietario,$idAlquiler]);
+            $updParcial = $pdo->prepare("UPDATE prestamo SET finalizar_propietario = ? WHERE id_prestamo = ?");
+            $updParcial->execute([$finPropietario, $idAlquiler]);
 
             $msgFinal = "Has solicitado finalizar. Esperando confirmación del cliente.";
         }
@@ -97,13 +103,13 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset
 }
 
 function obtenerUrlImagen($ruta) {
-    $ruta = trim(str_replace('\\', '/',$ruta));
+    $ruta = trim(str_replace('\\', '/', $ruta));
     if (empty($ruta)) return 'unnamed.png';
-    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return$ruta;
-    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return$ruta;
-    if (file_exists('uploads/' . $ruta)) return 'uploads/' .$ruta;
-    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' .$ruta;
-    if (file_exists($ruta)) return$ruta;
+    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
+    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
+    if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
+    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' . $ruta;
+    if (file_exists($ruta)) return $ruta;
     return 'unnamed.png';
 }
 
@@ -127,10 +133,11 @@ try {
                     m.id_vehiculo, 
                     m.fecha DESC";
     
-    $stmtLista =$pdo->prepare($sqlLista);$stmtLista->execute([':id_proveedor' => $idProveedor, ':empresa' =>$nombreEmpresa]);
-    $conversaciones =$stmtLista->fetchAll(PDO::FETCH_ASSOC);
+    $stmtLista = $pdo->prepare($sqlLista);
+    $stmtLista->execute([':id_proveedor' => $idProveedor, ':empresa' => $nombreEmpresa]);
+    $conversaciones = $stmtLista->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $errorConsulta =$e->getMessage();
+    $errorConsulta = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -215,17 +222,18 @@ try {
                 <div class="chat-sidebar-header"><i class="fa-solid fa-comments" style="color: #e50914;"></i> Mensajes Recibidos</div>
                 <div class="chat-list">
                     <?php if (!empty($conversaciones)): ?>
-                        <?php foreach ($conversaciones as$index => $chat):$claveKey = $chat['id_vehiculo'] . '_' .$chat['cliente'];
+                        <?php foreach ($conversaciones as $index => $chat): 
+                            $claveKey = $chat['id_vehiculo'] . '_' . $chat['cliente'];
                             $imagenFinal = obtenerUrlImagen(!empty($chat['imagen_fotos_tabla']) ? $chat['imagen_fotos_tabla'] : ($chat['imagen_principal_vehiculo'] ?? ''));
                         ?>
-                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" data-key="<?php echo htmlspecialchars($claveKey); ?>" onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo$chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' .$chat['modelo'], ENT_QUOTES); ?>', this)">
+                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" data-key="<?php echo htmlspecialchars($claveKey); ?>" onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo'], ENT_QUOTES); ?>', this)">
                                 <div class="chat-avatar"><img src="<?php echo htmlspecialchars($imagenFinal); ?>" alt="Vehículo" onerror="this.src='unnamed.png'"></div>
                                 <div class="chat-info">
                                     <div class="chat-title-row">
                                         <span class="chat-name"><?php echo htmlspecialchars($chat['cliente']); ?></span>
                                         <span class="chat-time"><?php echo date('H:i', strtotime($chat['fecha'])); ?></span>
                                     </div>
-                                    <div class="chat-subtext"><i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' .$chat['modelo']); ?></div>
+                                    <div class="chat-subtext"><i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo']); ?></div>
                                     <div class="chat-last-msg"><?php echo htmlspecialchars($chat['mensaje']); ?></div>
                                 </div>
                             </div>
@@ -246,7 +254,7 @@ try {
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;" id="headerActionButtons">
-                        <div id="contenedorBotonesAccion"></div>
+                        <div id="contenedorBotonesAccion" style="display: flex; align-items: center; gap: 6px;"></div>
                         <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
                     </div>
                 </div>
@@ -311,25 +319,35 @@ try {
 
                     let estadoAlquiler = 'pendiente';
                     let confProp = 0;
+                    let confCli = 0;
                     let finProp = 0;
+                    let finCli = 0;
 
                     if (data.status === 'success' && data.alquiler) {
                         estadoAlquiler = data.alquiler.estado;
                         confProp = parseInt(data.alquiler.confirmar_propietario || 0);
+                        confCli = parseInt(data.alquiler.confirmar_cliente || 0);
                         finProp = parseInt(data.alquiler.finalizar_propietario || 0);
+                        finCli = parseInt(data.alquiler.finalizar_cliente || 0);
                     }
 
                     if (estadoAlquiler === 'activo') {
+                        let totalFin = finProp + finCli;
+                        let badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Finalización: ${totalFin}/2</span>`;
+
                         if (finProp === 1) {
-                            contenedor.innerHTML = `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
+                            contenedor.innerHTML = badgeContador + `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
                         } else {
-                            contenedor.innerHTML = `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${idVehiculo}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
+                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${idVehiculo}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
                         }
                     } else {
+                        let totalConf = confProp + confCli;
+                        let badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Confirmación: ${totalConf}/2</span>`;
+
                         if (confProp === 1) {
-                            contenedor.innerHTML = `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
+                            contenedor.innerHTML = badgeContador + `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
                         } else {
-                            contenedor.innerHTML = `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${idVehiculo}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
+                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${idVehiculo}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
                         }
                     }
                 })

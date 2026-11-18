@@ -60,7 +60,7 @@ try {
                 $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
                 $updVeh->execute([$idVehiculoAccion]);
 
-                $msgFinal = "¡Ambas partes han confirmado! El alquiler se ha activado correctamente.";
+                $msgFinal = "¡Ambas partes han confirmado (2/2)! El alquiler se ha activado correctamente.";
             } else {
                 $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_cliente = ? WHERE id_prestamo = ?");
                 $updParcial->execute([$confCliente, $idAlquiler]);
@@ -94,7 +94,7 @@ try {
                 $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
                 $updVeh->execute([$idVehiculoAccion]);
 
-                $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
+                $msgFinal = "¡Ambas partes han confirmado finalizar (2/2)! El alquiler ha finalizado con éxito.";
             } else {
                 $updParcial = $pdo->prepare("UPDATE prestamo SET finalizar_cliente = ? WHERE id_prestamo = ?");
                 $updParcial->execute([$finCliente, $idAlquiler]);
@@ -244,14 +244,23 @@ if (!empty($interlocutor_real)) {
                         <small style="color: #aaa;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
                     </div>
 
-                    <!-- BOTONES DE ACCIÓN SIEMPRE VISIBLES PARA EL CLIENTE -->
+                    <!-- BOTONES DE ACCIÓN Y RECUADRO CONTADOR (X/2) PARA EL CLIENTE -->
                     <?php 
                         $estadoAlq = $alquilerChatActivo['estado'] ?? 'pendiente';
                         $confCliente = intval($alquilerChatActivo['confirmar_cliente'] ?? 0);
+                        $confPropietario = intval($alquilerChatActivo['confirmar_propietario'] ?? 0);
                         $finCliente = intval($alquilerChatActivo['finalizar_cliente'] ?? 0);
+                        $finPropietario = intval($alquilerChatActivo['finalizar_propietario'] ?? 0);
+
+                        $totalConfirmacion = $confCliente + $confPropietario;
+                        $totalFinalizacion = $finCliente + $finPropietario;
                     ?>
 
                     <?php if ($estadoAlq === 'activo'): ?>
+                        <span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444; margin-right: 8px;">
+                            Finalización: <?php echo $totalFinalizacion; ?>/2
+                        </span>
+
                         <?php if ($finCliente === 1): ?>
                             <span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;">
                                 <i class="fas fa-clock"></i> Ya confirmaste finalizar (Falta propietario)
@@ -264,6 +273,10 @@ if (!empty($interlocutor_real)) {
                             </a>
                         <?php endif; ?>
                     <?php else: ?>
+                        <span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444; margin-right: 8px;">
+                            Confirmación: <?php echo $totalConfirmacion; ?>/2
+                        </span>
+
                         <?php if ($confCliente === 1): ?>
                             <span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;">
                                 <i class="fas fa-clock"></i> Ya confirmaste (Falta propietario)
