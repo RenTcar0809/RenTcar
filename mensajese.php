@@ -29,14 +29,23 @@ $conversaciones = [];
 // PROCESAR CONFIRMAR INICIO DE PRÉSTAMO / ALQUILER (EMPRESA)
 if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
+    $clienteNombre = $_GET['cliente'] ?? '';
+
+    // Buscar el id_arrendatario en la tabla usuario para evitar violar restricciones de no-nulo
+    $idArrendatario = null;
+    if (!empty($clienteNombre)) {
+        $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+        $stmtUser->execute([$clienteNombre, $clienteNombre]);
+        $idArrendatario = $stmtUser->fetchColumn();
+    }
 
     $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'activo') ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
     $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
     if (!$alquilerData) {
-        $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, estado, confirmar_propietario) VALUES (?, 'pendiente', 1)");
-        $stmtCreate->execute([$idVehiculoAccion]);
+        $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario) VALUES (?, ?, 'pendiente', 1)");
+        $stmtCreate->execute([$idVehiculoAccion, $idArrendatario]);
         $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
     } else {
         $idAlquiler = $alquilerData['id_prestamo'];
@@ -49,18 +58,19 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                 SET estado = 'activo', 
                     confirmar_cliente = 1, 
                     confirmar_propietario = 1, 
-                    fecha_confirmacion = NOW() 
+                    fecha_confirmacion = NOW(),
+                    id_arrendatario = COALESCE(id_arrendatario, ?)
                 WHERE id_prestamo = ?
             ");
-            $updAlq->execute([$idAlquiler]);
+            $updAlq->execute([$idArrendatario, $idAlquiler]);
 
             $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
 
             $msgFinal = "¡Ambas partes han confirmado (2/2)! El alquiler se ha activado y el vehículo figura como alquilado.";
         } else {
-            $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_propietario = ? WHERE id_prestamo = ?");
-            $updParcial->execute([$confPropietario, $idAlquiler]);
+            $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_propietario = ?, id_arrendatario = COALESCE(id_arrendatario, ?) WHERE id_prestamo = ?");
+            $updParcial->execute([$confPropietario, $idArrendatario, $idAlquiler]);
 
             $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
         }
@@ -347,7 +357,7 @@ try {
                         if (confProp === 1) {
                             contenedor.innerHTML = badgeContador + `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
                         } else {
-                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${idVehiculo}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
+                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${idVehiculo}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
                         }
                     }
                 })
