@@ -323,10 +323,9 @@ function ocultarEditor(id) {
 }
 
 function toggleChatFlotante() {
-    // VALIDACIÓN ESTRICTA: Si intenta abrir el chat y no está aprobada, se bloquea al instante
     if (!usuarioTieneLicenciaAprobada) {
-        alert("⚠️ El propietario de este vehículo aún no ha aprobado tu licencia. Debes esperar su autorización antes de poder reservar o chatear.");
-        window.location.href = "subir_licencia.php";
+        alert("⚠️ El propietario de este vehículo aún no ha aprobado tu licencia. Enviaremos tu solicitud de verificación ahora.");
+        window.location.href = "solicitar_verificacion.php?id_vehiculo=<?php echo $id_vehiculo; ?>";
         return;
     }
 
@@ -350,10 +349,10 @@ function toggleChatFlotante() {
 }
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
-    // VALIDACIÓN AL HACER CLIC EN RESERVAR AHORA
+    // VALIDACIÓN AL HACER CLIC EN RESERVAR AHORA: Registra la solicitud antes de redirigir
     if (!usuarioTieneLicenciaAprobada) {
-        alert("⚠️ Para reservar este vehículo y comunicarte con el propietario, el dueño debe aprobar tu licencia previamente. Serás redirigido para gestionarla.");
-        window.location.href = "subir_licencia.php";
+        alert("⚠️ Para reservar este vehículo y comunicarte con el propietario, el dueño debe aprobar tu licencia previamente. Registraremos tu solicitud de verificación.");
+        window.location.href = "solicitar_verificacion.php?id_vehiculo=" + idItem;
         return;
     }
 

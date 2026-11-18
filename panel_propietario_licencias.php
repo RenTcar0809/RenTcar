@@ -54,6 +54,7 @@ if (isset($_GET['accion']) && isset($_GET['id_solicitante'])) {
 }
 
 // 3. Consulta optimizada: Muestra usuarios que te escribieron por tus vehículos O tienen una solicitud contigo
+// 3. Consulta directa sobre solicitudes registradas para este propietario
 $solicitantes = [];
 $errorConsulta = null;
 
@@ -66,19 +67,18 @@ try {
             u.num_telefono,
             u.licencia_numero, 
             u.licencia_imagen,
-            COALESCE(a.estado, 0) AS licencia_verificada,
-            v.marca, 
-            v.modelo, 
-            v.placa
-        FROM usuario u
-        INNER JOIN mensajes_chat m ON (u.nombre = m.remitente OR u.empresa = m.remitente)
-        INNER JOIN vehiculo v ON m.id_vehiculo = v.id_v
-        LEFT JOIN aprobaciones_licencias a ON (a.id_proveedor = v.id_proveedor AND a.id_usuario = u.id_usuario)
-        WHERE v.id_proveedor = :id_ref
+            a.estado AS licencia_verificada,
+            COALESCE(v.marca, 'Flota') AS marca, 
+            COALESCE(v.modelo, 'General') AS modelo, 
+            COALESCE(v.placa, 'N/A') AS placa
+        FROM aprobaciones_licencias a
+        INNER JOIN usuario u ON a.id_usuario = u.id_usuario
+        LEFT JOIN vehiculo v ON v.id_proveedor = a.id_proveedor
+        WHERE a.id_proveedor = :id_ref
           AND u.id_usuario != :id_self
           AND u.licencia_numero IS NOT NULL 
           AND u.licencia_numero != ''
-        ORDER BY licencia_verificada ASC, u.id_usuario DESC
+        ORDER BY a.estado ASC, u.id_usuario DESC
     ";
     
     $stmt = $pdo->prepare($sql);
