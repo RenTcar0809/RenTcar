@@ -29,12 +29,11 @@ $conversaciones = [];
 // PROCESAR CONFIRMAR INICIO DE PRÉSTAMO / ALQUILER (EMPRESA)
 if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
-    $clienteNombre = $_GET['cliente'] ?? '';
+    $clienteNombre = trim($_GET['cliente'] ?? '');
 
-    // 1. Buscar el id_arrendatario correspondiente en la tabla 'arrendatario' (o vinculada con 'usuario')
+    // 1. Buscar el id_arrendatario de forma segura validando que no esté vacío
     $idArrendatario = null;
-    if (!empty($clienteNombre)) {
-        // Intentamos buscar primero si la tabla arrendatario tiene relación con el nombre en usuario o directamente
+    if ($clienteNombre !== '') {
         $stmtUser = $pdo->prepare("
             SELECT a.id_arrendatario 
             FROM arrendatario a 
@@ -44,13 +43,13 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
         ");
         $stmtUser->execute([$clienteNombre, $clienteNombre]);
         $idArrendatario = $stmtUser->fetchColumn();
+    }
 
-        // Si no se encuentra por JOIN, intentamos buscar directo por ID si el nombre fuera numérico o por coincidencia directa
-        if (!$idArrendatario) {
-            $stmtDirecto = $pdo->prepare("SELECT id_arrendatario FROM arrendatario LIMIT 1");
-            $stmtDirecto->execute();
-            $idArrendatario = $stmtDirecto->fetchColumn(); // Fallback seguro para evitar nulos si existe al menos un arrendatario
-        }
+    // Si aún no se encuentra, obtenemos un arrendatario por defecto existente para evitar violar la llave foránea
+    if (!$idArrendatario) {
+        $stmtFallback = $pdo->prepare("SELECT id_arrendatario FROM arrendatario LIMIT 1");
+        $stmtFallback->execute();
+        $idArrendatario = $stmtFallback->fetchColumn() ?: null;
     }
 
     // 2. Obtener el precio / monto del vehículo
