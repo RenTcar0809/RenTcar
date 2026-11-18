@@ -33,13 +33,50 @@ try {
         $idVehiculoAccion = intval($_GET['id_vehiculo']);
         $interlocutorAccion = $_GET['interlocutor'] ?? '';
 
-        $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'activo') ORDER BY id_prestamo DESC LIMIT 1");
+        // 1. Obtener o asegurar el id_arrendatario correspondiente a este usuario cliente
+        $idArrendatario = null;
+        $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
+        $stmtArr->execute([$id_usuario]);
+        $idArrendatario = $stmtArr->fetchColumn();
+
+        if (!$idArrendatario) {
+            try {
+                $stmtInsArr = $pdo->prepare("
+                    INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion) 
+                    VALUES (?, ?, 'N/A', 0, 0, 'cliente@rentcar.com', 'N/A')
+                ");
+                $stmtInsArr->execute([$id_usuario, $nombre_usuario]);
+                $idArrendatario = $pdo->lastInsertId();
+
+                if (!$idArrendatario) {
+                    $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
+                    $stmtArr2->execute([$id_usuario]);
+                    $idArrendatario = $stmtArr2->fetchColumn();
+                }
+            } catch (Exception $ex) {}
+        }
+
+        if (!$idArrendatario) {
+            $stmtFallback = $pdo->prepare("SELECT id_arrendatario FROM arrendatario ORDER BY id_arrendatario ASC LIMIT 1");
+            $stmtFallback->execute();
+            $idArrendatario = $stmtFallback->fetchColumn();
+        }
+
+        // 2. Obtener el precio del vehículo
+        $stmtPrecio = $pdo->prepare("SELECT precio FROM vehiculo WHERE id_v = ? LIMIT 1");
+        $stmtPrecio->execute([$idVehiculoAccion]);
+        $montoVehiculo = $stmtPrecio->fetchColumn() ?: 0.00;
+
+        $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'Pendiente', 'activo', 'Activo') ORDER BY id_prestamo DESC LIMIT 1");
         $stmtAlq->execute([$idVehiculoAccion]);
         $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
         if (!$alquilerData) {
-            $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, estado, confirmar_cliente) VALUES (?, 'pendiente', 1)");
-            $stmtCreate->execute([$idVehiculoAccion]);
+            $stmtCreate = $pdo->prepare("
+                INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_cliente, fecha_inicio, fecha_fin, monto) 
+                VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', ?)
+            ");
+            $stmtCreate->execute([$idVehiculoAccion, $idArrendatario, $montoVehiculo]);
             $msgFinal = "Has confirmado el alquiler. Esperando confirmación del propietario.";
         } else {
             $idAlquiler = $alquilerData['id_prestamo'];
@@ -52,18 +89,30 @@ try {
                     SET estado = 'activo', 
                         confirmar_cliente = 1, 
                         confirmar_propietario = 1, 
-                        fecha_confirmacion = NOW() 
+                        fecha_confirmacion = NOW(),
+                        fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
+                        fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
+                        monto = COALESCE(monto, ?),
+                        id_arrendatario = COALESCE(id_arrendatario, ?)
                     WHERE id_prestamo = ?
                 ");
-                $updAlq->execute([$idAlquiler]);
+                $updAlq->execute([$montoVehiculo, $idArrendatario, $idAlquiler]);
 
                 $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
                 $updVeh->execute([$idVehiculoAccion]);
 
                 $msgFinal = "¡Ambas partes han confirmado (2/2)! El alquiler se ha activado correctamente.";
             } else {
-                $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_cliente = ? WHERE id_prestamo = ?");
-                $updParcial->execute([$confCliente, $idAlquiler]);
+                $updParcial = $pdo->prepare("
+                    UPDATE prestamo 
+                    SET confirmar_cliente = ?, 
+                        fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
+                        fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
+                        monto = COALESCE(monto, ?),
+                        id_arrendatario = COALESCE(id_arrendatario, ?) 
+                    WHERE id_prestamo = ?
+                ");
+                $updParcial->execute([$confCliente, $montoVehiculo, $idArrendatario, $idAlquiler]);
 
                 $msgFinal = "Has confirmado el alquiler. Esperando confirmación del propietario.";
             }
@@ -78,7 +127,7 @@ try {
         $idVehiculoAccion = intval($_GET['id_vehiculo']);
         $interlocutorAccion = $_GET['interlocutor'] ?? '';
 
-        $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
+        $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('activo', 'Activo') ORDER BY id_prestamo DESC LIMIT 1");
         $stmtAlq->execute([$idVehiculoAccion]);
         $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
@@ -175,7 +224,7 @@ if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
 $alquilerChatActivo = null;
 if ($id_vehiculo_activo > 0) {
     try {
-        $stmtAlqCheck = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'activo') ORDER BY id_prestamo DESC LIMIT 1");
+        $stmtAlqCheck = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'Pendiente', 'activo', 'Activo') ORDER BY id_prestamo DESC LIMIT 1");
         $stmtAlqCheck->execute([$id_vehiculo_activo]);
         $alquilerChatActivo = $stmtAlqCheck->fetch(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {}
@@ -256,7 +305,7 @@ if (!empty($interlocutor_real)) {
                         $totalFinalizacion = $finCliente + $finPropietario;
                     ?>
 
-                    <?php if ($estadoAlq === 'activo'): ?>
+                    <?php if (strtolower($estadoAlq) === 'activo'): ?>
                         <span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444; margin-right: 8px;">
                             Finalización: <?php echo $totalFinalizacion; ?>/2
                         </span>
