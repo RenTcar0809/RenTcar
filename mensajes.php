@@ -10,7 +10,6 @@ if (!isset($_SESSION['IdUsuario'])) {
     exit();
 }
 
-// Prevenir almacenamiento en caché
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
@@ -21,7 +20,6 @@ $error_msg = '';
 $contactos = []; 
 
 try {
-    // Consulta para obtener la identidad del usuario actual
     $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
     $stmtU->execute([$id_usuario]);
     $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
@@ -30,15 +28,13 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // Guardar el nombre en sesión para compatibilidad con chat_backend.php
     $_SESSION['usuario_nombre'] = $nombre_usuario;
 
-    // 1. PROCESAR SOLICITUD DE FINALIZAR ALQUILER (Doble Confirmación)
+    // PROCESAR SOLICITUD DE FINALIZAR ALQUILER (Doble Confirmación)
     if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
         $idVehiculoAccion = intval($_GET['id_vehiculo']);
         $interlocutorAccion = $_GET['interlocutor'] ?? '';
 
-        // Buscar si existe un alquiler activo para este vehículo
         $stmtAlq = $pdo->prepare("
             SELECT a.*, v.id_proveedor 
             FROM alquileres a 
@@ -50,22 +46,9 @@ try {
 
         if ($alquilerData) {
             $idAlquiler = $alquilerData['id_alquiler'];
-            $finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);
+            $finCliente = 1; // El cliente aprueba
             $finPropietario = intval($alquilerData['finalizar_propietario'] ?? 0);
 
-            // Identificar si el usuario actual es el propietario o el cliente
-            $stmtProv = $pdo->prepare("SELECT nombre, empresa FROM usuario WHERE id_usuario = ?");
-            $stmtProv->execute([$alquilerData['id_proveedor']]);
-            $provData = $stmtProv->fetch(PDO::FETCH_ASSOC);
-            $nombrePropietario = ($provData['empresa'] ?: $provData['nombre']);
-
-            if ($nombre_usuario === $nombrePropietario) {
-                $finPropietario = 1; // El propietario aprueba
-            } else {
-                $finCliente = 1; // El cliente aprueba
-            }
-
-            // Si ambos ya dieron clic, cerramos el alquiler por completo y liberamos el vehículo
             if ($finCliente === 1 && $finPropietario === 1) {
                 $updAlq = $pdo->prepare("UPDATE alquileres SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_alquiler = ?");
                 $updAlq->execute([$idAlquiler]);
@@ -75,11 +58,10 @@ try {
 
                 $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
             } else {
-                // Si solo uno dio clic, guardamos su voto
-                $updParcial = $pdo->prepare("UPDATE alquileres SET finalizar_cliente = ?, finalizar_propietario = ? WHERE id_alquiler = ?");
-                $updParcial->execute([$finCliente, $finPropietario, $idAlquiler]);
+                $updParcial = $pdo->prepare("UPDATE alquileres SET finalizar_cliente = ? WHERE id_alquiler = ?");
+                $updParcial->execute([$finCliente, $idAlquiler]);
 
-                $msgFinal = "Has solicitado finalizar. Esperando confirmación de la otra parte.";
+                $msgFinal = "Has solicitado finalizar. Esperando confirmación del propietario.";
             }
 
             header("Location: mensajes.php?contacto=" . urlencode($idVehiculoAccion . '_' . $interlocutorAccion) . "&msg=" . urlencode($msgFinal));
@@ -87,7 +69,6 @@ try {
         }
     }
 
-    // Consulta para traer los mensajes
     $stmt_chats = $pdo->prepare('
         SELECT 
             m.id_vehiculo, 
@@ -107,26 +88,14 @@ try {
     $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
     $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
-    function obtenerUrlImagen($ruta) {
+    function obtenerUrlImagenUsuario($ruta) {
         $ruta = trim(str_replace('\\', '/', $ruta));
-        if (empty($ruta)) {
-            return 'unnamed.png';
-        }
-        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) {
-            return $ruta;
-        }
-        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) {
-            return $ruta;
-        }
-        if (file_exists('uploads/' . $ruta)) {
-            return 'uploads/' . $ruta;
-        }
-        if (file_exists('imagenes/' . $ruta)) {
-            return 'imagenes/' . $ruta;
-        }
-        if (file_exists($ruta)) {
-            return $ruta;
-        }
+        if (empty($ruta)) return 'unnamed.png';
+        if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
+        if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
+        if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
+        if (file_exists('imagenes/' . $ruta)) return 'imagenes/' . $ruta;
+        if (file_exists($ruta)) return $ruta;
         return 'unnamed.png';
     }
     
@@ -144,7 +113,7 @@ try {
             }
             
             $url_foto_bruta = !empty($msg['imagen_fotos_tabla']) ? $msg['imagen_fotos_tabla'] : ($msg['imagen_principal_vehiculo'] ?? '');
-            $imagen_cloudinary = obtenerUrlImagen($url_foto_bruta);
+            $imagen_cloudinary = obtenerUrlImagenUsuario($url_foto_bruta);
             
             $tipo_v = strtolower($msg['tipo'] ?? 'auto');
             $tipo_formateado = (strpos($tipo_v, 'moto') !== false) ? 'moto' : 'auto';
@@ -182,7 +151,6 @@ if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
     $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
 }
 
-// Consultar si hay un alquiler activo para mostrar el estado de los botones de doble confirmación
 $alquilerChatActivo = null;
 if ($id_vehiculo_activo > 0) {
     try {
@@ -192,45 +160,20 @@ if ($id_vehiculo_activo > 0) {
     } catch (PDOException $e) {}
 }
 
-// Obtener mensajes de la conversación activa y marcar como leídos
 $mensajes_chat = [];
 if (!empty($interlocutor_real)) {
     try {
         if ($id_vehiculo_activo > 0) {
-            $stmt_marcar = $pdo->prepare('
-                UPDATE mensajes_chat 
-                SET leido = 1 
-                WHERE destinatario = ? 
-                AND remitente = ? 
-                AND id_vehiculo = ? 
-                AND leido = 0
-            ');
+            $stmt_marcar = $pdo->prepare('UPDATE mensajes_chat SET leido = 1 WHERE destinatario = ? AND remitente = ? AND id_vehiculo = ? AND leido = 0');
             $stmt_marcar->execute([$nombre_usuario, $interlocutor_real, $id_vehiculo_activo]);
 
-            $stmt_h = $pdo->prepare('
-                SELECT * FROM mensajes_chat 
-                WHERE id_vehiculo = ? 
-                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
-                ORDER BY fecha ASC
-            ');
+            $stmt_h = $pdo->prepare('SELECT * FROM mensajes_chat WHERE id_vehiculo = ? AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?)) ORDER BY fecha ASC');
             $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
         } else {
-            $stmt_marcar = $pdo->prepare('
-                UPDATE mensajes_chat 
-                SET leido = 1 
-                WHERE destinatario = ? 
-                AND remitente = ? 
-                AND (id_vehiculo IS NULL OR id_vehiculo = 0) 
-                AND leido = 0
-            ');
+            $stmt_marcar = $pdo->prepare('UPDATE mensajes_chat SET leido = 1 WHERE destinatario = ? AND remitente = ? AND (id_vehiculo IS NULL OR id_vehiculo = 0) AND leido = 0');
             $stmt_marcar->execute([$nombre_usuario, $interlocutor_real]);
 
-            $stmt_h = $pdo->prepare('
-                SELECT * FROM mensajes_chat 
-                WHERE (id_vehiculo IS NULL OR id_vehiculo = 0)
-                AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
-                ORDER BY fecha ASC
-            ');
+            $stmt_h = $pdo->prepare('SELECT * FROM mensajes_chat WHERE (id_vehiculo IS NULL OR id_vehiculo = 0) AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?)) ORDER BY fecha ASC');
             $stmt_h->execute([$nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
         }
         $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
@@ -252,7 +195,6 @@ if (!empty($interlocutor_real)) {
 <body>
 
     <div class="chat-wrapper">
-        <!-- BARRA LATERAL DE CONVERSACIONES -->
         <aside class="chat-sidebar">
             <div class="sidebar-header">
                 <a href="dashboardf.php" class="btn-volver">
@@ -274,11 +216,11 @@ if (!empty($interlocutor_real)) {
                            data-key="<?php echo htmlspecialchars($key); ?>">
                             <div class="contact-avatar" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
-                                <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #e74c3c; border-radius: 50%; border: 2px solid #1a1a1a; box-shadow: 0 0 5px rgba(231,76,60,0.8);"></span>
+                                <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #e74c3c; border-radius: 50%; border: 2px solid #1a1a1a;"></span>
                             </div>
                             <div class="contact-info">
                                 <h4><?php echo htmlspecialchars($c['nombre_auto']); ?></h4>
-                                <small>Cliente: <?php echo htmlspecialchars($c['interlocutor']); ?></small>
+                                <small>Propietario: <?php echo htmlspecialchars($c['interlocutor']); ?></small>
                             </div>
                         </a>
                     <?php endforeach; ?>
@@ -286,7 +228,6 @@ if (!empty($interlocutor_real)) {
             </div>
         </aside>
 
-        <!-- CONTENEDOR PRINCIPAL DEL CHAT -->
         <main class="chat-main">
             <?php if (!empty($error_msg)): ?>
                 <div style="padding: 20px; color: #ff6b6b; background: rgba(255,0,0,0.1); border-bottom: 1px solid #333;">
@@ -298,7 +239,7 @@ if (!empty($interlocutor_real)) {
                 <div class="empty-chat-state">
                     <i class="fas fa-comments" style="font-size: 4rem; color: #444; margin-bottom: 15px;"></i>
                     <h3>Selecciona una conversación</h3>
-                    <p>Elige un chat de la lista izquierda para ver el vehículo y responder al cliente.</p>
+                    <p>Elige un chat de la lista izquierda para ver el vehículo y hablar con el propietario.</p>
                 </div>
             <?php else: ?>
                 <div class="chat-header">
@@ -310,29 +251,18 @@ if (!empty($interlocutor_real)) {
                         <small style="color: #aaa; font-size: 0.85rem;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
                     </div>
 
-                    <!-- BOTÓN DE DOBLE CONFIRMACIÓN PARA FINALIZAR ALQUILER -->
                     <?php if ($alquilerChatActivo): ?>
                         <?php 
-                            $stmtGetProv = $pdo->prepare("SELECT id_proveedor FROM vehiculo WHERE id_v = ?");
-                            $stmtGetProv->execute([$id_vehiculo_activo]);
-                            $idProvVeh = $stmtGetProv->fetchColumn();
-
-                            $stmtGetUsrId = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
-                            $stmtGetUsrId->execute([$nombre_usuario, $nombre_usuario]);
-                            $currentUserId = $stmtGetUsrId->fetchColumn();
-
-                            $esPropietario = ($currentUserId == $idProvVeh);
-                            $yaDioClick = $esPropietario ? ($alquilerChatActivo['finalizar_propietario'] == 1) : ($alquilerChatActivo['finalizar_cliente'] == 1);
+                            $yaDioClickCliente = (intval($alquilerChatActivo['finalizar_cliente'] ?? 0) === 1);
                         ?>
-
-                        <?php if ($yaDioClick): ?>
+                        <?php if ($yaDioClickCliente): ?>
                             <span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;">
-                                <i class="fas fa-clock"></i> Esperando otra parte
+                                <i class="fas fa-clock"></i> Esperando propietario
                             </span>
                         <?php else: ?>
                             <a href="mensajes.php?contacto=<?php echo urlencode($contacto_activo_key); ?>&accion=solicitar_finalizar&id_vehiculo=<?php echo $id_vehiculo_activo; ?>&interlocutor=<?php echo urlencode($interlocutor_real); ?>" 
                                style="background: #10b981; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; text-decoration: none; font-weight: bold;" 
-                               onclick="return confirm('¿Estás seguro de solicitar finalizar este alquiler? Se requerirá que la otra parte también confirme.');"
+                               onclick="return confirm('¿Estás seguro de solicitar finalizar este alquiler? Se requerirá que el propietario también confirme.');"
                                title="Solicitar finalizar alquiler">
                                 <i class="fas fa-check-circle"></i> Finalizar Alquiler
                             </a>
@@ -344,7 +274,6 @@ if (!empty($interlocutor_real)) {
                     </button>
                 </div>
 
-                <!-- Alerta de estado si viene por GET -->
                 <?php if (isset($_GET['msg'])): ?>
                     <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 10px 15px; margin: 10px; border-radius: 6px; font-size: 0.9rem; font-weight: 600;">
                         <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($_GET['msg']); ?>
@@ -394,18 +323,15 @@ if (!empty($interlocutor_real)) {
                     if (data.status === 'success') {
                         location.reload(); 
                     } else {
-                        console.error("Detalle del error del backend:", data);
-                        alert('Error al enviar: ' + (data.message || 'Ocurrió un error desconocido.'));
+                        alert('Error al enviar: ' + (data.message || 'Ocurrió un error.'));
                     }
                 })
-                .catch(err => console.error('Error de red al enviar:', err));
+                .catch(err => console.error(err));
             });
         }
 
         function eliminarConversacion(idVehiculo, interlocutor) {
-            if (!confirm('¿Estás seguro de que deseas terminar y eliminar esta conversación? Se borrarán todos los mensajes de este chat.')) {
-                return;
-            }
+            if (!confirm('¿Deseas terminar y eliminar esta conversación?')) return;
 
             const formData = new URLSearchParams();
             formData.append('accion', 'eliminar_chat');
@@ -421,36 +347,10 @@ if (!empty($interlocutor_real)) {
             .then(data => {
                 if (data.status === 'success') {
                     window.location.href = 'mensajes.php';
-                } else {
-                    alert('Error al eliminar: ' + (data.message || 'No se pudo completar la acción.'));
                 }
             })
-            .catch(err => console.error('Error de red:', err));
+            .catch(err => console.error(err));
         }
-
-        function revisarNotificaciones() {
-            fetch('chat_backend.php?accion=verificar_nuevos')
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success' && data.notificaciones) {
-                    data.notificaciones.forEach(notif => {
-                        let claveContacto = notif.id_vehiculo + '_' + notif.remitente;
-                        let elementoContacto = document.querySelector(`.contact-item[data-key="${claveContacto}"]`);
-                        
-                        if (elementoContacto && !elementoContacto.classList.contains('active')) {
-                            let badge = elementoContacto.querySelector('.badge-nuevo');
-                            if (badge) {
-                                badge.style.display = 'block';
-                            }
-                        }
-                    });
-                }
-            })
-            .catch(err => console.error('Error al revisar notificaciones:', err));
-        }
-
-        setInterval(revisarNotificaciones, 5000);
-        revisarNotificaciones();
     </script>
 </body>
 </html>
