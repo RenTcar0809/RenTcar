@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'conexion.php';
+require_once 'conexion.php'; 
 
 // 1. SEGURIDAD: Verificar sesión activa
 if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
@@ -17,6 +17,30 @@ header("Expires: 0");
 $idProveedor    = $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa  = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
+
+// 2. PROCESAR ACCIÓN DE FINALIZAR ALQUILER
+if (isset($_GET['accion']) && $_GET['accion'] === 'finalizar' && isset($_GET['id_alquiler'])) {
+    $idAlquilerFin = intval($_GET['id_alquiler']);
+    try {
+        // Validar que el alquiler pertenezca a un vehículo de esta empresa/proveedor antes de actualizar
+        $stmtCheck = $pdo->prepare("
+            SELECT a.id_alquiler 
+            FROM alquiler a 
+            INNER JOIN vehiculo v ON a.id_vehiculo = v.id_vehiculo 
+            WHERE a.id_alquiler = :id_alq AND v.id_proveedor = :id_prov
+        ");
+        $stmtCheck->execute([':id_alq' => $idAlquilerFin, ':id_prov' => $idProveedor]);
+        
+        if ($stmtCheck->fetch()) {
+            $stmtUpd = $pdo->prepare("UPDATE alquiler SET estado = 'finalizado' WHERE id_alquiler = :id_alq");
+            $stmtUpd->execute([':id_alq' => $idAlquilerFin]);
+            header("Location: alquileres.php?msg=finalizado");
+            exit();
+        }
+    } catch (PDOException $e) {
+        $errorMsg = "Error al finalizar el alquiler: " . $e->getMessage();
+    }
+}
 
 // Variables de contadores
 $alquileres = [];
@@ -62,6 +86,26 @@ try {
     
     <!-- Hoja de Estilos Independiente -->
     <link rel="stylesheet" href="alquileresstile.css?v=<?php echo time(); ?>">
+    <style>
+        /* Estilos adicionales específicos para los botones de acción en tabla */
+        .acciones-td { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-finalizar {
+            background-color: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.2s;
+        }
+        .btn-finalizar:hover { background-color: #059669; }
+    </style>
 </head>
 <body>
 
@@ -72,35 +116,35 @@ try {
         </div>
 
         <nav class="nav-menu">
-    <a href="dashboardE.php" class="nav-link">
-        <i class="fa-solid fa-chart-pie"></i>
-        <span>Panel</span>
-    </a>
-    <a href="mensajese.php" class="nav-link">
-        <i class="fa-solid fa-comments"></i>
-        <span>Mensajes</span>
-    </a>
-    <a href="vehiculosE.php" class="nav-link">
-        <i class="fa-solid fa-car-side"></i>
-        <span>Mi Flota</span>
-    </a>
-    <a href="alquileres.php" class="nav-link active">
-        <i class="fa-solid fa-calendar-check"></i>
-        <span>Alquileres</span>
-    </a>
-    <a href="clientes.php" class="nav-link">
-        <i class="fa-solid fa-users"></i>
-        <span>Clientes</span>
-    </a>
-    <a href="panel_propietario_licencias.php" class="nav-link">
-        <i class="fa-solid fa-id-card"></i>
-        <span>Licencias</span>
-    </a>
-    <a href="perfil_empresa.php" class="nav-link highlight-company">
-        <i class="fa-solid fa-building"></i>
-        <span>Mi Empresa</span>
-    </a>
-</nav>
+            <a href="dashboardE.php" class="nav-link">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Panel</span>
+            </a>
+            <a href="mensajese.php" class="nav-link">
+                <i class="fa-solid fa-comments"></i>
+                <span>Mensajes</span>
+            </a>
+            <a href="vehiculosE.php" class="nav-link">
+                <i class="fa-solid fa-car-side"></i>
+                <span>Mi Flota</span>
+            </a>
+            <a href="alquileres.php" class="nav-link active">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Alquileres</span>
+            </a>
+            <a href="clientes.php" class="nav-link">
+                <i class="fa-solid fa-users"></i>
+                <span>Clientes</span>
+            </a>
+            <a href="panel_propietario_licencias.php" class="nav-link">
+                <i class="fa-solid fa-id-card"></i>
+                <span>Licencias</span>
+            </a>
+            <a href="perfil_empresa.php" class="nav-link highlight-company">
+                <i class="fa-solid fa-building"></i>
+                <span>Mi Empresa</span>
+            </a>
+        </nav>
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
                 <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
@@ -125,6 +169,13 @@ try {
                 <p>Monitorea los contratos de renta, fechas y estados de tus vehículos.</p>
             </div>
         </div>
+
+        <!-- Alerta de éxito al finalizar -->
+        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'finalizado'): ?>
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: 600;">
+                <i class="fa-solid fa-check-circle"></i> El alquiler ha sido finalizado con éxito.
+            </div>
+        <?php endif; ?>
 
         <!-- Tarjetas de Estadísticas / Resumen -->
         <div class="rental-stats-bar">
@@ -155,7 +206,7 @@ try {
                                 <th>Fechas (Inicio / Fin)</th>
                                 <th>Monto Total</th>
                                 <th>Estado</th>
-                                <th style="text-align: center;">Acción</th>
+                                <th style="text-align: center;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -223,9 +274,22 @@ try {
 
                                     <!-- Acciones -->
                                     <td style="text-align: center;">
-                                        <a href="detalle_alquiler.php?id=<?php echo $item['id_alquiler']; ?>" class="btn-icon btn-view" title="Ver Detalles">
-                                            <i class="fa-solid fa-eye"></i>
-                                        </a>
+                                        <div class="acciones-td">
+                                            <!-- Botón Ver Detalles -->
+                                            <a href="detalle_alquiler.php?id=<?php echo $item['id_alquiler']; ?>" class="btn-icon btn-view" title="Ver Detalles">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </a>
+
+                                            <!-- Botón Finalizar (Solo aparece si el estado es activo) -->
+                                            <?php if ($estado === 'activo'): ?>
+                                                <a href="alquileres.php?accion=finalizar&id_alquiler=<?php echo $item['id_alquiler']; ?>" 
+                                                   class="btn-finalizar" 
+                                                   title="Finalizar Alquiler"
+                                                   onclick="return confirm('¿Estás seguro de finalizar este contrato de alquiler?');">
+                                                    <i class="fa-solid fa-check"></i> Finalizar
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
