@@ -9,6 +9,7 @@ if (!isset($_SESSION['usuario_nombre'])) {
 }
 
 $id_vehiculo = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$usuario_actual = $_SESSION['usuario_nombre'];
 $error_msg = ""; 
 
 function limpiarInsultos($texto) {
@@ -71,16 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
-// 4. Obtener datos del vehículo, galerías y validar la licencia APROBADA del usuario
+// 4. Obtener datos del vehículo y validar la aprobación INDIVIDUAL del dueño de este vehículo
 try {
-    $stmtLic = $pdo->prepare("SELECT licencia_numero, licencia_verificada FROM usuario WHERE (nombre = ? OR empresa = ?) LIMIT 1");
-    $stmtLic->execute([$_SESSION['usuario_nombre'], $_SESSION['usuario_nombre']]);
-    $userLicData = $stmtLic->fetch(PDO::FETCH_ASSOC);
-
-    // Bandera booleana para JS: solo es true si existe la licencia Y su estado verificado es 1 (Aprobada)
-    $tieneLicencia = (!empty($userLicData) && !empty($userLicData['licencia_numero']) && isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1) ? 'true' : 'false';
-    $licenciaEstaAprobada = isset($userLicData['licencia_verificada']) && (int)$userLicData['licencia_verificada'] === 1;
-
     $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
     $stmt->execute([$id_vehiculo]);
     $vehiculo = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -89,6 +82,40 @@ try {
         header("Location: automoviles.php"); 
         exit(); 
     }
+
+    // Obtener ID del usuario actual logueado
+    $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+    $stmtUser->execute([$usuario_actual, $usuario_actual]);
+    $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
+    $idUsuarioActual = $userData['id_usuario'] ?? 0;
+
+    $idProveedorVehiculo = intval($vehiculo['id_proveedor']);
+
+    // Si el usuario actual es el propietario de este vehículo, tiene aprobación automática
+    if ($idUsuarioActual > 0 && $idUsuarioActual === $idProveedorVehiculo) {
+        $licenciaEstaAprobadaPorEsteDueño = true;
+    } else {
+        // Verificar si el dueño de ESTE vehículo aprobó a este usuario de forma individual (estado = 1)
+        $stmtAprobacion = $pdo->prepare("SELECT estado FROM aprobaciones_licencias WHERE id_proveedor = ? AND id_usuario = ?");
+        $stmtAprobacion->execute([$idProveedorVehiculo, $idUsuarioActual]);
+        $aprobacionData = $stmtAprobacion->fetch(PDO::FETCH_ASSOC);
+
+        $estadoAprobacion = $aprobacionData ? (int)$aprobacionData['estado'] : 0;
+        $licenciaEstaAprobadaPorEsteDueño = ($estadoAprobacion === 1);
+
+        // Si aún no existe registro en la tabla de aprobaciones para este par, lo creamos como pendiente (0) de forma automática
+        if (!$aprobacionData && $idUsuarioActual > 0 && $idProveedorVehiculo > 0) {
+            $stmtInsAuto = $pdo->prepare("
+                INSERT INTO aprobaciones_licencias (id_proveedor, id_usuario, estado, fecha_actualizacion)
+                VALUES (?, ?, 0, CURRENT_TIMESTAMP)
+                ON CONFLICT (id_proveedor, id_usuario) DO NOTHING
+            ");
+            $stmtInsAuto->execute([$idProveedorVehiculo, $idUsuarioActual]);
+        }
+    }
+
+    // Bandera booleana exacta para JavaScript
+    $tieneLicencia = $licenciaEstaAprobadaPorEsteDueño ? 'true' : 'false';
 
     // Consulta de fotos usando la tabla 'fotos_vehiculos'
     $stmtFotos = $pdo->prepare("SELECT ruta_imagen FROM fotos_vehiculos WHERE id_vehiculo = ? ORDER BY id_foto ASC");
@@ -137,18 +164,18 @@ try {
 <nav class="top-nav">
     <div class="nav-container">
         <a href="dashboardf.php" class="logo">REN<span>T</span>CAR</a>
-        <a href="Motocicletas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+        <a href="automoviles.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
     </div>
 </nav>
 
-<!-- BANNER DE AVISO DE LICENCIA (Solo se muestra si el dueño NO la ha aprobado) -->
-<?php if (!$licenciaEstaAprobada): ?>
+<!-- BANNER DE AVISO DE LICENCIA (Solo se muestra si el dueño NO la ha aprobado individualmente) -->
+<?php if (!$licenciaEstaAprobadaPorEsteDueño): ?>
     <section class="licencia-warning-banner" style="background: rgba(255, 159, 10, 0.12); border-left: 5px solid #ff9f0a; padding: 15px 20px; max-width: 1200px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <i class="fas fa-exclamation-triangle" style="font-size: 1.8rem; color: #ff9f0a;"></i>
             <div>
-                <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 1rem;">Licencia de Conducción Pendiente o No Verificada</h4>
-                <p style="margin: 0; color: #a1a1aa; font-size: 0.9rem;">Para poder reservar este vehículo y comunicarte con el propietario, necesitas registrar y tener tu licencia aprobada.</p>
+                <h4 style="margin: 0 0 4px 0; color: #fff; font-size: 1rem;">Licencia de Conducción Pendiente o No Aprobada por este Propietario</h4>
+                <p style="margin: 0; color: #a1a1aa; font-size: 0.9rem;">Para poder reservar este vehículo y comunicarte con el propietario, el dueño de este vehículo específico debe aprobar tu licencia previamente.</p>
             </div>
         </div>
         <a href="subir_licencia.php" style="background: #e50914; color: #fff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; white-space: nowrap;">
@@ -186,7 +213,7 @@ try {
                 <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper(htmlspecialchars($vehiculo['traccion'] ?: 'N/A')); ?></strong></div></div>
             </div>
 
-            <button class="main-btn" onclick="iniciarChatReserva('vehiculo', <?php echo $vehiculo['id_v']; ?>, '<?php echo htmlspecialchars(($vehiculo['marca'] ?? '') . ' ' . ($vehiculo['modelo'] ?? '')); ?>')">
+            <button class="main-btn" onclick="iniciarChatReserva('auto', <?php echo $vehiculo['id_v']; ?>, '<?php echo htmlspecialchars(($vehiculo['marca'] ?? '') . ' ' . ($vehiculo['modelo'] ?? '')); ?>')">
                 RESERVAR AHORA <i class="fas fa-comments"></i>
             </button>
         </div>
@@ -291,7 +318,7 @@ try {
     <i class="fas fa-comment-dots"></i> Chat con Arrendatario
 </button>
 
-<div id="chat-float-container" data-tipo="vehiculo" data-id="<?php echo $id_vehiculo; ?>">
+<div id="chat-float-container" data-tipo="auto" data-id="<?php echo $id_vehiculo; ?>">
     <div class="chat-float-header">
         <h3><i class="fas fa-comments"></i> Negociación RentCar</h3>
         <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
@@ -305,7 +332,7 @@ try {
 
 <script>
 const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
-const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>; // True solo si está aprobada (1), de lo contrario false
+const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>; // True solo si este dueño específico aprobó (estado = 1), de lo contrario false
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
@@ -326,7 +353,7 @@ function ocultarEditor(id) {
 
 function toggleChatFlotante() {
     if (!usuarioTieneLicencia) {
-        alert("Tu licencia aún no ha sido aprobada por un administrador o no está registrada. No puedes realizar reservas en este momento.");
+        alert("⚠️ El propietario de este vehículo aún no ha aprobado tu licencia. Serás redirigido para gestionarla.");
         window.location.href = "subir_licencia.php";
         return;
     }
@@ -352,7 +379,7 @@ function toggleChatFlotante() {
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     if (!usuarioTieneLicencia) {
-        alert("Para realizar una reserva necesitas tener tu licencia registrada y aprobada por el administrador. Serás redirigido.");
+        alert("⚠️ Para reservar este vehículo, el propietario debe aprobar tu licencia previamente. Serás redirigido.");
         window.location.href = "subir_licencia.php";
         return;
     }
