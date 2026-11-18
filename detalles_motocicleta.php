@@ -334,6 +334,7 @@ try {
 const usuarioActual = <?php echo json_encode($_SESSION['usuario_nombre'] ?? ''); ?>;
 const usuarioTieneLicencia = <?php echo !empty($tieneLicencia) ? 'true' : 'false'; ?>;
 const idVehiculoPorDefecto = <?php echo json_encode($id_vehiculo ?? 0); ?>;
+const destinatarioDefecto = <?php echo json_encode($destinatarioVehiculo ?? ''); ?>;
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
@@ -371,6 +372,9 @@ function toggleChatFlotante() {
         chatContainer.dataset.id = String(idVehiculoPorDefecto);
         chatContainer.dataset.tipo = "auto";
     }
+    if (!chatContainer.dataset.destinatario && destinatarioDefecto) {
+        chatContainer.dataset.destinatario = destinatarioDefecto;
+    }
 
     const isOpen = chatContainer.style.display === 'flex';
     chatContainer.style.display = isOpen ? 'none' : 'flex';
@@ -383,7 +387,7 @@ function toggleChatFlotante() {
     }
 }
 
-function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
+function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo, destinatario = '') {
     if (!usuarioTieneLicencia) {
         alert("⚠️ Para reservar este vehículo, el propietario debe aprobar tu licencia previamente. Serás redirigido.");
         window.location.href = "subir_licencia.php";
@@ -391,10 +395,12 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     }
 
     const chatContainer = document.getElementById('chat-float-container');
-    if (chatContainer) chatContainer.style.display = 'flex';
-
-    chatContainer.dataset.tipo = tipoVehiculo || 'auto';
-    chatContainer.dataset.id = idItem || idVehiculoPorDefecto;
+    if (chatContainer) {
+        chatContainer.style.display = 'flex';
+        chatContainer.dataset.tipo = tipoVehiculo || 'auto';
+        chatContainer.dataset.id = idItem || idVehiculoPorDefecto;
+        chatContainer.dataset.destinatario = (destinatario || destinatarioDefecto || '').trim();
+    }
 
     setTimeout(() => {
         enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: ${nombreVehiculo}.`);
@@ -410,12 +416,22 @@ function enviarPeticionMensaje(texto, esAutomatico = false) {
 
     const tipo = chatContainer.dataset.tipo || 'auto';
     const idItem = parseInt(chatContainer.dataset.id || idVehiculoPorDefecto || 0, 10);
+    const destinatario = (chatContainer.dataset.destinatario || destinatarioDefecto || '').trim();
+
+    if (!destinatario) {
+        if (!esAutomatico) {
+            alert("No se pudo enviar: No se especificó el destinatario del vehículo.");
+        }
+        return;
+    }
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
     formData.append('tipo_vehiculo', tipo);
     formData.append('id_vehiculo', idItem);
     formData.append('id_item', idItem);
+    formData.append('destinatario', destinatario);
+    formData.append('cliente', destinatario);
     formData.append('mensaje', texto);
 
     return fetch('chat_backend.php', {
@@ -470,8 +486,9 @@ function cargarMensajesServidor() {
 
     const tipo = encodeURIComponent(chatContainer.dataset.tipo || 'auto');
     const idItem = encodeURIComponent(chatContainer.dataset.id || idVehiculoPorDefecto || 0);
+    const destinatario = encodeURIComponent((chatContainer.dataset.destinatario || destinatarioDefecto || '').trim());
 
-    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}&id_item=${idItem}`)
+    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}&id_item=${idItem}&destinatario=${destinatario}`)
     .then(res => res.json())
     .then(data => {
         if (data.status === 'success') {
@@ -521,6 +538,5 @@ function handleKeyPress(e) {
     }
 }
 </script>
-
 </body>
 </html>
