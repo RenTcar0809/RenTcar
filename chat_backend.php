@@ -83,7 +83,40 @@ try {
     }
 
     // ==========================================
-    // 4. OBTENER EMPRESA PROPIETARIA Y DETERMINAR INTERLOCUTOR
+    // 4. VERIFICAR ESTADO DEL PRÉSTAMO (Doble Confirmación)
+    // ==========================================
+
+    if ($accion === 'verificar_alquiler') {
+        if ($id_item <= 0) {
+            responder('error', 'Identificador de vehículo no válido.');
+        }
+
+        $stmtPrestamo = $pdo->prepare("
+            SELECT * FROM prestamo 
+            WHERE id_vehiculo = :vehiculo 
+            ORDER BY id_prestamo DESC 
+            LIMIT 1
+        ");
+        $stmtPrestamo->execute([':vehiculo' => $id_item]);
+        $prestamo = $stmtPrestamo->fetch(PDO::FETCH_ASSOC);
+
+        if ($prestamo) {
+            responder('success', '', [
+                'alquiler' => [
+                    'estado'                => $prestamo['estado'] ?? 'pendiente',
+                    'confirmar_cliente'     => $prestamo['confirmar_cliente'] ?? 0,
+                    'confirmar_propietario' => $prestamo['confirmar_propietario'] ?? 0,
+                    'finalizar_cliente'     => $prestamo['finalizar_cliente'] ?? 0,
+                    'finalizar_propietario' => $prestamo['finalizar_propietario'] ?? 0
+                ]
+            ]);
+        } else {
+            responder('success', '', ['alquiler' => null]);
+        }
+    }
+
+    // ==========================================
+    // 5. OBTENER EMPRESA PROPIETARIA Y DETERMINAR INTERLOCUTOR
     // ==========================================
 
     $dueno = '';
@@ -125,18 +158,15 @@ try {
         }
     }
 
-    // Definir quién es el otro usuario según quién esté realizando la petición (la empresa o el cliente)
     $otro_usuario = '';
     if ($usuario_actual === $dueno) {
-        // Si el usuario actual es la empresa, el interlocutor es el cliente enviado desde la interfaz
         $otro_usuario = $interlocutor_enviado;
     } else {
-        // Si el usuario actual es el cliente, el interlocutor es la empresa propietaria
         $otro_usuario = $dueno;
     }
 
     // ==========================================
-    // 5. ELIMINAR CONVERSACIÓN
+    // 6. ELIMINAR CONVERSACIÓN
     // ==========================================
 
     if ($accion === 'eliminar_chat') {
@@ -167,7 +197,7 @@ try {
     }
 
     // ==========================================
-    // 6. ENVIAR MENSAJE
+    // 7. ENVIAR MENSAJE
     // ==========================================
 
     if ($accion === 'enviar') {
@@ -186,7 +216,6 @@ try {
             responder('error', 'No se encontró la empresa propietaria del vehículo.');
         }
 
-        // Si la empresa es la que envía, el destinatario debe ser el cliente con el que está chateando
         $destinatario_final = '';
         if ($usuario_actual === $dueno) {
             $destinatario_final = $interlocutor_enviado;
@@ -194,7 +223,6 @@ try {
                 responder('error', 'No se especificó el cliente destinatario.');
             }
         } else {
-            // Si el cliente es el que envía, el destinatario es la empresa
             $destinatario_final = $dueno;
         }
 
@@ -239,7 +267,7 @@ try {
     }
 
     // ==========================================
-    // 7. OBTENER MENSAJES DE LA CONVERSACIÓN
+    // 8. OBTENER MENSAJES DE LA CONVERSACIÓN
     // ==========================================
 
     if ($accion === 'obtener') {
@@ -252,7 +280,6 @@ try {
             responder('error', 'No se pudo identificar al interlocutor de la conversación.');
         }
 
-        // Marcar como leídos únicamente los mensajes recibidos por el usuario actual de parte de este interlocutor
         $stmtMarcar = $pdo->prepare("
             UPDATE mensajes_chat
             SET leido = 1
@@ -268,7 +295,6 @@ try {
             ':vehiculo' => $id_item
         ]);
 
-        // Obtener la conversación bidireccional entre ambos usuarios
         $sql = "
             SELECT
                 id_mensaje,
@@ -308,24 +334,7 @@ try {
     }
 
     // ==========================================
-    // 8. ACCIÓN NO RECONOCIDA
-    // ==========================================
-
-    responder('error', 'Acción no reconocida.');
-
-} catch (PDOException $e) {
-
-    error_log('Error chat_backend.php: ' . $e->getMessage());
-    responder('error', 'Error al procesar el mensaje en la base de datos.');
-    
-} catch (Throwable $e) {
-
-    error_log('Error general chat_backend.php: ' . $e->getMessage());
-    responder('error', 'Ocurrió un error inesperado.');
-}
-
-// ==========================================
-    // 9. CONVERTIR CONVERSACIÓN EN PRESTAMO / RESERVA
+    // 9. CONVERTIR CONVERSACIÓN EN PRÉSTAMO / RESERVA
     // ==========================================
 
     if ($accion === 'crear_reserva') {
@@ -341,7 +350,6 @@ try {
         try {
             $pdo->beginTransaction();
 
-            // 1. Buscar al cliente y verificar su estado de licencia en la tabla usuario
             $stmtCli = $pdo->prepare("
                 SELECT id_usuario, licencia_verificada, licencia_numero 
                 FROM usuario 
@@ -355,42 +363,38 @@ try {
                 throw new Exception("No se encontró el usuario cliente en la base de datos.");
             }
 
-            // 2. VALIDACIÓN DE SEGURIDAD: Comprobar si tiene licencia
-            // Puedes exigir que 'licencia_verificada' sea 1, o simplemente que el número no esté vacío
             if (empty($arrendatario['licencia_numero'])) {
                 throw new Exception("El usuario no ha registrado un número de licencia de conducir en su perfil.");
             }
-            
-            // Si manejas un estatus de aprobación por parte del admin:
-            /*
-            if ((int)$arrendatario['licencia_verificada'] !== 1) {
-                throw new Exception("La licencia del cliente aún no ha sido verificada por la empresa.");
-            }
-            */
 
             $id_arrendatario = $arrendatario['id_usuario'];
 
-            // 3. Obtener precio del vehículo
             $stmtVeh = $pdo->prepare("SELECT precio FROM vehiculo WHERE id_v = :id");
             $stmtVeh->execute([':id' => $id_item]);
             $vehData = $stmtVeh->fetch(PDO::FETCH_ASSOC);
             $monto_vehiculo = $vehData['precio'] ?? 0.00;
 
-            // 4. Insertar en la tabla 'prestamo'
+            $stmtCheck = $pdo->prepare("SELECT id_prestamo, estado FROM prestamo WHERE id_vehiculo = :vehiculo ORDER BY id_prestamo DESC LIMIT 1");
+            $stmtCheck->execute([':vehiculo' => $id_item]);
+            $prestamoExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if ($prestamoExistente && $prestamoExistente['estado'] === 'activo') {
+                throw new Exception("Este vehículo ya cuenta con un préstamo activo.");
+            }
+
             $stmtPrestamo = $pdo->prepare("
-                INSERT INTO prestamo (id_vehiculo, id_arrendatario, fecha_inicio, fecha_fin, estado, monto)
-                VALUES (:vehiculo, :arrendatario, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', 'activo', :monto)
+                INSERT INTO prestamo (id_vehiculo, id_arrendatario, fecha_inicio, fecha_fin, estado, monto, confirmar_cliente, confirmar_propietario)
+                VALUES (:vehiculo, :arrendatario, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', 'activo', :monto, 1, 1)
             ");
             $stmtPrestamo->execute([
-                ':vehiculo'      => $id_item,
-                ':arrendatario'  => $id_arrendatario,
-                ':monto'         => $monto_vehiculo
+                ':vehiculo'     => $id_item,
+                ':arrendatario' => $id_arrendatario,
+                ':monto'        => $monto_vehiculo
             ]);
 
-            // 5. Actualizar vehículo a no disponible
             $stmtVehiculoUpd = $pdo->prepare("
                 UPDATE vehiculo 
-                SET disponible = 0 
+                SET estado = 'Alquilado' 
                 WHERE id_v = :vehiculo
             ");
             $stmtVehiculoUpd->execute([':vehiculo' => $id_item]);
@@ -404,4 +408,20 @@ try {
             responder('error', 'No se pudo formalizar el alquiler: ' . $e->getMessage());
         }
     }
-?>
+
+    // ==========================================
+    // 10. ACCIÓN NO RECONOCIDA
+    // ==========================================
+
+    responder('error', 'Acción no reconocida.');
+
+} catch (PDOException $e) {
+
+    error_log('Error chat_backend.php: ' . $e->getMessage());
+    responder('error', 'Error al procesar la solicitud en la base de datos.');
+    
+} catch (Throwable $e) {
+
+    error_log('Error general chat_backend.php: ' . $e->getMessage());
+    responder('error', 'Ocurrió un error inesperado.');
+}
