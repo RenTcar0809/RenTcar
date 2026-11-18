@@ -321,24 +321,30 @@ try {
 </div>
 
 <script>
-const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
-const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>; // True solo si este dueño específico aprobó (estado = 1), de lo contrario false
+const usuarioActual = <?php echo json_encode($_SESSION['usuario_nombre'] ?? ''); ?>;
+const usuarioTieneLicencia = <?php echo !empty($tieneLicencia) ? 'true' : 'false'; ?>;
+const idVehiculoPorDefecto = <?php echo json_encode($id_vehiculo ?? 0); ?>;
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
-    document.getElementById('mainImage').src = ruta;
+    const mainImg = document.getElementById('mainImage');
+    if (mainImg) mainImg.src = ruta;
     document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
+    if (el) el.classList.add('active');
 }
 
 function mostrarEditor(id) {
-    document.getElementById('view-mode-' + id).style.display = 'none';
-    document.getElementById('edit-mode-' + id).style.display = 'block';
+    const viewEl = document.getElementById('view-mode-' + id);
+    const editEl = document.getElementById('edit-mode-' + id);
+    if (viewEl) viewEl.style.display = 'none';
+    if (editEl) editEl.style.display = 'block';
 }
 
 function ocultarEditor(id) {
-    document.getElementById('view-mode-' + id).style.display = 'block';
-    document.getElementById('edit-mode-' + id).style.display = 'none';
+    const viewEl = document.getElementById('view-mode-' + id);
+    const editEl = document.getElementById('edit-mode-' + id);
+    if (viewEl) viewEl.style.display = 'block';
+    if (editEl) editEl.style.display = 'none';
 }
 
 function toggleChatFlotante() {
@@ -352,7 +358,7 @@ function toggleChatFlotante() {
     if (!chatContainer) return;
 
     if (!chatContainer.dataset.id || chatContainer.dataset.id === "0") {
-        chatContainer.dataset.id = "<?php echo $id_vehiculo; ?>";
+        chatContainer.dataset.id = String(idVehiculoPorDefecto);
         chatContainer.dataset.tipo = "auto";
     }
 
@@ -377,8 +383,8 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     const chatContainer = document.getElementById('chat-float-container');
     if (chatContainer) chatContainer.style.display = 'flex';
 
-    chatContainer.dataset.tipo = tipoVehiculo;
-    chatContainer.dataset.id = idItem;
+    chatContainer.dataset.tipo = tipoVehiculo || 'auto';
+    chatContainer.dataset.id = idItem || idVehiculoPorDefecto;
 
     setTimeout(() => {
         enviarMensajeAutomatico(`Hola, estoy interesado/a en reservar y cuadrar detalles de: ${nombreVehiculo}.`);
@@ -387,24 +393,22 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     iniciarActualizacionChat();
 }
 
-function enviarMensajeBot() {
-    const input = document.getElementById('chat-input');
+function enviarPeticionMensaje(texto, esAutomatico = false) {
     const chatContainer = document.getElementById('chat-float-container');
-    if (!input || !chatContainer) return;
-
-    const texto = input.value.trim();
-    if (!texto) return;
+    const input = document.getElementById('chat-input');
+    if (!chatContainer) return;
 
     const tipo = chatContainer.dataset.tipo || 'auto';
-    const idItem = chatContainer.dataset.id || 0;
+    const idItem = parseInt(chatContainer.dataset.id || idVehiculoPorDefecto || 0, 10);
 
     const formData = new URLSearchParams();
     formData.append('accion', 'enviar');
     formData.append('tipo_vehiculo', tipo);
     formData.append('id_vehiculo', idItem);
+    formData.append('id_item', idItem);
     formData.append('mensaje', texto);
 
-    fetch('chat_backend.php', {
+    return fetch('chat_backend.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
@@ -415,70 +419,69 @@ function enviarMensajeBot() {
             return JSON.parse(text);
         } catch (e) {
             console.error("El servidor devolvió HTML/Texto plano en vez de JSON:", text);
-            alert("Error en el backend del chat. Revisa la consola (F12) para ver la respuesta exacta.");
+            if (!esAutomatico) {
+                alert("Error en el backend del chat. Revisa la consola (F12) para ver la respuesta exacta.");
+            }
             throw new Error("Respuesta inválida del servidor");
         }
     })
     .then(data => {
-        if(data && data.status === 'success') {
-            input.value = '';
+        if (data && data.status === 'success') {
+            if (!esAutomatico && input) input.value = '';
             cargarMensajesServidor();
         } else {
             console.error("Error del servidor:", data?.message || data);
-            alert("No se pudo enviar: " + (data?.message || "Error desconocido"));
+            if (!esAutomatico) {
+                alert("No se pudo enviar: " + (data?.message || "Error desconocido"));
+            }
         }
     })
-    .catch(err => console.error("Error de red en el chat:", err));
+    .catch(err => {
+        console.error("Error de red en el chat:", err);
+    });
+}
+
+function enviarMensajeBot() {
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    const texto = input.value.trim();
+    if (!texto) return;
+    enviarPeticionMensaje(texto, false);
 }
 
 function enviarMensajeAutomatico(texto) {
-    const chatContainer = document.getElementById('chat-float-container');
-    if (!chatContainer) return;
-    
-    const tipo = chatContainer.dataset.tipo || 'auto';
-    const idItem = chatContainer.dataset.id || 0;
-
-    const formData = new URLSearchParams();
-    formData.append('accion', 'enviar');
-    formData.append('tipo_vehiculo', tipo);
-    formData.append('id_vehiculo', idItem);
-    formData.append('mensaje', texto);
-
-    fetch('chat_backend.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData.toString()
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.status === 'success') {
-            cargarMensajesServidor();
-        } else {
-            console.error("Error en mensaje automático:", data.message || data);
-        }
-    })
-    .catch(err => console.error("Error de red en mensaje automático:", err));
+    if (!texto || !texto.trim()) return;
+    enviarPeticionMensaje(texto.trim(), true);
 }
 
 function cargarMensajesServidor() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer || chatContainer.style.display !== 'flex') return;
 
-    const tipo = chatContainer.dataset.tipo || 'auto';
-    const idItem = chatContainer.dataset.id || 0;
+    const tipo = encodeURIComponent(chatContainer.dataset.tipo || 'auto');
+    const idItem = encodeURIComponent(chatContainer.dataset.id || idVehiculoPorDefecto || 0);
 
-    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}`)
+    fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}&id_item=${idItem}`)
     .then(res => res.json())
     .then(data => {
-        if(data.status === 'success') {
+        if (data.status === 'success') {
             const mensajesContainer = document.getElementById('chat-messages');
+            if (!mensajesContainer) return;
             mensajesContainer.innerHTML = '';
 
-            data.mensajes.forEach(m => {
+            (data.mensajes || []).forEach(m => {
                 const div = document.createElement('div');
-                const esMio = m.remitente === data.usuario_actual;
+                const esMio = m.remitente === (data.usuario_actual || usuarioActual);
                 div.className = 'message ' + (esMio ? 'user' : 'bot');
-                div.innerHTML = `<strong>${esMio ? 'Tú' : m.remitente}:</strong> ${m.mensaje}`;
+
+                const strong = document.createElement('strong');
+                strong.textContent = (esMio ? 'Tú' : m.remitente) + ': ';
+
+                const span = document.createElement('span');
+                span.textContent = m.mensaje;
+
+                div.appendChild(strong);
+                div.appendChild(span);
                 mensajesContainer.appendChild(div);
             });
             mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
@@ -502,7 +505,10 @@ function detenerActualizacionChat() {
 }
 
 function handleKeyPress(e) {
-    if (e.key === 'Enter') enviarMensajeBot();
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        enviarMensajeBot();
+    }
 }
 </script>
 
