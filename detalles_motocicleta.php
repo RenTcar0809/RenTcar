@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_comentario']))
             $ins = $pdo->prepare($sql);
             $ins->execute([$id_vehiculo, $_SESSION['usuario_nombre'], $comentario_final, $puntuacion]);
             
-            header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=ok#comentarios");
+            header("Location: detalles_motocicleta.php?id=$id_vehiculo&msg=ok#comentarios");
             exit();
         } catch (PDOException $e) {
             $error_msg = "Error en la base de datos: " . $e->getMessage();
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
                 $upd = $pdo->prepare("UPDATE comentarios_vehiculos SET comentario = ?, puntuacion = ? WHERE id_comentario = ?");
                 $upd->execute([$comentario_edit_final, $puntuacion_edit, $id_com]);
             }
-            header("Location: detalles_vehiculo.php?id=$id_vehiculo&msg=updated#comentarios");
+            header("Location: detalles_motocicleta.php?id=$id_vehiculo&msg=updated#comentarios");
             exit();
         } catch (PDOException $e) {
             $error_msg = "Error al actualizar: " . $e->getMessage();
@@ -164,7 +164,7 @@ try {
 <nav class="top-nav">
     <div class="nav-container">
         <a href="dashboardf.php" class="logo">REN<span>T</span>CAR</a>
-        <a href="automoviles.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+        <a href="Motocicletas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
     </div>
 </nav>
 
