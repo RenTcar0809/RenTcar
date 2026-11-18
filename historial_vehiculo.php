@@ -11,11 +11,10 @@ if (!$id_usuario) {
     exit();
 }
 
-$mensajes_no_leidos = 0; // Inicializamos la variable para evitar advertencias
-$mensaje_estado = "";
+$mensajes_no_leidos = 0; 
 
 try {
-    // 1. Obtener el nombre o empresa del proveedor actual usando id_usuario
+    // 1. Obtener el nombre o empresa del proveedor actual
     $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
     $stmtU->execute([$id_usuario]);
     $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
@@ -25,29 +24,52 @@ try {
         $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
-    // 2. Procesar la acción de "Finalizar" alquiler si se envía por GET
-    if (isset($_GET['accion']) && $_GET['accion'] === 'finalizar' && isset($_GET['id_alquiler'])) {
+    // 2. PROCESAR ACCIONES DE ALQUILER (Aceptar pendiente / Finalizar activo)
+    if (isset($_GET['accion']) && isset($_GET['id_alquiler'])) {
         $idAlquiler = intval($_GET['id_alquiler']);
-        
+        $accion = $_GET['accion'];
+
         // Verificar que el alquiler pertenezca a un vehículo de este proveedor
         $stmtVerif = $pdo->prepare('
-            SELECT a.id_alquiler 
+            SELECT a.id_alquiler, a.id_vehiculo, a.estado 
             FROM alquileres a 
             INNER JOIN vehiculo v ON a.id_vehiculo = v.id_v 
             WHERE a.id_alquiler = ? AND v.id_proveedor = ?
         ');
         $stmtVerif->execute([$idAlquiler, $id_usuario]);
-        
-        if ($stmtVerif->fetch()) {
-            $stmtFin = $pdo->prepare("UPDATE alquileres SET estado = 'finalizado' WHERE id_alquiler = ?");
-            $stmtFin->execute([$idAlquiler]);
-            header("Location: historial_vehiculo.php?msg=finalizado");
-            exit();
+        $rentaData = $stmtVerif->fetch(PDO::FETCH_ASSOC);
+
+        if ($rentaData) {
+            $idVehiculoRenta = $rentaData['id_vehiculo'];
+
+            if ($accion === 'aceptar') {
+                // A. Cambiar estado del alquiler a 'activo'
+                $stmtAct = $pdo->prepare("UPDATE alquileres SET estado = 'activo' WHERE id_alquiler = ?");
+                $stmtAct->execute([$idAlquiler]);
+
+                // B. Actualizar el estado del vehículo para que salga de disponibles (ej: estado = 'Alquilado' o 'Ocupado')
+                $stmtVehUpd = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
+                $stmtVehUpd->execute([$idVehiculoRenta]);
+
+                header("Location: historial_vehiculo.php?msg=aceptado");
+                exit();
+            } 
+            elseif ($accion === 'finalizar') {
+                // A. Cambiar estado del alquiler a 'finalizado'
+                $stmtFin = $pdo->prepare("UPDATE alquileres SET estado = 'finalizado' WHERE id_alquiler = ?");
+                $stmtFin->execute([$idAlquiler]);
+
+                // B. Liberar el vehículo para que vuelva a estar disponible
+                $stmtVehUpd = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
+                $stmtVehUpd->execute([$idVehiculoRenta]);
+
+                header("Location: historial_vehiculo.php?msg=finalizado");
+                exit();
+            }
         }
     }
 
-    // 3. Consultar métricas en tiempo real del proveedor (Ganancias, Clientes Únicos, Alquileres Activos)
-    // Nota: Si tu tabla de alquileres o columnas difieren en nombres, se adaptan según tu esquema.
+    // 3. Consultar métricas en tiempo real del proveedor
     $stmtMetricas = $pdo->prepare("
         SELECT 
             COUNT(CASE WHEN a.estado = 'activo' THEN 1 END) AS alquileres_activos,
@@ -64,12 +86,24 @@ try {
     $totalClientes = $metricas['total_clientes'] ?? 0;
     $alquileresActivosCount = $metricas['alquileres_activos'] ?? 0;
 
-    // 4. Consultar los vehículos del proveedor
+    // 4. Consultar solicitudes PENDIENTES de alquiler para aceptar
+    $stmtPendientes = $pdo->prepare('
+        SELECT a.id_alquiler, a.fecha_inicio, a.fecha_fin, a.costo_total, v.marca, v.modelo, v.placa, u.nombre as cliente_nombre
+        FROM alquileres a
+        INNER JOIN vehiculo v ON a.id_vehiculo = v.id_v
+        LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
+        WHERE v.id_proveedor = ? AND a.estado = "pendiente"
+        ORDER BY a.id_alquiler DESC
+    ');
+    $stmtPendientes->execute([$id_usuario]);
+    $solicitudesPendientes = $stmtPendientes->fetchAll(PDO::FETCH_ASSOC);
+
+    // 5. Consultar los vehículos del proveedor
     $stmt = $pdo->prepare('SELECT * FROM vehiculo WHERE id_proveedor = :id_usuario ORDER BY id_v DESC');
     $stmt->execute([':id_usuario' => $id_usuario]);
     $vehiculos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 5. Consultar los alquileres activos para mostrarlos en la sección de gestión
+    // 6. Consultar los alquileres activos en curso
     $stmtAlquileres = $pdo->prepare('
         SELECT a.id_alquiler, a.estado, a.costo_total, v.marca, v.modelo, v.placa, u.nombre as cliente_nombre
         FROM alquileres a
@@ -81,7 +115,7 @@ try {
     $stmtAlquileres->execute([$id_usuario]);
     $alquileresActivosList = $stmtAlquileres->fetchAll(PDO::FETCH_ASSOC);
 
-    // 6. Contar los mensajes en la tabla mensajes_chat destinados a este usuario
+    // 7. Contar mensajes no leídos
     if (!empty($nombre_usuario)) {
         $stmt_msg = $pdo->prepare('SELECT COUNT(*) as total FROM mensajes_chat WHERE destinatario = ?');
         $stmt_msg->execute([$nombre_usuario]);
@@ -98,7 +132,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Mis Vehículos y Métricas | RentCar</title>
+    <title>Panel de Mis Vehículos y Alquileres | RentCar</title>
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -139,12 +173,16 @@ try {
         .metric-card h4 { margin: 0; color: #a1a1aa; font-size: 0.9rem; font-weight: 600; }
         .metric-card p { margin: 0; font-size: 1.8rem; font-weight: bold; color: #fff; }
 
-        /* SECCIÓN ALQUILERES ACTIVOS */
-        .active-rentals-section { background: var(--card); border: 1px solid #333; border-radius: 12px; padding: 25px; margin-bottom: 40px; }
-        .active-rentals-section h3 { margin-top: 0; color: #fff; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
+        /* SECCIONES DE GESTIÓN (PENDIENTES Y ACTIVOS) */
+        .active-rentals-section, .pending-rentals-section { background: var(--card); border: 1px solid #333; border-radius: 12px; padding: 25px; margin-bottom: 40px; }
+        .active-rentals-section h3, .pending-rentals-section h3 { margin-top: 0; color: #fff; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
         .rental-table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
         .rental-table th, .rental-table td { padding: 12px 15px; border-bottom: 1px solid #2a2a2a; font-size: 0.95rem; }
         .rental-table th { color: #888; font-weight: 600; }
+        
+        .btn-aceptar { background: #3b82f6; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; border: none; cursor: pointer; }
+        .btn-aceptar:hover { background: #2563eb; }
+
         .btn-finalizar { background: #10b981; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; border: none; cursor: pointer; }
         .btn-finalizar:hover { background: #059669; }
 
@@ -180,8 +218,6 @@ try {
         }
         .btn-edit { background: #333; color: white; }
         .btn-edit:hover { background: #444; }
-        .btn-photos { background: #333; color: white; }
-        .btn-photos:hover { background: #444; }
         .btn-comments { background: #1a1a1a; color: #3498db; border: 1px solid #3498db; grid-column: span 2; }
         .btn-comments:hover { background: #3498db; color: white; }
         .btn-delete { background: rgba(229, 9, 20, 0.1); color: var(--rojo); border: 1px solid var(--rojo); width: 100%; }
@@ -199,7 +235,7 @@ try {
                 <i class="fas fa-chevron-left"></i> Volver
             </a>
             
-            <h1 class="titulo-principal">GESTIÓN DE FLOTA Y MÉTRICAS</h1>
+            <h1 class="titulo-principal">GESTIÓN DE FLOTA Y ALQUILERES</h1>
             
             <div class="grupo-acciones-derecha">
                 <!-- BOTÓN DE MENSAJES -->
@@ -216,9 +252,13 @@ try {
             </div>
         </div>
 
-        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'finalizado'): ?>
-            <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; padding: 15px; border-radius: 8px; margin-bottom: 25px; color: #10b981; font-weight: 600;">
-                <i class="fas fa-check-circle"></i> El proceso de alquiler ha sido finalizado con éxito.
+        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'aceptado'): ?>
+            <div style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #3b82f6; padding: 15px; border-radius: 8px; margin-bottom: 25px; font-weight: 600;">
+                <i class="fas fa-check-circle"></i> Alquiler aceptado con éxito. El vehículo ahora figura como alquilado.
+            </div>
+        <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'finalizado'): ?>
+            <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #10b981; padding: 15px; border-radius: 8px; margin-bottom: 25px; font-weight: 600;">
+                <i class="fas fa-check-circle"></i> El proceso de alquiler ha finalizado y el vehículo vuelve a estar disponible.
             </div>
         <?php endif; ?>
 
@@ -228,7 +268,7 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- SECCIÓN DE TARJETAS DE MÉTRICAS (Ganancias, Clientes, Alquileres Activos) -->
+        <!-- SECCIÓN DE TARJETAS DE MÉTRICAS -->
         <div class="metrics-grid">
             <div class="metric-card verde">
                 <h4>Ganancias Totales</h4>
@@ -244,7 +284,46 @@ try {
             </div>
         </div>
 
-        <!-- SECCIÓN DE ALQUILERES ACTIVOS CON BOTÓN FINALIZAR -->
+        <!-- SECCIÓN DE SOLICITUDES PENDIENTES (PARA ACEPTAR) -->
+        <?php if (!empty($solicitudesPendientes)): ?>
+        <div class="pending-rentals-section">
+            <h3><i class="fas fa-clock" style="color: #3b82f6;"></i> Solicitudes de Alquiler Pendientes</h3>
+            <div style="overflow-x: auto;">
+                <table class="rental-table">
+                    <thead>
+                        <tr>
+                            <th>Vehículo</th>
+                            <th>Placa</th>
+                            <th>Cliente</th>
+                            <th>Fechas Solicitadas</th>
+                            <th>Total</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($solicitudesPendientes as $sol): ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($sol['marca'] . ' ' . $sol['modelo']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($sol['placa']); ?></td>
+                            <td><?php echo htmlspecialchars($sol['cliente_nombre'] ?? 'Cliente'); ?></td>
+                            <td><?php echo htmlspecialchars($sol['fecha_inicio'] ?? 'N/A'); ?> al <?php echo htmlspecialchars($sol['fecha_fin'] ?? 'N/A'); ?></td>
+                            <td>$<?php echo number_format($sol['costo_total'], 2); ?></td>
+                            <td>
+                                <a href="historial_vehiculo.php?accion=aceptar&id_alquiler=<?php echo $sol['id_alquiler']; ?>" 
+                                   class="btn-aceptar" 
+                                   onclick="return confirm('¿Aceptar esta solicitud? El vehículo pasará a estado alquilado y dejará de estar disponible.');">
+                                   <i class="fas fa-check"></i> Aceptar Alquiler
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- SECCIÓN DE ALQUILERES ACTIVOS EN CURSO -->
         <?php if (!empty($alquileresActivosList)): ?>
         <div class="active-rentals-section">
             <h3><i class="fas fa-car-side" style="color: var(--rojo);"></i> Alquileres Activos en Curso</h3>
@@ -269,8 +348,8 @@ try {
                             <td>
                                 <a href="historial_vehiculo.php?accion=finalizar&id_alquiler=<?php echo $renta['id_alquiler']; ?>" 
                                    class="btn-finalizar" 
-                                   onclick="return confirm('¿Estás seguro de finalizar este proceso de alquiler?');">
-                                   <i class="fas fa-check"></i> Finalizar
+                                   onclick="return confirm('¿Estás seguro de finalizar este alquiler? El vehículo volverá a estar disponible.');">
+                                   <i class="fas fa-flag-checkered"></i> Finalizar
                                 </a>
                             </td>
                         </tr>
@@ -336,7 +415,7 @@ try {
 
                         <p style="font-size: 0.9rem; color: #888; margin: 15px 0;">
                             <strong>Placa:</strong> <?php echo htmlspecialchars($row['placa']); ?> | 
-                            <strong>Estado:</strong> <span style="color: #2ecc71;"><?php echo htmlspecialchars($row['estado']); ?></span>
+                            <strong>Estado:</strong> <span style="color: <?php echo ($row['estado'] === 'Alquilado') ? '#f59e0b' : '#2ecc71'; ?>;"><?php echo htmlspecialchars($row['estado']); ?></span>
                         </p>
                         
                         <div class="btn-grid-actions">
@@ -345,7 +424,7 @@ try {
                             </a>
 
                             <a href="ver_comentarios.php?id=<?php echo $id_v; ?>" class="btn-mini btn-comments">
-                                <i class="fas fa-star"></i> Ver Comentarios del Cliente
+                                <i class="fas fa-star"></i> Ver Comentarios
                             </a>
 
                             <form action="eliminar_vehiculo.php" method="POST" onsubmit="return confirm('¿Está seguro de retirar este vehículo? Esta acción no se puede deshacer.');" style="grid-column: span 2; margin: 0;">
