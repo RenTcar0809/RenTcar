@@ -31,22 +31,22 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
     $clienteNombre = trim($_GET['cliente'] ?? '');
 
-    // 1. OBTENER O CREAR EL ID_ARRENDATARIO BASADO EN LA ESTRUCTURA REAL DE LA BD
+    // 1. OBTENER O CREAR AUTOMÁTICAMENTE EL ID_ARRENDATARIO
     $idArrendatario = null;
 
     if ($clienteNombre !== '') {
-        // Buscar el id_usuario del cliente en la tabla usuario
+        // Buscar el id_usuario en la tabla usuario
         $stmtU = $pdo->prepare("SELECT id_usuario FROM usuario WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) LIMIT 1");
         $stmtU->execute([$clienteNombre, $clienteNombre]);
         $idUsuarioCliente = $stmtU->fetchColumn();
 
         if ($idUsuarioCliente) {
-            // Verificar si ya existe en la tabla arrendatario usando id_usuario
+            // Verificar si ya existe en la tabla arrendatario
             $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
             $stmtArr->execute([$idUsuarioCliente]);
             $idArrendatario = $stmtArr->fetchColumn();
 
-            // Si no existe en la tabla arrendatario, lo creamos automáticamente usando su id_usuario
+            // Si no existe, lo insertamos automáticamente con los datos requeridos
             if (!$idArrendatario) {
                 try {
                     $stmtInsArr = $pdo->prepare("INSERT INTO arrendatario (id_usuario, nombre) VALUES (?, ?)");
@@ -59,35 +59,29 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                         $idArrendatario = $stmtArr2->fetchColumn();
                     }
                 } catch (Exception $ex) {
-                    // Si ocurre algún fallo en la inserción, intentamos respaldar con un SELECT genérico
+                    // Manejo de excepción silencioso para respaldar con el fallback
                 }
             }
         }
     }
 
-    // Fallback de emergencia por si el cliente viene de mensajes y no de la sesión directa
-    if (!$idArrendatario && $clienteNombre !== '') {
-        $stmtArrChat = $pdo->prepare("
-            SELECT a.id_arrendatario 
-            FROM arrendatario a 
-            INNER JOIN usuario u ON a.id_usuario = u.id_usuario 
-            WHERE TRIM(u.nombre) ILIKE TRIM(?) OR TRIM(u.empresa) ILIKE TRIM(?) 
-            LIMIT 1
-        ");
-        $stmtArrChat->execute([$clienteNombre, $clienteNombre]);
-        $idArrendatario = $stmtArrChat->fetchColumn();
-    }
-
-    // Último recurso: tomar el primer arrendatario disponible en la tabla para evitar bloqueos
+    // Si aún no se encuentra, intentamos un respaldo con el primer arrendatario disponible en la tabla
     if (!$idArrendatario) {
         $stmtFallback = $pdo->prepare("SELECT id_arrendatario FROM arrendatario ORDER BY id_arrendatario ASC LIMIT 1");
         $stmtFallback->execute();
         $idArrendatario = $stmtFallback->fetchColumn();
     }
 
+    // Si de plano la tabla arrendatario está completamente vacía, creamos un registro genérico de emergencia
     if (!$idArrendatario) {
-        header("Location: mensajese.php?msg=" . urlencode("Error: No se pudo asociar un perfil de arrendatario válido para este cliente."));
-        exit();
+        try {
+            $stmtGen = $pdo->prepare("INSERT INTO arrendatario (nombre) VALUES (?)");
+            $stmtGen->execute([$clienteNombre !== '' ? $clienteNombre : 'Cliente General']);
+            $idArrendatario = $pdo->lastInsertId();
+        } catch (Exception $e) {
+            header("Location: mensajese.php?msg=" . urlencode("Error crítico: No se pudo registrar el arrendatario en la base de datos."));
+            exit();
+        }
     }
 
     // 2. Obtener el precio / monto del vehículo
