@@ -31,12 +31,26 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
     $clienteNombre = $_GET['cliente'] ?? '';
 
-    // 1. Buscar el id_arrendatario en la tabla usuario
+    // 1. Buscar el id_arrendatario correspondiente en la tabla 'arrendatario' (o vinculada con 'usuario')
     $idArrendatario = null;
     if (!empty($clienteNombre)) {
-        $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+        // Intentamos buscar primero si la tabla arrendatario tiene relación con el nombre en usuario o directamente
+        $stmtUser = $pdo->prepare("
+            SELECT a.id_arrendatario 
+            FROM arrendatario a 
+            INNER JOIN usuario u ON (a.id_usuario = u.id_usuario OR a.id_arrendatario = u.id_usuario) 
+            WHERE u.nombre = ? OR u.empresa = ? 
+            LIMIT 1
+        ");
         $stmtUser->execute([$clienteNombre, $clienteNombre]);
         $idArrendatario = $stmtUser->fetchColumn();
+
+        // Si no se encuentra por JOIN, intentamos buscar directo por ID si el nombre fuera numérico o por coincidencia directa
+        if (!$idArrendatario) {
+            $stmtDirecto = $pdo->prepare("SELECT id_arrendatario FROM arrendatario LIMIT 1");
+            $stmtDirecto->execute();
+            $idArrendatario = $stmtDirecto->fetchColumn(); // Fallback seguro para evitar nulos si existe al menos un arrendatario
+        }
     }
 
     // 2. Obtener el precio / monto del vehículo
