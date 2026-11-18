@@ -302,7 +302,8 @@ try {
 
 <script>
 const usuarioActual = "<?php echo $_SESSION['usuario_nombre']; ?>";
-const usuarioTieneLicenciaAprobada = <?php echo $tieneLicenciaAprobadaJS; ?>;
+// Bandera que viene desde PHP indicando si el dueño de ESTE vehículo ya aprobó la licencia
+const usuarioTieneLicenciaAprobada = <?php echo $tieneLicenciaAprobadaJS; ?>; 
 let intervaloChat = null;
 
 function cambiarImagen(el, ruta) {
@@ -322,11 +323,13 @@ function ocultarEditor(id) {
 }
 
 function toggleChatFlotante() {
+    // VALIDACIÓN ESTRICTA: Si intenta abrir el chat y no está aprobada, se bloquea al instante
     if (!usuarioTieneLicenciaAprobada) {
-        alert("El dueño de este vehículo aún no ha aprobado tu licencia. No puedes iniciar el chat.");
+        alert("⚠️ El propietario de este vehículo aún no ha aprobado tu licencia. Debes esperar su autorización antes de poder reservar o chatear.");
         window.location.href = "subir_licencia.php";
         return;
     }
+
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer) return;
 
@@ -347,11 +350,13 @@ function toggleChatFlotante() {
 }
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
+    // VALIDACIÓN AL HACER CLIC EN RESERVAR AHORA
     if (!usuarioTieneLicenciaAprobada) {
-        alert("El propietario de este vehículo necesita aprobar tu licencia antes de iniciar la reserva.");
+        alert("⚠️ Para reservar este vehículo y comunicarte con el propietario, el dueño debe aprobar tu licencia previamente. Serás redirigido para gestionarla.");
         window.location.href = "subir_licencia.php";
         return;
     }
+
     const chatContainer = document.getElementById('chat-float-container');
     if (chatContainer) chatContainer.style.display = 'flex';
 
