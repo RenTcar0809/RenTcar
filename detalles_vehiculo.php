@@ -324,8 +324,7 @@ function ocultarEditor(id) {
 
 function toggleChatFlotante() {
     if (!usuarioTieneLicenciaAprobada) {
-        alert("⚠️ El propietario de este vehículo aún no ha aprobado tu licencia. Enviaremos tu solicitud de verificación ahora.");
-        window.location.href = "solicitar_verificacion.php?id_vehiculo=<?php echo $id_vehiculo; ?>";
+        registrarSolicitudYRedirigir(<?php echo $id_vehiculo; ?>);
         return;
     }
 
@@ -349,10 +348,8 @@ function toggleChatFlotante() {
 }
 
 function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
-    // VALIDACIÓN AL HACER CLIC EN RESERVAR AHORA: Registra la solicitud antes de redirigir
     if (!usuarioTieneLicenciaAprobada) {
-        alert("⚠️ Para reservar este vehículo y comunicarte con el propietario, el dueño debe aprobar tu licencia previamente. Registraremos tu solicitud de verificación.");
-        window.location.href = "solicitar_verificacion.php?id_vehiculo=" + idItem;
+        registrarSolicitudYRedirigir(idItem);
         return;
     }
 
@@ -369,6 +366,26 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo) {
     iniciarActualizacionChat();
 }
 
+function registrarSolicitudYRedirigir(idVehiculo) {
+    alert("⚠️ Tu licencia aún no ha sido aprobada por este propietario. Enviaremos tu solicitud de verificación ahora.");
+    
+    const formData = new URLSearchParams();
+    formData.append('id_vehiculo', idVehiculo);
+
+    fetch('guardar_solicitud.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+    })
+    .then(res => res.json())
+    .then(data => {
+        // Redirigir a subir licencia sin importar la respuesta para asegurar el flujo
+        window.location.href = "subir_licencia.php";
+    })
+    .catch(err => {
+        window.location.href = "subir_licencia.php";
+    });
+}
 function enviarMensajeBot() {
     const input = document.getElementById('chat-input');
     const chatContainer = document.getElementById('chat-float-container');
