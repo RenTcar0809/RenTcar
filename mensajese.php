@@ -33,24 +33,31 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 
     // 1. OBTENER O CREAR AUTOMÁTICAMENTE EL ID_ARRENDATARIO
     $idArrendatario = null;
+    $idUsuarioCliente = null;
 
     if ($clienteNombre !== '') {
-        // Buscar el id_usuario en la tabla usuario
-        $stmtU = $pdo->prepare("SELECT id_usuario FROM usuario WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) LIMIT 1");
+        // Buscar el id_usuario en la tabla usuario junto con otros datos si están disponibles
+        $stmtU = $pdo->prepare("SELECT id_usuario, correo FROM usuario WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) LIMIT 1");
         $stmtU->execute([$clienteNombre, $clienteNombre]);
-        $idUsuarioCliente = $stmtU->fetchColumn();
+        $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
 
-        if ($idUsuarioCliente) {
+        if ($uData) {
+            $idUsuarioCliente = $uData['id_usuario'];
+            $correoCliente = $uData['correo'] ?? 'cliente@rentcar.com';
+
             // Verificar si ya existe en la tabla arrendatario
             $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
             $stmtArr->execute([$idUsuarioCliente]);
             $idArrendatario = $stmtArr->fetchColumn();
 
-            // Si no existe, lo insertamos automáticamente con los datos requeridos
+            // Si no existe, lo insertamos con todos los campos necesarios para cumplir con restricciones NOT NULL
             if (!$idArrendatario) {
                 try {
-                    $stmtInsArr = $pdo->prepare("INSERT INTO arrendatario (id_usuario, nombre) VALUES (?, ?)");
-                    $stmtInsArr->execute([$idUsuarioCliente, $clienteNombre]);
+                    $stmtInsArr = $pdo->prepare("
+                        INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion) 
+                        VALUES (?, ?, 'N/A', 0, 0, ?, 'N/A')
+                    ");
+                    $stmtInsArr->execute([$idUsuarioCliente, $clienteNombre, $correoCliente]);
                     $idArrendatario = $pdo->lastInsertId();
 
                     if (!$idArrendatario) {
@@ -59,27 +66,30 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                         $idArrendatario = $stmtArr2->fetchColumn();
                     }
                 } catch (Exception $ex) {
-                    // Manejo de excepción silencioso para respaldar con el fallback
+                    // Si ocurre un error, intentamos recuperar el ID existente por si acaso
                 }
             }
         }
     }
 
-    // Si aún no se encuentra, intentamos un respaldo con el primer arrendatario disponible en la tabla
+    // Si aún no se encuentra, tomamos el primer arrendatario disponible en la tabla como respaldo
     if (!$idArrendatario) {
         $stmtFallback = $pdo->prepare("SELECT id_arrendatario FROM arrendatario ORDER BY id_arrendatario ASC LIMIT 1");
         $stmtFallback->execute();
         $idArrendatario = $stmtFallback->fetchColumn();
     }
 
-    // Si de plano la tabla arrendatario está completamente vacía, creamos un registro genérico de emergencia
+    // Si de plano la tabla arrendatario está completamente vacía, creamos un registro genérico seguro
     if (!$idArrendatario) {
         try {
-            $stmtGen = $pdo->prepare("INSERT INTO arrendatario (nombre) VALUES (?)");
+            $stmtGen = $pdo->prepare("
+                INSERT INTO arrendatario (nombre, apellido, cedula, telefono, correo, direccion) 
+                VALUES (?, 'N/A', 0, 0, 'general@rentcar.com', 'N/A')
+            ");
             $stmtGen->execute([$clienteNombre !== '' ? $clienteNombre : 'Cliente General']);
             $idArrendatario = $pdo->lastInsertId();
         } catch (Exception $e) {
-            header("Location: mensajese.php?msg=" . urlencode("Error crítico: No se pudo registrar el arrendatario en la base de datos."));
+            header("Location: mensajese.php?msg=" . urlencode("Error crítico: No se pudo registrar el arrendatario. Verifique las restricciones de la base de datos."));
             exit();
         }
     }
