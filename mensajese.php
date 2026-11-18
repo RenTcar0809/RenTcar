@@ -31,7 +31,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
     $clienteNombre = $_GET['cliente'] ?? '';
 
-    // Buscar el id_arrendatario en la tabla usuario
+    // 1. Buscar el id_arrendatario en la tabla usuario
     $idArrendatario = null;
     if (!empty($clienteNombre)) {
         $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
@@ -39,17 +39,22 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
         $idArrendatario = $stmtUser->fetchColumn();
     }
 
+    // 2. Obtener el precio / monto del vehículo
+    $stmtPrecio = $pdo->prepare("SELECT precio FROM vehiculo WHERE id_v = ? LIMIT 1");
+    $stmtPrecio->execute([$idVehiculoAccion]);
+    $montoVehiculo = $stmtPrecio->fetchColumn() ?: 0.00;
+
     $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'activo') ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
     $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
     if (!$alquilerData) {
-        // CORRECCIÓN: Se incluye fecha_inicio y fecha_fin obligatorias para evitar violar restricciones de no-nulo
+        // CORRECCIÓN: Se incluye el campo 'monto' obtenido del vehículo para evitar violar restricciones de no-nulo
         $stmtCreate = $pdo->prepare("
-            INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, fecha_fin) 
-            VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days')
+            INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, fecha_fin, monto) 
+            VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', ?)
         ");
-        $stmtCreate->execute([$idVehiculoAccion, $idArrendatario]);
+        $stmtCreate->execute([$idVehiculoAccion, $idArrendatario, $montoVehiculo]);
         $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
     } else {
         $idAlquiler = $alquilerData['id_prestamo'];
@@ -65,10 +70,11 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                     fecha_confirmacion = NOW(),
                     fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
                     fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
+                    monto = COALESCE(monto, ?),
                     id_arrendatario = COALESCE(id_arrendatario, ?)
                 WHERE id_prestamo = ?
             ");
-            $updAlq->execute([$idArrendatario, $idAlquiler]);
+            $updAlq->execute([$montoVehiculo, $idArrendatario, $idAlquiler]);
 
             $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
@@ -80,10 +86,11 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                 SET confirmar_propietario = ?, 
                     fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
                     fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
+                    monto = COALESCE(monto, ?),
                     id_arrendatario = COALESCE(id_arrendatario, ?) 
                 WHERE id_prestamo = ?
             ");
-            $updParcial->execute([$confPropietario, $idArrendatario, $idAlquiler]);
+            $updParcial->execute([$confPropietario, $montoVehiculo, $idArrendatario, $idAlquiler]);
 
             $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
         }
