@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($respuestaJson['secure_url'])) {
                 $urlSegura = $respuestaJson['secure_url'];
 
-                // Actualizar la base de datos usando el nombre de usuario
+                // 1. Actualizar la base de datos del usuario usando el nombre de usuario
                 $stmt = $pdo->prepare("
                     UPDATE usuario 
                     SET licencia_numero = :numero, 
@@ -86,7 +86,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':nombre' => $nombreUsuario
                 ]);
 
-                $mensaje = "¡Licencia subida con éxito! Pendiente de revisión.";
+                // 2. Obtener el ID del usuario actual para asociarlo a las aprobaciones pendientes
+                $stmtUserGet = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+                $stmtUserGet->execute([$nombreUsuario, $nombreUsuario]);
+                $uData = $stmtUserGet->fetch(PDO::FETCH_ASSOC);
+
+                if ($uData) {
+                    $idUsuarioActual = $uData['id_usuario'];
+
+                    // Buscar los proveedores (dueños) de los vehículos registrados en la plataforma
+                    $stmtProveedores = $pdo->prepare("SELECT DISTINCT id_proveedor FROM vehiculo WHERE id_proveedor IS NOT NULL AND id_proveedor != ?");
+                    $stmtProveedores->execute([$idUsuarioActual]);
+                    $proveedores = $stmtProveedores->fetchAll(PDO::FETCH_COLUMN);
+
+                    // Registrar o actualizar las solicitudes individuales pendientes para que aparezcan en los paneles de los dueños
+                    foreach ($proveedores as $idProv) {
+                        $stmtInsApp = $pdo->prepare("
+                            INSERT INTO aprobaciones_licencias (id_proveedor, id_usuario, estado, fecha_actualizacion)
+                            VALUES (?, ?, 0, CURRENT_TIMESTAMP)
+                            ON CONFLICT (id_proveedor, id_usuario) 
+                            DO UPDATE SET fecha_actualizacion = CURRENT_TIMESTAMP
+                        ");
+                        $stmtInsApp->execute([$idProv, $idUsuarioActual]);
+                    }
+                }
+
+                $mensaje = "¡Licencia subida con éxito! Pendiente de revisión por los propietarios.";
                 $tipoAlerta = "success";
             } else {
                 $errorMsg = $respuestaJson['error']['message'] ?? 'Error desconocido en Cloudinary';
