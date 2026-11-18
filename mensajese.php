@@ -5,9 +5,8 @@ ini_set('display_errors', 1);
 
 require_once 'conexion.php'; 
 
-// 1. SEGURIDAD: Verificar sesión y que sea tipo Empresa (tipo = 1)
-if (!isset($_SESSION['tipo']) ||$_SESSION['tipo'] != 1) {
-    if (isset($_SESSION['tipo']) &&$_SESSION['tipo'] == 2) {
+if (!isset($_SESSION['tipo']) || $_SESSION['tipo'] != 1) {
+    if (isset($_SESSION['tipo']) && $_SESSION['tipo'] == 2) {
         header("Location: dashboardf.php");
         exit();
     }
@@ -15,50 +14,80 @@ if (!isset($_SESSION['tipo']) ||$_SESSION['tipo'] != 1) {
     exit();
 }
 
-// Prevenir caché
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");
 
 $idProveedor    = $_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0;
 $nombreEmpresa  = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
+$_SESSION['usuario_nombre'] = $nombreEmpresa;
 
-// Sincronizar con la variable que usa chat_backend.php
-$_SESSION['usuario_nombre'] =$nombreEmpresa;
-
-$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));$errorConsulta  = null;
+$inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
+$errorConsulta  = null;
 $conversaciones = [];
 
-// 2. PROCESAR SOLICITUD DE FINALIZAR ALQUILER (Doble Confirmación desde el chat de empresa)
-if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
+// PROCESAR CONFIRMAR INICIO DE PRESTAMO / ALQUILER
+if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
 
-    // Buscar si existe un alquiler activo para este vehículo
-    $stmtAlq =$pdo->prepare("
-        SELECT * FROM alquileres 
-        WHERE id_vehiculo = ? AND estado = 'activo' 
-        LIMIT 1
-    ");
+    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'activo') ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
-    $alquilerData =$stmtAlq->fetch(PDO::FETCH_ASSOC);
+    $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
-    if ($alquilerData) {$idAlquiler = $alquilerData['id_alquiler'];$finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);$finPropietario = 1; // La empresa/propietario da su aprobación
+    if (!$alquilerData) {
+        $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, estado, confirmar_propietario) VALUES (?, 'pendiente', 1)");
+        $stmtCreate->execute([$idVehiculoAccion]);
+        $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
+    } else {
+        $idAlquiler = $alquilerData['id_prestamo'];
+        $confCliente = intval($alquilerData['confirmar_cliente'] ?? 0);
+        $confPropietario = 1;
 
-        // Si ambos ya dieron clic, cerramos el alquiler por completo y liberamos el vehículo
-        if ($finCliente === 1 &&$finPropietario === 1) {
-            $updAlq =$pdo->prepare("UPDATE alquileres SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_alquiler = ?");
+        if ($confCliente === 1 && $confPropietario === 1) {
+            $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'activo', confirmar_cliente = 1, confirmar_propietario = 1 WHERE id_prestamo = ?");
             $updAlq->execute([$idAlquiler]);
 
-            $updVeh =$pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
+            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
+            $updVeh->execute([$idVehiculoAccion]);
+
+            $msgFinal = "¡Ambas partes han confirmado! El alquiler ya está activo.";
+        } else {
+            $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_propietario = ? WHERE id_prestamo = ?");
+            $updParcial->execute([$confPropietario, $idAlquiler]);
+
+            $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
+        }
+    }
+
+    header("Location: mensajese.php?msg=" . urlencode($msgFinal));
+    exit();
+}
+
+// PROCESAR SOLICITUD DE FINALIZAR
+if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
+    $idVehiculoAccion = intval($_GET['id_vehiculo']);
+    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
+    $stmtAlq->execute([$idVehiculoAccion]);
+    $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
+
+    if ($alquilerData) {
+        $idAlquiler = $alquilerData['id_prestamo'];
+        $finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);
+        $finPropietario = 1;
+
+        if ($finCliente === 1 && $finPropietario === 1) {
+            $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_prestamo = ?");
+            $updAlq->execute([$idAlquiler]);
+
+            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
 
             $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
         } else {
-            // Si el cliente aún no confirma, guardamos el voto de la empresa
-            $updParcial =$pdo->prepare("UPDATE alquileres SET finalizar_propietario = ? WHERE id_alquiler = ?");
-            $updParcial->execute([$finPropietario,$idAlquiler]);
+            $updParcial = $pdo->prepare("UPDATE prestamo SET finalizar_propietario = ? WHERE id_prestamo = ?");
+            $updParcial->execute([$finPropietario, $idAlquiler]);
 
-            $msgFinal = "Has confirmado finalizar. Esperando confirmación del cliente.";
+            $msgFinal = "Has solicitado finalizar. Esperando confirmación del cliente.";
         }
 
         header("Location: mensajese.php?msg=" . urlencode($msgFinal));
@@ -67,17 +96,16 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset
 }
 
 function obtenerUrlImagen($ruta) {
-    $ruta = trim(str_replace('\\', '/',$ruta));
+    $ruta = trim(str_replace('\\', '/', $ruta));
     if (empty($ruta)) return 'unnamed.png';
-    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return$ruta;
-    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return$ruta;
-    if (file_exists('uploads/' . $ruta)) return 'uploads/' .$ruta;
-    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' .$ruta;
-    if (file_exists($ruta)) return$ruta;
+    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
+    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
+    if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
+    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' . $ruta;
+    if (file_exists($ruta)) return $ruta;
     return 'unnamed.png';
 }
 
-// 3. CONSULTAR LISTA DE CONVERSACIONES
 try {
     $sqlLista = "SELECT DISTINCT ON (
                     CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
@@ -98,13 +126,11 @@ try {
                     m.id_vehiculo, 
                     m.fecha DESC";
     
-    $stmtLista =$pdo->prepare($sqlLista);$stmtLista->execute([
-        ':id_proveedor' => $idProveedor, 
-        ':empresa'      => $nombreEmpresa
-    ]);
-    $conversaciones =$stmtLista->fetchAll(PDO::FETCH_ASSOC);
+    $stmtLista = $pdo->prepare($sqlLista);
+    $stmtLista->execute([':id_proveedor' => $idProveedor, ':empresa' => $nombreEmpresa]);
+    $conversaciones = $stmtLista->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $errorConsulta =$e->getMessage();
+    $errorConsulta = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -151,12 +177,8 @@ try {
     </style>
 </head>
 <body>
-
     <header class="top-navbar">
-        <div class="logo-container">
-            <h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1>
-        </div>
-
+        <div class="logo-container"><h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1></div>
         <nav class="nav-menu">
             <a href="dashboardE.php" class="nav-link"><i class="fa-solid fa-chart-pie"></i> <span>Panel</span></a>
             <a href="mensajese.php" class="nav-link active"><i class="fa-solid fa-comments"></i> <span>Mensajes</span></a>
@@ -166,15 +188,12 @@ try {
             <a href="panel_propietario_licencias.php" class="nav-link"><i class="fa-solid fa-id-card"></i> <span>Licencias</span></a>
             <a href="perfil_empresa.php" class="nav-link highlight-company"><i class="fa-solid fa-building"></i> <span>Mi Empresa</span></a>
         </nav>
-
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
                 <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
                 <span><?php echo htmlspecialchars($nombreEmpresa); ?></span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: #8e8e93;"></i>
             </div>
             <div class="dropdown-content" id="userDropdown">
-                <a href="perfil_empresa.php"><i class="fa-solid fa-user-gear"></i> Configuración</a>
                 <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
             </div>
         </div>
@@ -182,9 +201,7 @@ try {
 
     <main class="main-content" style="padding-top: 10px;">
         <?php if (!empty($errorConsulta)): ?>
-            <div style="padding: 15px; background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 8px; margin-bottom: 15px;">
-                Error en la consulta: <?php echo htmlspecialchars($errorConsulta); ?>
-            </div>
+            <div style="padding: 15px; background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 8px; margin-bottom: 15px;">Error: <?php echo htmlspecialchars($errorConsulta); ?></div>
         <?php endif; ?>
 
         <?php if (isset($_GET['msg'])): ?>
@@ -195,41 +212,27 @@ try {
 
         <div class="chat-app-container">
             <div class="chat-sidebar">
-                <div class="chat-sidebar-header">
-                    <i class="fa-solid fa-comments" style="color: #e50914;"></i> Mensajes Recibidos
-                </div>
+                <div class="chat-sidebar-header"><i class="fa-solid fa-comments" style="color: #e50914;"></i> Mensajes Recibidos</div>
                 <div class="chat-list">
                     <?php if (!empty($conversaciones)): ?>
-                        <?php foreach ($conversaciones as$index => $chat):$claveKey = $chat['id_vehiculo'] . '_' .$chat['cliente'];
-                            $url_foto_bruta = !empty($chat['imagen_fotos_tabla']) ? $chat['imagen_fotos_tabla'] : ($chat['imagen_principal_vehiculo'] ?? '');
-                            $imagenFinal = obtenerUrlImagen($url_foto_bruta);
+                        <?php foreach ($conversaciones as $index => $chat): 
+                            $claveKey = $chat['id_vehiculo'] . '_' . $chat['cliente'];
+                            $imagenFinal = obtenerUrlImagen(!empty($chat['imagen_fotos_tabla']) ? $chat['imagen_fotos_tabla'] : ($chat['imagen_principal_vehiculo'] ?? ''));
                         ?>
-                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" 
-                                 data-key="<?php echo htmlspecialchars($claveKey); ?>"
-                                 onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo$chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' .$chat['modelo'], ENT_QUOTES); ?>', this)">
-                                <div class="chat-avatar" style="position: relative;">
-                                    <img src="<?php echo htmlspecialchars($imagenFinal); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
-                                    <span class="badge-nuevo" style="display: none; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: #e50914; border-radius: 50%; border: 2px solid #181818;"></span>
-                                </div>
+                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" data-key="<?php echo htmlspecialchars($claveKey); ?>" onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo'], ENT_QUOTES); ?>', this)">
+                                <div class="chat-avatar"><img src="<?php echo htmlspecialchars($imagenFinal); ?>" alt="Vehículo" onerror="this.src='unnamed.png'"></div>
                                 <div class="chat-info">
                                     <div class="chat-title-row">
                                         <span class="chat-name"><?php echo htmlspecialchars($chat['cliente']); ?></span>
                                         <span class="chat-time"><?php echo date('H:i', strtotime($chat['fecha'])); ?></span>
                                     </div>
-                                    <div class="chat-subtext">
-                                        <i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' .$chat['modelo']); ?>
-                                    </div>
-                                    <div class="chat-last-msg">
-                                        <?php echo htmlspecialchars($chat['mensaje']); ?>
-                                    </div>
+                                    <div class="chat-subtext"><i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo']); ?></div>
+                                    <div class="chat-last-msg"><?php echo htmlspecialchars($chat['mensaje']); ?></div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <div style="padding: 30px 15px; text-align: center; color: #666;">
-                            <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                            <p>No tienes mensajes pendientes.</p>
-                        </div>
+                        <div style="padding: 30px 15px; text-align: center; color: #666;"><p>No hay mensajes.</p></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -244,21 +247,13 @@ try {
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;" id="headerActionButtons">
-                        <button onclick="convertirEnReserva()" id="btnConfirmarReserva" style="background: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-file-contract"></i> Confirmar Alquiler
-                        </button>
-                        
-                        <div id="contenedorBotonFinalizar"></div>
-
+                        <div id="contenedorBotonesAccion"></div>
                         <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
                     </div>
                 </div>
 
                 <div class="chat-messages-area" id="chatMessagesArea">
-                    <div class="empty-chat-state" id="emptyChatState">
-                        <i class="fa-solid fa-paper-plane"></i>
-                        <p>Selecciona una conversación para interactuar con el cliente</p>
-                    </div>
+                    <div class="empty-chat-state" id="emptyChatState"><i class="fa-solid fa-paper-plane"></i><p>Selecciona una conversación</p></div>
                 </div>
 
                 <form class="chat-input-container" id="chatInputForm" style="display: none;" onsubmit="enviarMensajePro(event)">
@@ -272,43 +267,20 @@ try {
     </main>
 
     <script>
-        const btnProfile = document.getElementById('userProfileBtn');
-        const dropdownProfile = document.getElementById('userDropdown');
-
-        if (btnProfile && dropdownProfile) {
-            btnProfile.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dropdownProfile.classList.toggle('show');
-            });
-
-            window.addEventListener('click', () => {
-                if (dropdownProfile.classList.contains('show')) {
-                    dropdownProfile.classList.remove('show');
-                }
-            });
-        }
-
         let clienteActual = '';
         let vehiculoActualId = '';
         let intervaloEmpresa = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             const primerChat = document.querySelector('.chat-item');
-            if (primerChat) {
-                primerChat.click();
-            }
+            if (primerChat) primerChat.click();
         });
 
         function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
             clienteActual = cliente;
             vehiculoActualId = idVehiculo;
-
             document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-            if (elemento) {
-                elemento.classList.add('active');
-                let badge = elemento.querySelector('.badge-nuevo');
-                if (badge) badge.style.display = 'none';
-            }
+            if (elemento) elemento.classList.add('active');
 
             document.getElementById('chatMainHeader').style.display = 'flex';
             document.getElementById('chatInputForm').style.display = 'flex';
@@ -317,7 +289,6 @@ try {
             document.getElementById('activeCliente').innerText = cliente;
             document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
             document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
-
             document.getElementById('inputDestinatario').value = cliente;
             document.getElementById('inputIdVehiculo').value = idVehiculo;
 
@@ -335,72 +306,58 @@ try {
             fetch(`chat_backend.php?accion=verificar_alquiler&id_vehiculo=${idVehiculo}`)
                 .then(res => res.json())
                 .then(data => {
-                    const contenedorFin = document.getElementById('contenedorBotonFinalizar');
-                    const btnConfirmar = document.getElementById('btnConfirmarReserva');
-                    if (!contenedorFin) return;
+                    const contenedor = document.getElementById('contenedorBotonesAccion');
+                    if (!contenedor) return;
+                    contenedor.innerHTML = '';
 
-                    contenedorFin.innerHTML = '';
+                    let estadoAlquiler = 'pendiente';
+                    let confProp = 0;
+                    let finProp = 0;
 
                     if (data.status === 'success' && data.alquiler) {
-                        const alq = data.alquiler;
-                        if (alq.estado === 'activo') {
-                            if (btnConfirmar) btnConfirmar.style.display = 'none';
+                        estadoAlquiler = data.alquiler.estado;
+                        confProp = parseInt(data.alquiler.confirmar_propietario || 0);
+                        finProp = parseInt(data.alquiler.finalizar_propietario || 0);
+                    }
 
-                            const empresaYaDioClick = (parseInt(alq.finalizar_propietario) === 1);
-
-                            if (empresaYaDioClick) {
-                                contenedorFin.innerHTML = `
-                                    <span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;">
-                                        <i class="fa-solid fa-clock"></i> Esperando cliente
-                                    </span>
-                                `;
-                            } else {
-                                contenedorFin.innerHTML = `
-                                    <a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${idVehiculo}&cliente=${encodeURIComponent(clienteActual)}" 
-                                       style="background: #10b981; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 6px;"
-                                       onclick="return confirm('¿Estás seguro de solicitar finalizar este alquiler? Se requerirá que el cliente también confirme.');">
-                                        <i class="fa-solid fa-check-circle"></i> Finalizar Alquiler
-                                    </a>
-                                `;
-                            }
+                    if (estadoAlquiler === 'activo') {
+                        if (finProp === 1) {
+                            contenedor.innerHTML = `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
                         } else {
-                            if (btnConfirmar) btnConfirmar.style.display = 'inline-block';
+                            contenedor.innerHTML = `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${idVehiculo}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
                         }
                     } else {
-                        if (btnConfirmar) btnConfirmar.style.display = 'inline-block';
+                        if (confProp === 1) {
+                            contenedor.innerHTML = `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
+                        } else {
+                            contenedor.innerHTML = `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${idVehiculo}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
+                        }
                     }
                 })
-                .catch(err => console.error('Error al verificar alquiler:', err));
+                .catch(err => console.error(err));
         }
 
         function obtenerMensajesEmpresa() {
             if (!clienteActual || !vehiculoActualId) return;
-
             fetch(`chat_backend.php?accion=obtener&id_item=${vehiculoActualId}&destinatario=${encodeURIComponent(clienteActual)}`)
                 .then(res => res.json())
                 .then(data => {
                     const area = document.getElementById('chatMessagesArea');
                     if (!area) return;
-                    
                     area.innerHTML = '';
-
-                    if (data.status === 'success' && data.mensajes && data.mensajes.length > 0) {
+                    if (data.status === 'success' && data.mensajes) {
                         data.mensajes.forEach(msg => {
                             const esEnviado = (msg.remitente === data.usuario_actual);
                             const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
                             const bubble = document.createElement('div');
                             bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
-                            bubble.innerHTML = `
-                                <div>${escapeHtml(msg.mensaje)}</div>
-                                <div class="msg-time">${hora}</div>
-                            `;
+                            bubble.innerHTML = `<div>${escapeHtml(msg.mensaje)}</div><div class="msg-time">${hora}</div>`;
                             area.appendChild(bubble);
                         });
                         area.scrollTop = area.scrollHeight;
                     }
                 })
-                .catch(err => console.error('Error al cargar chat:', err));
+                .catch(err => console.error(err));
         }
 
         function enviarMensajePro(e) {
@@ -408,82 +365,25 @@ try {
             const mensajeInput = document.getElementById('inputTextoMensaje');
             const texto = mensajeInput.value.trim();
             if (!texto || !clienteActual || !vehiculoActualId) return;
-
             const formData = new URLSearchParams();
             formData.append('accion', 'enviar');
             formData.append('id_item', vehiculoActualId);
             formData.append('destinatario', clienteActual);
             formData.append('mensaje', texto);
-
-            fetch('chat_backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString()
-            })
+            fetch('chat_backend.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData.toString() })
             .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    mensajeInput.value = '';
-                    obtenerMensajesEmpresa();
-                } else {
-                    alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
-                }
-            })
-            .catch(err => console.error(err));
+            .then(data => { if (data.status === 'success') { mensajeInput.value = ''; obtenerMensajesEmpresa(); } });
         }
 
         function eliminarChatActual() {
-            if (!confirm(`¿Estás seguro de eliminar el historial de chat con ${clienteActual}?`)) return;
-
+            if (!confirm(`¿Eliminar historial?`)) return;
             const formData = new URLSearchParams();
             formData.append('accion', 'eliminar_chat');
             formData.append('id_item', vehiculoActualId);
             formData.append('destinatario', clienteActual);
-
-            fetch('chat_backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString()
-            })
+            fetch('chat_backend.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData.toString() })
             .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    location.reload();
-                } else {
-                    alert('Error al eliminar chat: ' + (data.message || ''));
-                }
-            })
-            .catch(err => console.error(err));
-        }
-
-        function convertirEnReserva() {
-            if (!vehiculoActualId || !clienteActual) {
-                alert('Selecciona una conversación válida primero.');
-                return;
-            }
-
-            if (!confirm(`¿Deseas formalizar el alquiler de este vehículo con el cliente ${clienteActual}? Esto registrará el préstamo, pasará a alquiler activo y marcará el vehículo como no disponible.`)) return;
-
-            const formData = new URLSearchParams();
-            formData.append('accion', 'crear_reserva');
-            formData.append('id_item', vehiculoActualId);
-            formData.append('destinatario', clienteActual);
-
-            fetch('chat_backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString()
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert('¡Alquiler confirmado y activado con éxito!');
-                    location.reload();
-                } else {
-                    alert('Error al crear la reserva: ' + (data.message || 'Intente nuevamente'));
-                }
-            })
-            .catch(err => console.error('Error de red:', err));
+            .then(data => { if (data.status === 'success') location.reload(); });
         }
 
         function escapeHtml(text) {
