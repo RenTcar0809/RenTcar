@@ -44,12 +44,11 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $stmtPrecio->execute([$idVehiculoAccion]);
     $montoVehiculo = $stmtPrecio->fetchColumn() ?: 0.00;
 
-    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'activo') ORDER BY id_prestamo DESC LIMIT 1");
+    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('pendiente', 'Pendiente', 'activo', 'Activo') ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
     $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
     if (!$alquilerData) {
-        // CORRECCIÓN: Se incluye el campo 'monto' obtenido del vehículo para evitar violar restricciones de no-nulo
         $stmtCreate = $pdo->prepare("
             INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, fecha_fin, monto) 
             VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', ?)
@@ -103,7 +102,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 // PROCESAR SOLICITUD DE FINALIZAR ALQUILER (EMPRESA)
 if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
-    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
+    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado IN ('activo', 'Activo') ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
     $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
@@ -361,7 +360,7 @@ try {
                         finCli = parseInt(data.alquiler.finalizar_cliente || 0);
                     }
 
-                    if (estadoAlquiler === 'activo') {
+                    if (estadoAlquiler.toLowerCase() === 'activo') {
                         let totalFin = finProp + finCli;
                         let badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Finalización: ${totalFin}/2</span>`;
 
