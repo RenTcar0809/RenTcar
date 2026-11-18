@@ -28,7 +28,7 @@ try {
     }
     $_SESSION['usuario_nombre'] = $nombre_usuario;
 
-    // PROCESAR CONFIRMAR INICIO DE PRESTAMO POR PARTE DEL CLIENTE
+    // PROCESAR CONFIRMAR INICIO DE PRÉSTAMO POR PARTE DEL CLIENTE
     if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_GET['id_vehiculo'])) {
         $idVehiculoAccion = intval($_GET['id_vehiculo']);
         $interlocutorAccion = $_GET['interlocutor'] ?? '';
@@ -47,7 +47,14 @@ try {
             $confPropietario = intval($alquilerData['confirmar_propietario'] ?? 0);
 
             if ($confCliente === 1 && $confPropietario === 1) {
-                $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'activo', confirmar_cliente = 1, confirmar_propietario = 1 WHERE id_prestamo = ?");
+                $updAlq = $pdo->prepare("
+                    UPDATE prestamo 
+                    SET estado = 'activo', 
+                        confirmar_cliente = 1, 
+                        confirmar_propietario = 1, 
+                        fecha_confirmacion = NOW() 
+                    WHERE id_prestamo = ?
+                ");
                 $updAlq->execute([$idAlquiler]);
 
                 $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
@@ -131,13 +138,16 @@ try {
             $nombre_vehiculo = (!empty($msg['marca']) || !empty($msg['modelo'])) ? trim($msg['marca'] . ' ' . $msg['modelo']) : ($id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General");
             $url_foto_bruta = !empty($msg['imagen_fotos_tabla']) ? $msg['imagen_fotos_tabla'] : ($msg['imagen_principal_vehiculo'] ?? '');
             
+            $tipo_v = strtolower($msg['tipo'] ?? 'auto');
+            $tipo_formateado = (strpos($tipo_v, 'moto') !== false) ? 'moto' : 'auto';
+
             if (!isset($contactos[$clave_contacto])) {
                 $contactos[$clave_contacto] = [
                     'interlocutor' => $interlocutor,
                     'id_vehiculo' => $id_v_val,
                     'nombre_auto' => $nombre_vehiculo,
                     'imagen_auto' => obtenerUrlImagenUsuario($url_foto_bruta),
-                    'tipo_vehiculo' => (strpos(strtolower($msg['tipo'] ?? ''), 'moto') !== false) ? 'moto' : 'auto'
+                    'tipo_vehiculo' => $tipo_formateado
                 ];
             }
         }
@@ -152,12 +162,14 @@ $id_vehiculo_activo = 0;
 $nombre_vehiculo_activo = '';
 $imagen_vehiculo_activo = '';
 $interlocutor_real = '';
+$tipo_vehiculo_activo = 'auto';
 
 if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
     $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
     $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
     $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
     $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
+    $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'] ?? 'auto';
 }
 
 $alquilerChatActivo = null;

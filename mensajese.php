@@ -26,7 +26,7 @@ $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 $errorConsulta  = null;
 $conversaciones = [];
 
-// PROCESAR CONFIRMAR INICIO DE PRESTAMO / ALQUILER
+// PROCESAR CONFIRMAR INICIO DE PRÉSTAMO / ALQUILER (EMPRESA)
 if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
 
@@ -36,24 +36,28 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 
     if (!$alquilerData) {
         $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, estado, confirmar_propietario) VALUES (?, 'pendiente', 1)");
-        $stmtCreate->execute([$idVehiculoAccion]);
-        $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
+        $stmtCreate->execute([$idVehiculoAccion]);$msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
     } else {
-        $idAlquiler = $alquilerData['id_prestamo'];
-        $confCliente = intval($alquilerData['confirmar_cliente'] ?? 0);
-        $confPropietario = 1;
+        $idAlquiler = $alquilerData['id_prestamo'];$confCliente = intval($alquilerData['confirmar_cliente'] ?? 0);$confPropietario = 1;
 
-        if ($confCliente === 1 && $confPropietario === 1) {
-            $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'activo', confirmar_cliente = 1, confirmar_propietario = 1 WHERE id_prestamo = ?");
+        if ($confCliente === 1 &&$confPropietario === 1) {
+            $updAlq =$pdo->prepare("
+                UPDATE prestamo 
+                SET estado = 'activo', 
+                    confirmar_cliente = 1, 
+                    confirmar_propietario = 1, 
+                    fecha_confirmacion = NOW() 
+                WHERE id_prestamo = ?
+            ");
             $updAlq->execute([$idAlquiler]);
 
-            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
+            $updVeh =$pdo->prepare("UPDATE vehiculo SET estado = 'Alquilado' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
 
-            $msgFinal = "¡Ambas partes han confirmado! El alquiler ya está activo.";
+            $msgFinal = "¡Ambas partes han confirmado! El alquiler se ha activado y el vehículo figura como alquilado.";
         } else {
-            $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_propietario = ? WHERE id_prestamo = ?");
-            $updParcial->execute([$confPropietario, $idAlquiler]);
+            $updParcial =$pdo->prepare("UPDATE prestamo SET confirmar_propietario = ? WHERE id_prestamo = ?");
+            $updParcial->execute([$confPropietario,$idAlquiler]);
 
             $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
         }
@@ -63,29 +67,26 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     exit();
 }
 
-// PROCESAR SOLICITUD DE FINALIZAR
+// PROCESAR SOLICITUD DE FINALIZAR ALQUILER (EMPRESA)
 if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
-    $stmtAlq = $pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
+    $stmtAlq =$pdo->prepare("SELECT * FROM prestamo WHERE id_vehiculo = ? AND estado = 'activo' ORDER BY id_prestamo DESC LIMIT 1");
     $stmtAlq->execute([$idVehiculoAccion]);
-    $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
+    $alquilerData =$stmtAlq->fetch(PDO::FETCH_ASSOC);
 
-    if ($alquilerData) {
-        $idAlquiler = $alquilerData['id_prestamo'];
-        $finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);
-        $finPropietario = 1;
+    if ($alquilerData) {$idAlquiler = $alquilerData['id_prestamo'];$finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);$finPropietario = 1;
 
-        if ($finCliente === 1 && $finPropietario === 1) {
-            $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_prestamo = ?");
+        if ($finCliente === 1 &&$finPropietario === 1) {
+            $updAlq =$pdo->prepare("UPDATE prestamo SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_prestamo = ?");
             $updAlq->execute([$idAlquiler]);
 
-            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
+            $updVeh =$pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
             $updVeh->execute([$idVehiculoAccion]);
 
             $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
         } else {
-            $updParcial = $pdo->prepare("UPDATE prestamo SET finalizar_propietario = ? WHERE id_prestamo = ?");
-            $updParcial->execute([$finPropietario, $idAlquiler]);
+            $updParcial =$pdo->prepare("UPDATE prestamo SET finalizar_propietario = ? WHERE id_prestamo = ?");
+            $updParcial->execute([$finPropietario,$idAlquiler]);
 
             $msgFinal = "Has solicitado finalizar. Esperando confirmación del cliente.";
         }
@@ -96,13 +97,13 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset
 }
 
 function obtenerUrlImagen($ruta) {
-    $ruta = trim(str_replace('\\', '/', $ruta));
+    $ruta = trim(str_replace('\\', '/',$ruta));
     if (empty($ruta)) return 'unnamed.png';
-    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
-    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return $ruta;
-    if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
-    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' . $ruta;
-    if (file_exists($ruta)) return $ruta;
+    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return$ruta;
+    if (strpos($ruta, 'imagenes/') === 0 || strpos($ruta, 'uploads/') === 0) return$ruta;
+    if (file_exists('uploads/' . $ruta)) return 'uploads/' .$ruta;
+    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' .$ruta;
+    if (file_exists($ruta)) return$ruta;
     return 'unnamed.png';
 }
 
@@ -126,11 +127,10 @@ try {
                     m.id_vehiculo, 
                     m.fecha DESC";
     
-    $stmtLista = $pdo->prepare($sqlLista);
-    $stmtLista->execute([':id_proveedor' => $idProveedor, ':empresa' => $nombreEmpresa]);
-    $conversaciones = $stmtLista->fetchAll(PDO::FETCH_ASSOC);
+    $stmtLista =$pdo->prepare($sqlLista);$stmtLista->execute([':id_proveedor' => $idProveedor, ':empresa' =>$nombreEmpresa]);
+    $conversaciones =$stmtLista->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $errorConsulta = $e->getMessage();
+    $errorConsulta =$e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -215,18 +215,17 @@ try {
                 <div class="chat-sidebar-header"><i class="fa-solid fa-comments" style="color: #e50914;"></i> Mensajes Recibidos</div>
                 <div class="chat-list">
                     <?php if (!empty($conversaciones)): ?>
-                        <?php foreach ($conversaciones as $index => $chat): 
-                            $claveKey = $chat['id_vehiculo'] . '_' . $chat['cliente'];
+                        <?php foreach ($conversaciones as$index => $chat):$claveKey = $chat['id_vehiculo'] . '_' .$chat['cliente'];
                             $imagenFinal = obtenerUrlImagen(!empty($chat['imagen_fotos_tabla']) ? $chat['imagen_fotos_tabla'] : ($chat['imagen_principal_vehiculo'] ?? ''));
                         ?>
-                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" data-key="<?php echo htmlspecialchars($claveKey); ?>" onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo $chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo'], ENT_QUOTES); ?>', this)">
+                            <div class="chat-item <?php echo $index === 0 ? 'active' : ''; ?>" data-key="<?php echo htmlspecialchars($claveKey); ?>" onclick="cargarChat('<?php echo htmlspecialchars($chat['cliente'], ENT_QUOTES); ?>', '<?php echo$chat['id_vehiculo']; ?>', '<?php echo htmlspecialchars($chat['marca'] . ' ' .$chat['modelo'], ENT_QUOTES); ?>', this)">
                                 <div class="chat-avatar"><img src="<?php echo htmlspecialchars($imagenFinal); ?>" alt="Vehículo" onerror="this.src='unnamed.png'"></div>
                                 <div class="chat-info">
                                     <div class="chat-title-row">
                                         <span class="chat-name"><?php echo htmlspecialchars($chat['cliente']); ?></span>
                                         <span class="chat-time"><?php echo date('H:i', strtotime($chat['fecha'])); ?></span>
                                     </div>
-                                    <div class="chat-subtext"><i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' . $chat['modelo']); ?></div>
+                                    <div class="chat-subtext"><i class="fa-solid fa-car"></i> <?php echo htmlspecialchars($chat['marca'] . ' ' .$chat['modelo']); ?></div>
                                     <div class="chat-last-msg"><?php echo htmlspecialchars($chat['mensaje']); ?></div>
                                 </div>
                             </div>
