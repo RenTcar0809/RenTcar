@@ -10,24 +10,85 @@ if (!isset($_SESSION['IdUsuario'])) {
     exit();
 }
 
-$id_usuario = $_SESSION['IdUsuario'];$nombre_usuario = '';
-$error_msg = '';$contactos = []; 
+// Prevenir almacenamiento en caché
+header("Cache-Control: no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
+
+$id_usuario = $_SESSION['IdUsuario'];
+$nombre_usuario = '';
+$error_msg = '';
+$contactos = []; 
 
 try {
     // Consulta para obtener la identidad del usuario actual
-    $stmtU =$pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
+    $stmtU = $pdo->prepare('SELECT nombre, empresa, tipo FROM usuario WHERE id_usuario = ?');
     $stmtU->execute([$id_usuario]);
-    $uData =$stmtU->fetch(PDO::FETCH_ASSOC);
+    $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
     
     if ($uData) {
-        $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] :$uData['nombre'];
+        $nombre_usuario = ($uData['tipo'] == 1) ? $uData['empresa'] : $uData['nombre'];
     }
 
     // Guardar el nombre en sesión para compatibilidad con chat_backend.php
-    $_SESSION['usuario_nombre'] =$nombre_usuario;
+    $_SESSION['usuario_nombre'] = $nombre_usuario;
+
+    // 1. PROCESAR SOLICITUD DE FINALIZAR ALQUILER (Doble Confirmación)
+    if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
+        $idVehiculoAccion = intval($_GET['id_vehiculo']);
+        $interlocutorAccion = $_GET['interlocutor'] ?? '';
+
+        // Buscar si existe un alquiler activo para este vehículo
+        $stmtAlq = $pdo->prepare("
+            SELECT a.*, v.id_proveedor 
+            FROM alquileres a 
+            INNER JOIN vehiculo v ON a.id_vehiculo = v.id_v 
+            WHERE a.id_vehiculo = ? AND a.estado = 'activo'
+        ");
+        $stmtAlq->execute([$idVehiculoAccion]);
+        $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
+
+        if ($alquilerData) {
+            $idAlquiler = $alquilerData['id_alquiler'];
+            $finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);
+            $finPropietario = intval($alquilerData['finalizar_propietario'] ?? 0);
+
+            // Identificar si el usuario actual es el propietario o el cliente
+            $stmtProv = $pdo->prepare("SELECT nombre, empresa FROM usuario WHERE id_usuario = ?");
+            $stmtProv->execute([$alquilerData['id_proveedor']]);
+            $provData = $stmtProv->fetch(PDO::FETCH_ASSOC);
+            $nombrePropietario = ($provData['empresa'] ?: $provData['nombre']);
+
+            if ($nombre_usuario === $nombrePropietario) {
+                $finPropietario = 1; // El propietario aprueba
+            } else {
+                $finCliente = 1; // El cliente aprueba
+            }
+
+            // Si ambos ya dieron clic, cerramos el alquiler por completo y liberamos el vehículo
+            if ($finCliente === 1 && $finPropietario === 1) {
+                $updAlq = $pdo->prepare("UPDATE alquileres SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_alquiler = ?");
+                $updAlq->execute([$idAlquiler]);
+
+                $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
+                $updVeh->execute([$idVehiculoAccion]);
+
+                $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
+            } else {
+                // Si solo uno dio clic, guardamos su voto
+                $updParcial = $pdo->prepare("UPDATE alquileres SET finalizar_cliente = ?, finalizar_propietario = ? WHERE id_alquiler = ?");
+                $updParcial->execute([$finCliente, $finPropietario, $idAlquiler]);
+
+                $msgFinal = "Has solicitado finalizar. Esperando confirmación de la otra parte.";
+            }
+
+            header("Location: mensajes.php?contacto=" . urlencode($idVehiculoAccion . '_' . $interlocutorAccion) . "&msg=" . urlencode($msgFinal));
+            exit();
+        }
+    }
 
     // Consulta para traer los mensajes
-    $stmt_chats =$pdo->prepare('
+    $stmt_chats = $pdo->prepare('
         SELECT 
             m.id_vehiculo, 
             m.remitente, 
@@ -43,8 +104,8 @@ try {
         WHERE m.destinatario = ? OR m.remitente = ?
         ORDER BY m.fecha DESC
     ');
-    $stmt_chats->execute([$nombre_usuario,$nombre_usuario]);
-    $todos_mensajes =$stmt_chats->fetchAll(PDO::FETCH_ASSOC);
+    $stmt_chats->execute([$nombre_usuario, $nombre_usuario]);
+    $todos_mensajes = $stmt_chats->fetchAll(PDO::FETCH_ASSOC);
 
     function obtenerUrlImagen($ruta) {
         $ruta = trim(str_replace('\\', '/', $ruta));
@@ -69,12 +130,15 @@ try {
         return 'unnamed.png';
     }
     
-    foreach ($todos_mensajes as $msg) {$interlocutor = ($msg['remitente'] ===$nombre_usuario) ? $msg['destinatario'] :$msg['remitente'];
+    foreach ($todos_mensajes as $msg) {
+        $interlocutor = ($msg['remitente'] === $nombre_usuario) ? $msg['destinatario'] : $msg['remitente'];
         
-        if (!empty($interlocutor) &&$interlocutor !== $nombre_usuario) {$id_v_val = !empty($msg['id_vehiculo']) ?$msg['id_vehiculo'] : 0;
-            $clave_contacto = $id_v_val . '_' .$interlocutor;
+        if (!empty($interlocutor) && $interlocutor !== $nombre_usuario) {
+            $id_v_val = !empty($msg['id_vehiculo']) ? $msg['id_vehiculo'] : 0;
+            $clave_contacto = $id_v_val . '_' . $interlocutor;
             
-            if (!empty($msg['marca']) || !empty($msg['modelo'])) {$nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? ''));
+            if (!empty($msg['marca']) || !empty($msg['modelo'])) {
+                $nombre_vehiculo = trim(($msg['marca'] ?? '') . ' ' . ($msg['modelo'] ?? ''));
             } else {
                 $nombre_vehiculo = $id_v_val > 0 ? "Vehículo #" . $id_v_val : "Conversación General";
             }
@@ -97,19 +161,35 @@ try {
         }
     }
 
-} catch (PDOException $e) {$error_msg = "Error en la base de datos: " . $e->getMessage();
+} catch (PDOException $e) {
+    $error_msg = "Error en la base de datos: " . $e->getMessage();
 }
 
 $keys_contacto = array_keys($contactos);
-$contacto_activo_key =$_GET['contacto'] ?? (!empty($keys_contacto) ?$keys_contacto[0] : '');
+$contacto_activo_key = $_GET['contacto'] ?? (!empty($keys_contacto) ? $keys_contacto[0] : '');
 
 $id_vehiculo_activo = 0;
-$nombre_vehiculo_activo = '';$imagen_vehiculo_activo = '';
-$interlocutor_real = '';$tipo_vehiculo_activo = 'auto';
+$nombre_vehiculo_activo = '';
+$imagen_vehiculo_activo = '';
+$interlocutor_real = '';
+$tipo_vehiculo_activo = 'auto';
 
-if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {$id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
-    $nombre_vehiculo_activo =$contactos[$contacto_activo_key]['nombre_auto'];$imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
-    $interlocutor_real =$contactos[$contacto_activo_key]['interlocutor'];$tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
+if (!empty($contacto_activo_key) && isset($contactos[$contacto_activo_key])) {
+    $id_vehiculo_activo = $contactos[$contacto_activo_key]['id_vehiculo'];
+    $nombre_vehiculo_activo = $contactos[$contacto_activo_key]['nombre_auto'];
+    $imagen_vehiculo_activo = $contactos[$contacto_activo_key]['imagen_auto'];
+    $interlocutor_real = $contactos[$contacto_activo_key]['interlocutor'];
+    $tipo_vehiculo_activo = $contactos[$contacto_activo_key]['tipo_vehiculo'];
+}
+
+// Consultar si hay un alquiler activo para mostrar el estado de los botones de doble confirmación
+$alquilerChatActivo = null;
+if ($id_vehiculo_activo > 0) {
+    try {
+        $stmtAlqCheck = $pdo->prepare("SELECT * FROM alquileres WHERE id_vehiculo = ? AND estado = 'activo' LIMIT 1");
+        $stmtAlqCheck->execute([$id_vehiculo_activo]);
+        $alquilerChatActivo = $stmtAlqCheck->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {}
 }
 
 // Obtener mensajes de la conversación activa y marcar como leídos
@@ -117,7 +197,7 @@ $mensajes_chat = [];
 if (!empty($interlocutor_real)) {
     try {
         if ($id_vehiculo_activo > 0) {
-            $stmt_marcar =$pdo->prepare('
+            $stmt_marcar = $pdo->prepare('
                 UPDATE mensajes_chat 
                 SET leido = 1 
                 WHERE destinatario = ? 
@@ -125,17 +205,17 @@ if (!empty($interlocutor_real)) {
                 AND id_vehiculo = ? 
                 AND leido = 0
             ');
-            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real,$id_vehiculo_activo]);
+            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real, $id_vehiculo_activo]);
 
-            $stmt_h =$pdo->prepare('
+            $stmt_h = $pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE id_vehiculo = ? 
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
+            $stmt_h->execute([$id_vehiculo_activo, $nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
         } else {
-            $stmt_marcar =$pdo->prepare('
+            $stmt_marcar = $pdo->prepare('
                 UPDATE mensajes_chat 
                 SET leido = 1 
                 WHERE destinatario = ? 
@@ -143,18 +223,19 @@ if (!empty($interlocutor_real)) {
                 AND (id_vehiculo IS NULL OR id_vehiculo = 0) 
                 AND leido = 0
             ');
-            $stmt_marcar->execute([$nombre_usuario,$interlocutor_real]);
+            $stmt_marcar->execute([$nombre_usuario, $interlocutor_real]);
 
-            $stmt_h =$pdo->prepare('
+            $stmt_h = $pdo->prepare('
                 SELECT * FROM mensajes_chat 
                 WHERE (id_vehiculo IS NULL OR id_vehiculo = 0)
                 AND ((remitente = ? AND destinatario = ?) OR (remitente = ? AND destinatario = ?))
                 ORDER BY fecha ASC
             ');
-            $stmt_h->execute([$nombre_usuario,$interlocutor_real, $interlocutor_real,$nombre_usuario]);
+            $stmt_h->execute([$nombre_usuario, $interlocutor_real, $interlocutor_real, $nombre_usuario]);
         }
-        $mensajes_chat =$stmt_h->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {$error_msg = "Error al cargar el chat: " . $e->getMessage();
+        $mensajes_chat = $stmt_h->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $error_msg = "Error al cargar el chat: " . $e->getMessage();
     }
 }
 ?>
@@ -187,9 +268,9 @@ if (!empty($interlocutor_real)) {
                         <p>No tienes conversaciones activas con clientes aún.</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($contactos as $key =>$c): ?>
+                    <?php foreach ($contactos as $key => $c): ?>
                         <a href="mensajes.php?contacto=<?php echo urlencode($key); ?>" 
-                           class="contact-item <?php echo ($contacto_activo_key ===$key) ? 'active' : ''; ?>"
+                           class="contact-item <?php echo ($contacto_activo_key === $key) ? 'active' : ''; ?>"
                            data-key="<?php echo htmlspecialchars($key); ?>">
                             <div class="contact-avatar" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($c['imagen_auto']); ?>" alt="Vehículo" onerror="this.src='unnamed.png'">
@@ -228,13 +309,50 @@ if (!empty($interlocutor_real)) {
                         <h3><?php echo htmlspecialchars($nombre_vehiculo_activo); ?></h3>
                         <small style="color: #aaa; font-size: 0.85rem;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
                     </div>
-                    <button type="button" onclick="eliminarConversacion(<?php echo $id_vehiculo_activo; ?>, '<?php echo htmlspecialchars($interlocutor_real); ?>')" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;" title="Terminar y eliminar chat">
+
+                    <!-- BOTÓN DE DOBLE CONFIRMACIÓN PARA FINALIZAR ALQUILER -->
+                    <?php if ($alquilerChatActivo): ?>
+                        <?php 
+                            $stmtGetProv = $pdo->prepare("SELECT id_proveedor FROM vehiculo WHERE id_v = ?");
+                            $stmtGetProv->execute([$id_vehiculo_activo]);
+                            $idProvVeh = $stmtGetProv->fetchColumn();
+
+                            $stmtGetUsrId = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
+                            $stmtGetUsrId->execute([$nombre_usuario, $nombre_usuario]);
+                            $currentUserId = $stmtGetUsrId->fetchColumn();
+
+                            $esPropietario = ($currentUserId == $idProvVeh);
+                            $yaDioClick = $esPropietario ? ($alquilerChatActivo['finalizar_propietario'] == 1) : ($alquilerChatActivo['finalizar_cliente'] == 1);
+                        ?>
+
+                        <?php if ($yaDioClick): ?>
+                            <span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;">
+                                <i class="fas fa-clock"></i> Esperando otra parte
+                            </span>
+                        <?php else: ?>
+                            <a href="mensajes.php?contacto=<?php echo urlencode($contacto_activo_key); ?>&accion=solicitar_finalizar&id_vehiculo=<?php echo $id_vehiculo_activo; ?>&interlocutor=<?php echo urlencode($interlocutor_real); ?>" 
+                               style="background: #10b981; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; text-decoration: none; font-weight: bold;" 
+                               onclick="return confirm('¿Estás seguro de solicitar finalizar este alquiler? Se requerirá que la otra parte también confirme.');"
+                               title="Solicitar finalizar alquiler">
+                                <i class="fas fa-check-circle"></i> Finalizar Alquiler
+                            </a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+
+                    <button type="button" onclick="eliminarConversacion(<?php echo $id_vehiculo_activo; ?>, '<?php echo htmlspecialchars($interlocutor_real); ?>')" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-left: 8px;" title="Terminar y eliminar chat">
                         <i class="fas fa-trash-alt"></i> Terminar Chat
                     </button>
                 </div>
 
+                <!-- Alerta de estado si viene por GET -->
+                <?php if (isset($_GET['msg'])): ?>
+                    <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 10px 15px; margin: 10px; border-radius: 6px; font-size: 0.9rem; font-weight: 600;">
+                        <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($_GET['msg']); ?>
+                    </div>
+                <?php endif; ?>
+
                 <div class="chat-messages" id="chatBox">
-                    <?php foreach ($mensajes_chat as $msg):$es_mio = ($msg['remitente'] ===$nombre_usuario); ?>
+                    <?php foreach ($mensajes_chat as $msg): $es_mio = ($msg['remitente'] === $nombre_usuario); ?>
                         <div class="message-bubble <?php echo $es_mio ? 'sent' : 'received'; ?>">
                             <p><?php echo nl2br(htmlspecialchars($msg['mensaje'])); ?></p>
                             <span class="msg-time"><?php echo date('H:i', strtotime($msg['fecha'] ?? 'now')); ?></span>
@@ -261,28 +379,29 @@ if (!empty($interlocutor_real)) {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-      const formEnviar = document.getElementById('formEnviarMensaje');
-    if (formEnviar) {
-        formEnviar.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
+        const formEnviar = document.getElementById('formEnviarMensaje');
+        if (formEnviar) {
+            formEnviar.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
 
-            fetch('chat_backend.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    location.reload(); 
-                } else {
-                    console.error("Detalle del error del backend:", data);
-                    alert('Error al enviar: ' + (data.message || 'Ocurrió un error desconocido.'));
-                }
-            })
-            .catch(err => console.error('Error de red al enviar:', err));
-        });
-    }
+                fetch('chat_backend.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload(); 
+                    } else {
+                        console.error("Detalle del error del backend:", data);
+                        alert('Error al enviar: ' + (data.message || 'Ocurrió un error desconocido.'));
+                    }
+                })
+                .catch(err => console.error('Error de red al enviar:', err));
+            });
+        }
+
         function eliminarConversacion(idVehiculo, interlocutor) {
             if (!confirm('¿Estás seguro de que deseas terminar y eliminar esta conversación? Se borrarán todos los mensajes de este chat.')) {
                 return;

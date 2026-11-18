@@ -30,6 +30,47 @@ $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 $errorConsulta  = null;
 $conversaciones = [];
 
+// 2. PROCESAR SOLICITUD DE FINALIZAR ALQUILER (Doble Confirmación desde el chat de empresa)
+if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
+    $idVehiculoAccion = intval($_GET['id_vehiculo']);
+    $clienteInterlocutor = $_GET['cliente'] ?? '';
+
+    // Buscar si existe un alquiler activo para este vehículo
+    $stmtAlq = $pdo->prepare("
+        SELECT * FROM alquileres 
+        WHERE id_vehiculo = ? AND estado = 'activo' 
+        LIMIT 1
+    ");
+    $stmtAlq->execute([$idVehiculoAccion]);
+    $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
+
+    if ($alquilerData) {
+        $idAlquiler = $alquilerData['id_alquiler'];
+        $finCliente = intval($alquilerData['finalizar_cliente'] ?? 0);
+        $finPropietario = 1; // La empresa/propietario da su aprobación
+
+        // Si ambos ya dieron clic, cerramos el alquiler por completo y liberamos el vehículo
+        if ($finCliente === 1 && $finPropietario === 1) {
+            $updAlq = $pdo->prepare("UPDATE alquileres SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_alquiler = ?");
+            $updAlq->execute([$idAlquiler]);
+
+            $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
+            $updVeh->execute([$idVehiculoAccion]);
+
+            $msgFinal = "¡Ambas partes han confirmado! El alquiler ha finalizado con éxito.";
+        } else {
+            // Si el cliente aún no confirma, guardamos el voto de la empresa
+            $updParcial = $pdo->prepare("UPDATE alquileres SET finalizar_propietario = ? WHERE id_alquiler = ?");
+            $updParcial->execute([$finPropietario, $idAlquiler]);
+
+            $msgFinal = "Has confirmado finalizar. Esperando confirmación del cliente.";
+        }
+
+        header("Location: mensajese.php?msg=" . urlencode($msgFinal));
+        exit();
+    }
+}
+
 function obtenerUrlImagen($ruta) {
     $ruta = trim(str_replace('\\', '/', $ruta));
     if (empty($ruta)) {
@@ -53,7 +94,7 @@ function obtenerUrlImagen($ruta) {
     return 'unnamed.png';
 }
 
-// 2. CONSULTAR LISTA DE CONVERSACIONES (Búsqueda robusta por ID de proveedor o nombre)
+// 3. CONSULTAR LISTA DE CONVERSACIONES
 try {
     $sqlLista = "SELECT DISTINCT ON (
                     CASE WHEN m.remitente = :empresa THEN m.destinatario ELSE m.remitente END, 
@@ -93,7 +134,6 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admindashboard.css">
     <style>
-        /* LAYOUT DE CHAT TIPO PRO */
         .chat-app-container {
             display: flex;
             height: calc(100vh - 100px);
@@ -104,8 +144,6 @@ try {
             margin-top: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-
-        /* SIDEBAR IZQUIERDA: LISTA DE CHATS */
         .chat-sidebar {
             width: 320px;
             background: #181818;
@@ -113,7 +151,6 @@ try {
             display: flex;
             flex-direction: column;
         }
-
         .chat-sidebar-header {
             padding: 18px 20px;
             background: #1f1f1f;
@@ -125,12 +162,7 @@ try {
             align-items: center;
             gap: 10px;
         }
-
-        .chat-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-
+        .chat-list { flex: 1; overflow-y: auto; }
         .chat-item {
             display: flex;
             align-items: center;
@@ -141,10 +173,8 @@ try {
             transition: background 0.2s;
             position: relative;
         }
-
         .chat-item:hover { background: #242424; }
         .chat-item.active { background: #2d1a1a; border-left: 4px solid #e50914; }
-
         .chat-avatar {
             width: 45px;
             height: 45px;
@@ -159,58 +189,14 @@ try {
             flex-shrink: 0;
             overflow: hidden;
         }
-
         .chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-        .chat-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .chat-title-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-
-        .chat-name {
-            font-weight: bold;
-            color: #fff;
-            font-size: 0.95rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .chat-time {
-            font-size: 0.75rem;
-            color: #777;
-        }
-
-        .chat-subtext {
-            font-size: 0.8rem;
-            color: #e50914;
-            font-weight: 500;
-            margin-bottom: 3px;
-        }
-
-        .chat-last-msg {
-            font-size: 0.82rem;
-            color: #888;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* ÁREA PRINCIPAL DERECHA: CONVERSACIÓN */
-        .chat-main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #0d0d0d;
-        }
-
+        .chat-info { flex: 1; min-width: 0; }
+        .chat-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .chat-name { font-weight: bold; color: #fff; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-time { font-size: 0.75rem; color: #777; }
+        .chat-subtext { font-size: 0.8rem; color: #e50914; font-weight: 500; margin-bottom: 3px; }
+        .chat-last-msg { font-size: 0.82rem; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-main { flex: 1; display: flex; flex-direction: column; background: #0d0d0d; }
         .chat-main-header {
             padding: 15px 20px;
             background: #181818;
@@ -219,13 +205,7 @@ try {
             justify-content: space-between;
             align-items: center;
         }
-
-        .chat-header-user {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
+        .chat-header-user { display: flex; align-items: center; gap: 12px; }
         .btn-delete-chat {
             background: #2b1111;
             color: #ef4444;
@@ -238,8 +218,6 @@ try {
             transition: 0.2s;
         }
         .btn-delete-chat:hover { background: #ef4444; color: #fff; }
-
-        /* MENSAJES */
         .chat-messages-area {
             flex: 1;
             padding: 20px;
@@ -248,7 +226,6 @@ try {
             flex-direction: column;
             gap: 12px;
         }
-
         .msg-bubble {
             max-width: 65%;
             padding: 12px 16px;
@@ -258,8 +235,6 @@ try {
             position: relative;
             word-wrap: break-word;
         }
-
-        /* Recibido (Cliente) */
         .msg-bubble.received {
             align-self: flex-start;
             background: #222222;
@@ -267,23 +242,13 @@ try {
             border-bottom-left-radius: 2px;
             border: 1px solid #333;
         }
-
-        /* Enviado (Empresa) */
         .msg-bubble.sent {
             align-self: flex-end;
             background: linear-gradient(135deg, #e50914, #b80710);
             color: #ffffff;
             border-bottom-right-radius: 2px;
         }
-
-        .msg-time {
-            font-size: 0.7rem;
-            margin-top: 6px;
-            text-align: right;
-            opacity: 0.7;
-        }
-
-        /* FOOTER: INPUT DE MENSAJE */
+        .msg-time { font-size: 0.7rem; margin-top: 6px; text-align: right; opacity: 0.7; }
         .chat-input-container {
             padding: 15px 20px;
             background: #181818;
@@ -292,7 +257,6 @@ try {
             gap: 12px;
             align-items: center;
         }
-
         .chat-input-container input {
             flex: 1;
             background: #262626;
@@ -303,11 +267,7 @@ try {
             font-size: 0.95rem;
             outline: none;
         }
-
-        .chat-input-container input:focus {
-            border-color: #e50914;
-        }
-
+        .chat-input-container input:focus { border-color: #e50914; }
         .btn-send-msg {
             background: #e50914;
             color: #fff;
@@ -322,12 +282,7 @@ try {
             font-size: 1.1rem;
             transition: background 0.2s, transform 0.1s;
         }
-
-        .btn-send-msg:hover {
-            background: #b80710;
-            transform: scale(1.05);
-        }
-
+        .btn-send-msg:hover { background: #b80710; transform: scale(1.05); }
         .empty-chat-state {
             display: flex;
             flex-direction: column;
@@ -337,7 +292,6 @@ try {
             color: #666;
             text-align: center;
         }
-
         .empty-chat-state i { font-size: 3.5rem; margin-bottom: 15px; color: #333; }
     </style>
 </head>
@@ -370,7 +324,7 @@ try {
                 <i class="fa-solid fa-users"></i>
                 <span>Clientes</span>
             </a>
-                   <a href="panel_propietario_licencias.php" class="nav-link">
+            <a href="panel_propietario_licencias.php" class="nav-link">
                 <i class="fa-solid fa-id-card"></i>
                 <span>Licencias</span>
             </a>
@@ -400,6 +354,12 @@ try {
         <?php if (!empty($errorConsulta)): ?>
             <div style="padding: 15px; background: rgba(231,76,60,0.2); color: #e74c3c; border-radius: 8px; margin-bottom: 15px;">
                 Error en la consulta: <?php echo htmlspecialchars($errorConsulta); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['msg'])): ?>
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 12px 20px; border-radius: 8px; margin-bottom: 15px; font-weight: 600;">
+                <i class="fa-solid fa-check-circle"></i> <?php echo htmlspecialchars($_GET['msg']); ?>
             </div>
         <?php endif; ?>
 
@@ -454,21 +414,25 @@ try {
             <div class="chat-main">
                 
                <div class="chat-main-header" id="chatMainHeader" style="display: none;">
-    <div class="chat-header-user">
-        <div class="chat-avatar" id="activeAvatar">A</div>
-        <div>
-            <div style="font-weight: bold; color: #fff;" id="activeCliente">-</div>
-            <div style="font-size: 0.8rem; color: #e50914;" id="activeVehiculo">-</div>
-        </div>
-    </div>
-    <div style="display: flex; gap: 10px; align-items: center;">
-        <!-- Botón para confirmar el alquiler y pasarlo a la tabla préstamo -->
-        <button onclick="convertirEnReserva()" style="background: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-file-contract"></i> Confirmar Alquiler
-        </button>
-        <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
-    </div>
-</div>
+                    <div class="chat-header-user">
+                        <div class="chat-avatar" id="activeAvatar">A</div>
+                        <div>
+                            <div style="font-weight: bold; color: #fff;" id="activeCliente">-</div>
+                            <div style="font-size: 0.8rem; color: #e50914;" id="activeVehiculo">-</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;" id="headerActionButtons">
+                        <!-- Botón para confirmar el alquiler (Pasar a préstamo) -->
+                        <button onclick="convertirEnReserva()" id="btnConfirmarReserva" style="background: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-file-contract"></i> Confirmar Alquiler
+                        </button>
+                        
+                        <!-- Contenedor dinámico para el botón de Doble Confirmación de Finalización -->
+                        <div id="contenedorBotonFinalizar"></div>
+
+                        <button class="btn-delete-chat" onclick="eliminarChatActual()"><i class="fa-solid fa-trash-can"></i> Terminar Chat</button>
+                    </div>
+                </div>
 
                 <!-- Lista de Burbujas de Mensaje -->
                 <div class="chat-messages-area" id="chatMessagesArea">
@@ -494,7 +458,6 @@ try {
 
     <!-- JS -->
     <script>
-        // Dropdown del Perfil
         const btnProfile = document.getElementById('userProfileBtn');
         const dropdownProfile = document.getElementById('userDropdown');
 
@@ -515,7 +478,6 @@ try {
         let vehiculoActualId = '';
         let intervaloEmpresa = null;
 
-        // Cargar primera conversación al iniciar si existe
         document.addEventListener('DOMContentLoaded', () => {
             const primerChat = document.querySelector('.chat-item');
             if (primerChat) {
@@ -527,7 +489,6 @@ try {
             clienteActual = cliente;
             vehiculoActualId = idVehiculo;
 
-            // Marcar ítem activo en la lista y ocultar su notificación si la tenía
             document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
             if (elemento) {
                 elemento.classList.add('active');
@@ -535,7 +496,6 @@ try {
                 if (badge) badge.style.display = 'none';
             }
 
-            // Actualizar Cabecera
             document.getElementById('chatMainHeader').style.display = 'flex';
             document.getElementById('chatInputForm').style.display = 'flex';
             document.getElementById('emptyChatState').style.display = 'none';
@@ -547,11 +507,58 @@ try {
             document.getElementById('inputDestinatario').value = cliente;
             document.getElementById('inputIdVehiculo').value = idVehiculo;
 
-            // Iniciar carga de mensajes y loop de actualización usando chat_backend.php
             obtenerMensajesEmpresa();
+            verificarEstadoAlquilerChat(idVehiculo);
             
             if (intervaloEmpresa) clearInterval(intervaloEmpresa);
-            intervaloEmpresa = setInterval(obtenerMensajesEmpresa, 3000); // Actualiza cada 3 segundos
+            intervaloEmpresa = setInterval(() => {
+                obtenerMensajesEmpresa();
+                verificarEstadoAlquilerChat(idVehiculo);
+            }, 3000);
+        }
+
+        // Consultar mediante fetch si hay un alquiler activo y el estado de los botones de doble confirmación
+        function verificarEstadoAlquilerChat(idVehiculo) {
+            fetch(`chat_backend.php?accion=verificar_alquiler&id_vehiculo=${idVehiculo}`)
+                .then(res => res.json())
+                .then(data => {
+                    const contenedorFin = document.getElementById('contenedorBotonFinalizar');
+                    const btnConfirmar = document.getElementById('btnConfirmarReserva');
+                    if (!contenedorFin) return;
+
+                    contenedorFin.innerHTML = '';
+
+                    if (data.status === 'success' && data.alquiler) {
+                        const alq = data.alquiler;
+                        if (alq.estado === 'activo') {
+                            // Si ya está activo, ocultamos el botón de confirmar alquiler inicial y mostramos el de finalizar
+                            if (btnConfirmar) btnConfirmar.style.display = 'none';
+
+                            const empresaYaDioClick = (parseInt(alq.finalizar_propietario) === 1);
+
+                            if (empresaYaDioClick) {
+                                contenedorFin.innerHTML = `
+                                    <span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;">
+                                        <i class="fa-solid fa-clock"></i> Esperando cliente
+                                    </span>
+                                `;
+                            } else {
+                                contenedorFin.innerHTML = `
+                                    <a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${idVehiculo}&cliente=${encodeURIComponent(clienteActual)}" 
+                                       style="background: #10b981; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 6px;"
+                                       onclick="return confirm('¿Estás seguro de solicitar finalizar este alquiler? Se requerirá que el cliente también confirme.');">
+                                        <i class="fa-solid fa-check-circle"></i> Finalizar Alquiler
+                                    </a>
+                                `;
+                            }
+                        } else {
+                            if (btnConfirmar) btnConfirmar.style.display = 'inline-block';
+                        }
+                    } else {
+                        if (btnConfirmar) btnConfirmar.style.display = 'inline-block';
+                    }
+                })
+                .catch(err => console.error('Error al verificar alquiler:', err));
         }
 
         function obtenerMensajesEmpresa() {
@@ -605,7 +612,7 @@ try {
             .then(data => {
                 if (data.status === 'success') {
                     mensajeInput.value = '';
-                    obtenerMensajesEmpresa(); // Recargar chat de inmediato
+                    obtenerMensajesEmpresa();
                 } else {
                     alert('Error al enviar: ' + (data.message || 'Intente nuevamente'));
                 }
@@ -665,34 +672,34 @@ try {
         }
 
         function convertirEnReserva() {
-    if (!vehiculoActualId || !clienteActual) {
-        alert('Selecciona una conversación válida primero.');
-        return;
-    }
+            if (!vehiculoActualId || !clienteActual) {
+                alert('Selecciona una conversación válida primero.');
+                return;
+            }
 
-    if (!confirm(`¿Deseas formalizar el alquiler de este vehículo con el cliente ${clienteActual}? Esto registrará el préstamo y marcará el vehículo como no disponible.`)) return;
+            if (!confirm(`¿Deseas formalizar el alquiler de este vehículo con el cliente ${clienteActual}? Esto registrará el préstamo y marcará el vehículo como no disponible.`)) return;
 
-    const formData = new URLSearchParams();
-    formData.append('accion', 'crear_reserva');
-    formData.append('id_item', vehiculoActualId);
-    formData.append('destinatario', clienteActual);
+            const formData = new URLSearchParams();
+            formData.append('accion', 'crear_reserva');
+            formData.append('id_item', vehiculoActualId);
+            formData.append('destinatario', clienteActual);
 
-    fetch('chat_backend.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData.toString()
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success') {
-            alert('¡Préstamo/Reserva creado con éxito!');
-            location.reload(); // Recarga para actualizar los datos
-        } else {
-            alert('Error al crear la reserva: ' + (data.message || 'Intente nuevamente'));
+            fetch('chat_backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('¡Préstamo/Reserva creado con éxito!');
+                    location.reload();
+                } else {
+                    alert('Error al crear la reserva: ' + (data.message || 'Intente nuevamente'));
+                }
+            })
+            .catch(err => console.error('Error de red:', err));
         }
-    })
-    .catch(err => console.error('Error de red:', err));
-}
     </script>
 </body>
 </html>
