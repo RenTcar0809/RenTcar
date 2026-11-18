@@ -31,7 +31,7 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $idVehiculoAccion = intval($_GET['id_vehiculo']);
     $clienteNombre = $_GET['cliente'] ?? '';
 
-    // Buscar el id_arrendatario en la tabla usuario para evitar violar restricciones de no-nulo
+    // Buscar el id_arrendatario en la tabla usuario
     $idArrendatario = null;
     if (!empty($clienteNombre)) {
         $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
@@ -44,7 +44,11 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
     if (!$alquilerData) {
-        $stmtCreate = $pdo->prepare("INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario) VALUES (?, ?, 'pendiente', 1)");
+        // CORRECCIÓN: Se incluye fecha_inicio y fecha_fin obligatorias para evitar violar restricciones de no-nulo
+        $stmtCreate = $pdo->prepare("
+            INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, fecha_fin) 
+            VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days')
+        ");
         $stmtCreate->execute([$idVehiculoAccion, $idArrendatario]);
         $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
     } else {
@@ -59,6 +63,8 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                     confirmar_cliente = 1, 
                     confirmar_propietario = 1, 
                     fecha_confirmacion = NOW(),
+                    fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
+                    fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
                     id_arrendatario = COALESCE(id_arrendatario, ?)
                 WHERE id_prestamo = ?
             ");
@@ -69,7 +75,14 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 
             $msgFinal = "¡Ambas partes han confirmado (2/2)! El alquiler se ha activado y el vehículo figura como alquilado.";
         } else {
-            $updParcial = $pdo->prepare("UPDATE prestamo SET confirmar_propietario = ?, id_arrendatario = COALESCE(id_arrendatario, ?) WHERE id_prestamo = ?");
+            $updParcial = $pdo->prepare("
+                UPDATE prestamo 
+                SET confirmar_propietario = ?, 
+                    fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
+                    fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
+                    id_arrendatario = COALESCE(id_arrendatario, ?) 
+                WHERE id_prestamo = ?
+            ");
             $updParcial->execute([$confPropietario, $idArrendatario, $idAlquiler]);
 
             $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
