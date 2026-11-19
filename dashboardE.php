@@ -62,12 +62,12 @@ try {
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = (int)$stmtClientes->fetchColumn();
 
-    // 4. Consultar historial de alquileres
+// 4. Consultar historial de alquileres
     $sqlRentas = "SELECT
                      r.id_prestamo AS id_reserva,
                      COALESCE(u.nombre, a.nombre, 'Cliente') AS cliente,
                      COALESCE(u.correo, a.correo, '') AS correo,
-                     COALESCE(u.num_telefono, CAST(a.telefono AS TEXT), '') AS telefono,
+                     COALESCE(CAST(u.num_telefono AS TEXT), CAST(a.telefono AS TEXT), '') AS telefono,
                      v.marca,
                      v.modelo,
                      v.placa,

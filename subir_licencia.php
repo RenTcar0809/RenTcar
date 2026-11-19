@@ -13,7 +13,7 @@ if (!isset($_SESSION['usuario_nombre'])) {
     exit();
 }
 
-$nombreUsuario = $_SESSION['usuario_nombre'];
+$nombreUsuario = trim((string)$_SESSION['usuario_nombre']);
 $mensaje = "";
 $tipoAlerta = "";
 
@@ -21,6 +21,20 @@ $tipoAlerta = "";
 $cloudName     = getenv('CLOUDINARY_CLOUD_NAME') ?: 'bsd1wma1';
 $apiKey        = getenv('CLOUDINARY_API_KEY') ?: '219554281638733';
 $apiKeySecret  = getenv('CLOUDINARY_API_SECRET') ?: 'RTx7SRXjxf0eBi5nWoqQMrxkuv8';
+
+// Resolver ID del usuario actual (priorizando sesión y respaldando por nombre/empresa)
+$idUsuarioSesion = intval($_SESSION['IdUsuario'] ?? $_SESSION['id_usuario'] ?? 0);
+if ($idUsuarioSesion <= 0 && $nombreUsuario !== '') {
+    $stmtUserGet = $pdo->prepare("
+        SELECT id_usuario 
+        FROM usuario 
+        WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) 
+        ORDER BY id_usuario ASC 
+        LIMIT 1
+    ");
+    $stmtUserGet->execute([$nombreUsuario, $nombreUsuario]);
+    $idUsuarioSesion = intval($stmtUserGet->fetchColumn() ?: 0);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $licenciaNumero = trim($_POST['licencia_numero'] ?? '');
@@ -72,42 +86,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($respuestaJson['secure_url'])) {
                 $urlSegura = $respuestaJson['secure_url'];
 
-                // 1. Actualizar la base de datos del usuario usando el nombre de usuario
-                $stmt = $pdo->prepare("
-                    UPDATE usuario 
-                    SET licencia_numero = :numero, 
-                        licencia_imagen = :imagen, 
-                        licencia_verificada = 0 
-                    WHERE nombre = :nombre OR empresa = :nombre
-                ");
-                $stmt->execute([
-                    ':numero' => $licenciaNumero,
-                    ':imagen' => $urlSegura,
-                    ':nombre' => $nombreUsuario
-                ]);
+                // 1. Actualizar la base de datos del usuario dejando licencia_verificada = 0 (pendiente)
+                if ($idUsuarioSesion > 0) {
+                    $stmt = $pdo->prepare("
+                        UPDATE usuario 
+                        SET licencia_numero = :numero, 
+                            licencia_imagen = :imagen, 
+                            licencia_verificada = 0 
+                        WHERE id_usuario = :id_usuario
+                    ");
+                    $stmt->execute([
+                        ':numero'     => $licenciaNumero,
+                        ':imagen'     => $urlSegura,
+                        ':id_usuario' => $idUsuarioSesion
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        UPDATE usuario 
+                        SET licencia_numero = :numero, 
+                            licencia_imagen = :imagen, 
+                            licencia_verificada = 0 
+                        WHERE TRIM(nombre) ILIKE TRIM(:nombre) OR TRIM(empresa) ILIKE TRIM(:nombre)
+                    ");
+                    $stmt->execute([
+                        ':numero' => $licenciaNumero,
+                        ':imagen' => $urlSegura,
+                        ':nombre' => $nombreUsuario
+                    ]);
+                }
 
-                // 2. Obtener el ID del usuario actual para asociarlo a las aprobaciones pendientes
-                $stmtUserGet = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
-                $stmtUserGet->execute([$nombreUsuario, $nombreUsuario]);
-                $uData = $stmtUserGet->fetch(PDO::FETCH_ASSOC);
-
-                if ($uData) {
-                    $idUsuarioActual = $uData['id_usuario'];
-
-                    // Buscar los proveedores (dueños) de los vehículos registrados en la plataforma
-                    $stmtProveedores = $pdo->prepare("SELECT DISTINCT id_proveedor FROM vehiculo WHERE id_proveedor IS NOT NULL AND id_proveedor != ?");
-                    $stmtProveedores->execute([$idUsuarioActual]);
+                // 2. Registrar o reiniciar solicitudes individuales pendientes (estado = 0) para los propietarios
+                if ($idUsuarioSesion > 0) {
+                    $stmtProveedores = $pdo->prepare("
+                        SELECT DISTINCT id_proveedor 
+                        FROM vehiculo 
+                        WHERE id_proveedor IS NOT NULL AND id_proveedor != ?
+                    ");
+                    $stmtProveedores->execute([$idUsuarioSesion]);
                     $proveedores = $stmtProveedores->fetchAll(PDO::FETCH_COLUMN);
 
-                    // Registrar o actualizar las solicitudes individuales pendientes para que aparezcan en los paneles de los dueños
                     foreach ($proveedores as $idProv) {
                         $stmtInsApp = $pdo->prepare("
                             INSERT INTO aprobaciones_licencias (id_proveedor, id_usuario, estado, fecha_actualizacion)
                             VALUES (?, ?, 0, CURRENT_TIMESTAMP)
                             ON CONFLICT (id_proveedor, id_usuario) 
-                            DO UPDATE SET fecha_actualizacion = CURRENT_TIMESTAMP
+                            DO UPDATE SET estado = 0, fecha_actualizacion = CURRENT_TIMESTAMP
                         ");
-                        $stmtInsApp->execute([$idProv, $idUsuarioActual]);
+                        $stmtInsApp->execute([$idProv, $idUsuarioSesion]);
                     }
                 }
 
@@ -126,8 +151,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Consultar estado actual del usuario de forma segura
-$stmtUser = $pdo->prepare("SELECT licencia_numero, licencia_imagen, licencia_verificada FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
-$stmtUser->execute([$nombreUsuario, $nombreUsuario]);
+if ($idUsuarioSesion > 0) {
+    $stmtUser = $pdo->prepare("SELECT licencia_numero, licencia_imagen, licencia_verificada FROM usuario WHERE id_usuario = ? LIMIT 1");
+    $stmtUser->execute([$idUsuarioSesion]);
+} else {
+    $stmtUser = $pdo->prepare("SELECT licencia_numero, licencia_imagen, licencia_verificada FROM usuario WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) LIMIT 1");
+    $stmtUser->execute([$nombreUsuario, $nombreUsuario]);
+}
 $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -153,7 +183,7 @@ $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
                 <?php if (!empty($userData['licencia_numero'])): ?>
                     <p><strong>Licencia registrada:</strong> <?php echo htmlspecialchars($userData['licencia_numero']); ?></p>
                     <p><strong>Estado:</strong> 
-                        <?php echo ((int)$userData['licencia_verificada'] === 1) ? '<span class="badge success">Aprobada</span>' : '<span class="badge pending">Pendiente de revisión</span>'; ?>
+                        <?php echo ((int)($userData['licencia_verificada'] ?? 0) === 1) ? '<span class="badge success">Aprobada</span>' : '<span class="badge pending">Pendiente de revisión</span>'; ?>
                     </p>
                     <?php if (!empty($userData['licencia_imagen'])): ?>
                         <p style="margin-top: 10px;"><a href="<?php echo htmlspecialchars($userData['licencia_imagen']); ?>" target="_blank" style="color: #e50914;"><i class="fa-solid fa-eye"></i> Ver documento actual</a></p>
