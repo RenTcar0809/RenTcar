@@ -50,13 +50,6 @@ $sql = "SELECT v.*,
         <h1 class="page-title">
             <span class="auto">MOTO</span><span class="movil">CICLETA</span>
         </h1>
-
-        <button class="filter-btn">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-                <path d="M3 6h18M6 12h12M10 18h4"/>
-            </svg>
-            FILTROS
-        </button>
     </header>
 
     <main class="list-container">
