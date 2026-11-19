@@ -474,17 +474,6 @@ try {
 
                 </div>
 
-                <!-- INGRESOS -->
-                <div class="pill-card c-yellow">
-
-                    <div class="pill-info">
-                        <span>Ingresos del Mes</span>
-
-                        <h4>
-                            $<?php echo number_format($gananciasMes, 2); ?>
-                        </h4>
-                    </div>
-
                     <div class="pill-icon">
                         <i class="fa-solid fa-dollar-sign"></i>
                     </div>

@@ -1,9 +1,14 @@
 <?php
 session_start();
-require_once 'conexion.php'; 
+require_once 'conexion.php';
 
 // 1. SEGURIDAD: Verificar sesión activa
-if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
+if (
+    !isset($_SESSION['IdUsuario']) &&
+    !isset($_SESSION['id_proveedor']) &&
+    !isset($_SESSION['nombre_empresa']) &&
+    !isset($_SESSION['usuario_nombre'])
+) {
     header("Location: inicioSesion.php");
     exit();
 }
@@ -14,30 +19,61 @@ header("Pragma: no-cache");
 header("Expires: 0");
 
 // Datos de la empresa
-$idProveedor    = $_SESSION['id_proveedor'] ?? 0;
+$idProveedor    = intval($_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0);
 $nombreEmpresa  = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
+$errorMsg       = '';
+
+function normalizarImagenVehiculo(?string $ruta): string {
+    $ruta = trim(str_replace('\\', '/', (string)$ruta));
+    if ($ruta === '') return '';
+    if (strpos($ruta, 'http://') === 0 || strpos($ruta, 'https://') === 0) return $ruta;
+    if (strpos($ruta, 'uploads/') === 0 || strpos($ruta, 'imagenes/') === 0) return $ruta;
+    if (file_exists('uploads/' . $ruta)) return 'uploads/' . $ruta;
+    if (file_exists('imagenes/' . $ruta)) return 'imagenes/' . $ruta;
+    return 'uploads/' . $ruta;
+}
 
 // 2. PROCESAR ACCIÓN DE FINALIZAR ALQUILER
 if (isset($_GET['accion']) && $_GET['accion'] === 'finalizar' && isset($_GET['id_alquiler'])) {
     $idAlquilerFin = intval($_GET['id_alquiler']);
     try {
-        // Validar que el alquiler pertenezca a un vehículo de esta empresa/proveedor antes de actualizar
+        $pdo->beginTransaction();
+
         $stmtCheck = $pdo->prepare("
-            SELECT a.id_alquiler 
-            FROM alquiler a 
-            INNER JOIN vehiculo v ON a.id_vehiculo = v.id_vehiculo 
-            WHERE a.id_alquiler = :id_alq AND v.id_proveedor = :id_prov
+            SELECT p.id_prestamo, p.id_vehiculo
+            FROM prestamo p
+            INNER JOIN vehiculo v ON p.id_vehiculo = v.id_v
+            WHERE p.id_prestamo = :id_alq AND v.id_proveedor = :id_prov
+            LIMIT 1
         ");
         $stmtCheck->execute([':id_alq' => $idAlquilerFin, ':id_prov' => $idProveedor]);
-        
-        if ($stmtCheck->fetch()) {
-            $stmtUpd = $pdo->prepare("UPDATE alquiler SET estado = 'finalizado' WHERE id_alquiler = :id_alq");
+        $rowAlq = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        if ($rowAlq) {
+            $idVehLiberar = intval($rowAlq['id_vehiculo']);
+
+            $stmtUpd = $pdo->prepare("
+                UPDATE prestamo
+                SET estado = 'finalizado',
+                    finalizar_propietario = 1
+                WHERE id_prestamo = :id_alq
+            ");
             $stmtUpd->execute([':id_alq' => $idAlquilerFin]);
+
+            $stmtVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = :id_v");
+            $stmtVeh->execute([':id_v' => $idVehLiberar]);
+
+            $pdo->commit();
             header("Location: alquileres.php?msg=finalizado");
             exit();
+        } else {
+            $pdo->rollBack();
         }
     } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $errorMsg = "Error al finalizar el alquiler: " . $e->getMessage();
     }
 }
@@ -49,29 +85,45 @@ $totalActivos = 0;
 $totalFinalizados = 0;
 
 try {
-    // Consulta SQL uniendo la tabla 'alquiler' con 'vehiculo'
-    $sql = "SELECT a.*, v.marca, v.modelo, v.placa, v.imagen 
-            FROM alquiler a 
-            INNER JOIN vehiculo v ON a.id_vehiculo = v.id_vehiculo 
-            WHERE v.id_proveedor = :id 
-            ORDER BY a.id_alquiler DESC";
-            
+    $sql = "SELECT
+                p.id_prestamo AS id_alquiler,
+                p.id_vehiculo,
+                p.fecha_inicio,
+                p.fecha_fin,
+                p.estado,
+                COALESCE(p.monto, 0) AS precio_total,
+                v.marca,
+                v.modelo,
+                v.placa,
+                COALESCE(
+                    (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1),
+                    v.imagen
+                ) AS imagen,
+                COALESCE(NULLIF(TRIM(u.nombre), ''), NULLIF(TRIM(a.nombre), ''), 'Cliente General') AS nombre_cliente
+            FROM prestamo p
+            INNER JOIN vehiculo v ON p.id_vehiculo = v.id_v
+            LEFT JOIN arrendatario a ON p.id_arrendatario = a.id_arrendatario
+            LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
+            WHERE v.id_proveedor = :id
+            ORDER BY p.id_prestamo DESC";
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':id' => $idProveedor]);
     $alquileres = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Contadores para el panel superior
     foreach ($alquileres as $alq) {
         $totalAlquileres++;
-        $est = strtolower($alq['estado'] ?? 'activo');
-        if ($est === 'activo') {
+        $est = strtolower(trim((string)($alq['estado'] ?? '')));
+
+        if (in_array($est, ['activo', 'activa', 'en curso'], true)) {
             $totalActivos++;
-        } elseif ($est === 'finalizado' || $est === 'completado') {
+        } elseif (in_array($est, ['finalizado', 'finalizada', 'completado', 'completada'], true)) {
             $totalFinalizados++;
         }
     }
 } catch (PDOException $e) {
     $alquileres = [];
+    $errorMsg = "Error al consultar alquileres: " . $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -80,14 +132,10 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alquileres - <?php echo htmlspecialchars($nombreEmpresa); ?></title>
-    
-    <!-- Iconos FontAwesome -->
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
-    
-    <!-- Hoja de Estilos Independiente -->
     <link rel="stylesheet" href="alquileresstile.css?v=<?php echo time(); ?>">
     <style>
-        /* Estilos adicionales específicos para los botones de acción en tabla */
         .acciones-td { display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-finalizar {
             background-color: #10b981;
@@ -109,7 +157,6 @@ try {
 </head>
 <body>
 
-    <!-- --- BARRA SUPERIOR (NAVBAR) --- -->
     <header class="top-navbar">
         <div class="logo-container">
             <h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1>
@@ -145,13 +192,14 @@ try {
                 <span>Mi Empresa</span>
             </a>
         </nav>
+
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
-                <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
+                <div class="user-avatar"><?php echo htmlspecialchars($inicialEmpresa); ?></div>
                 <span><?php echo htmlspecialchars($nombreEmpresa); ?></span>
                 <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: #8e8e93;"></i>
             </div>
-            
+
             <div class="dropdown-content" id="userDropdown">
                 <a href="perfil_empresa.php"><i class="fa-solid fa-user-gear"></i> Configuración</a>
                 <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
@@ -159,10 +207,8 @@ try {
         </div>
     </header>
 
-    <!-- --- CONTENIDO PRINCIPAL --- -->
     <main class="main-content">
-        
-        <!-- Encabezado de la sección -->
+
         <div class="header-banner">
             <div class="header-info">
                 <h2>Historial de Alquileres</h2>
@@ -170,7 +216,12 @@ try {
             </div>
         </div>
 
-        <!-- Alerta de éxito al finalizar -->
+        <?php if (!empty($errorMsg)): ?>
+            <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: 600;">
+                <i class="fa-solid fa-triangle-exclamation"></i> <?php echo htmlspecialchars($errorMsg); ?>
+            </div>
+        <?php endif; ?>
+
         <?php if (isset($_GET['msg']) && $_GET['msg'] === 'finalizado'): ?>
             <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: 600;">
                 <i class="fa-solid fa-check-circle"></i> El alquiler ha sido finalizado con éxito.
@@ -181,15 +232,15 @@ try {
         <div class="rental-stats-bar">
             <div class="stat-pill">
                 <i class="fa-solid fa-clipboard-list"></i>
-                <span>Total Alquileres: <strong><?php echo $totalAlquileres; ?></strong></span>
+                <span>Total Alquileres: <strong><?php echo number_format($totalAlquileres); ?></strong></span>
             </div>
             <div class="stat-pill status-active">
                 <i class="fa-solid fa-key"></i>
-                <span>En Curso: <strong><?php echo $totalActivos; ?></strong></span>
+                <span>En Curso: <strong><?php echo number_format($totalActivos); ?></strong></span>
             </div>
             <div class="stat-pill status-completed">
                 <i class="fa-solid fa-circle-check"></i>
-                <span>Finalizados: <strong><?php echo $totalFinalizados; ?></strong></span>
+                <span>Finalizados: <strong><?php echo number_format($totalFinalizados); ?></strong></span>
             </div>
         </div>
 
@@ -211,36 +262,52 @@ try {
                         </thead>
                         <tbody>
                             <?php foreach ($alquileres as $item): ?>
+                                <?php
+                                    $estado = strtolower(trim((string)($item['estado'] ?? 'pendiente')));
+                                    $esEnCurso = in_array($estado, ['activo', 'activa', 'en curso'], true);
+                                    $esFinalizado = in_array($estado, ['finalizado', 'finalizada', 'completado', 'completada'], true);
+                                    $badgeClass = 'badge-pendiente';
+                                    $etiquetaEstado = ucfirst($estado ?: 'Pendiente');
+
+                                    if ($esEnCurso) {
+                                        $badgeClass = 'badge-activo';
+                                        $etiquetaEstado = 'En curso';
+                                    } elseif ($esFinalizado) {
+                                        $badgeClass = 'badge-finalizado';
+                                        $etiquetaEstado = 'Finalizado';
+                                    } elseif ($estado === 'cancelado' || $estado === 'cancelada') {
+                                        $badgeClass = 'badge-cancelado';
+                                        $etiquetaEstado = 'Cancelado';
+                                    }
+
+                                    $rutaImg = normalizarImagenVehiculo($item['imagen'] ?? '');
+                                ?>
                                 <tr>
-                                    <!-- ID Reserva -->
                                     <td class="col-id">
-                                        #<?php echo str_pad($item['id_alquiler'], 4, '0', STR_PAD_LEFT); ?>
+                                        #<?php echo str_pad((int)$item['id_alquiler'], 4, '0', STR_PAD_LEFT); ?>
                                     </td>
 
-                                    <!-- Vehículo -->
                                     <td class="col-vehicle">
                                         <div class="car-thumb">
-                                            <?php if (!empty($item['imagen'])): ?>
-                                                <img src="uploads/<?php echo htmlspecialchars($item['imagen']); ?>" alt="Foto">
+                                            <?php if ($rutaImg !== ''): ?>
+                                                <img src="<?php echo htmlspecialchars($rutaImg); ?>" alt="Foto" onerror="this.src='unnamed.png'">
                                             <?php else: ?>
                                                 <i class="fa-solid fa-car"></i>
                                             <?php endif; ?>
                                         </div>
                                         <div class="car-details">
-                                            <span class="car-title"><?php echo htmlspecialchars(($item['marca'] ?? '') . ' ' . ($item['modelo'] ?? '')); ?></span>
+                                            <span class="car-title"><?php echo htmlspecialchars(trim(($item['marca'] ?? '') . ' ' . ($item['modelo'] ?? ''))); ?></span>
                                             <small class="plate-text">Placa: <?php echo htmlspecialchars($item['placa'] ?? 'N/A'); ?></small>
                                         </div>
                                     </td>
 
-                                    <!-- Cliente -->
                                     <td>
                                         <div class="client-info">
                                             <i class="fa-solid fa-user-circle"></i>
-                                            <span><?php echo htmlspecialchars($item['nombre_cliente'] ?? $item['cliente'] ?? 'Cliente General'); ?></span>
+                                            <span><?php echo htmlspecialchars($item['nombre_cliente'] ?? 'Cliente General'); ?></span>
                                         </div>
                                     </td>
 
-                                    <!-- Fechas -->
                                     <td>
                                         <div class="dates-box">
                                             <span><i class="fa-regular fa-calendar-check"></i> <?php echo htmlspecialchars($item['fecha_inicio'] ?? 'N/A'); ?></span>
@@ -248,42 +315,25 @@ try {
                                         </div>
                                     </td>
 
-                                    <!-- Precio Total -->
                                     <td>
-                                        <span class="price-tag">$<?php echo number_format($item['precio_total'] ?? $item['total'] ?? 0, 2); ?></span>
+                                        <span class="price-tag">$<?php echo number_format((float)($item['precio_total'] ?? 0), 2); ?></span>
                                     </td>
 
-                                    <!-- Estado -->
                                     <td>
-                                        <?php 
-                                            $estado = strtolower($item['estado'] ?? 'activo');
-                                            $badgeClass = 'badge-activo';
-
-                                            if ($estado === 'finalizado' || $estado === 'completado') {
-                                                $badgeClass = 'badge-finalizado';
-                                            } elseif ($estado === 'cancelado') {
-                                                $badgeClass = 'badge-cancelado';
-                                            } elseif ($estado === 'pendiente') {
-                                                $badgeClass = 'badge-pendiente';
-                                            }
-                                        ?>
                                         <span class="badge-status <?php echo $badgeClass; ?>">
-                                            <?php echo htmlspecialchars(ucfirst($item['estado'] ?? 'Activo')); ?>
+                                            <?php echo htmlspecialchars($etiquetaEstado); ?>
                                         </span>
                                     </td>
 
-                                    <!-- Acciones -->
                                     <td style="text-align: center;">
                                         <div class="acciones-td">
-                                            <!-- Botón Ver Detalles -->
-                                            <a href="detalle_alquiler.php?id=<?php echo $item['id_alquiler']; ?>" class="btn-icon btn-view" title="Ver Detalles">
+                                            <a href="detalle_alquiler.php?id=<?php echo (int)$item['id_alquiler']; ?>" class="btn-icon btn-view" title="Ver Detalles">
                                                 <i class="fa-solid fa-eye"></i>
                                             </a>
 
-                                            <!-- Botón Finalizar (Solo aparece si el estado es activo) -->
-                                            <?php if ($estado === 'activo'): ?>
-                                                <a href="alquileres.php?accion=finalizar&id_alquiler=<?php echo $item['id_alquiler']; ?>" 
-                                                   class="btn-finalizar" 
+                                            <?php if ($esEnCurso): ?>
+                                                <a href="alquileres.php?accion=finalizar&id_alquiler=<?php echo (int)$item['id_alquiler']; ?>"
+                                                   class="btn-finalizar"
                                                    title="Finalizar Alquiler"
                                                    onclick="return confirm('¿Estás seguro de finalizar este contrato de alquiler?');">
                                                     <i class="fa-solid fa-check"></i> Finalizar
@@ -307,7 +357,6 @@ try {
 
     </main>
 
-    <!-- Script Menú Desplegable -->
     <script>
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');
