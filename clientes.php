@@ -29,26 +29,25 @@ $errorConsulta = null;
 
 try {
     $sql = "SELECT
-                u.id_usuario,
+                COALESCE(u.id_usuario, a.id_usuario, p.id_arrendatario) AS id_cliente_ref,
                 COALESCE(NULLIF(TRIM(u.nombre), ''), NULLIF(TRIM(a.nombre), ''), 'Cliente') AS nombre,
                 COALESCE(NULLIF(TRIM(u.apellido), ''), NULLIF(TRIM(a.apellido), ''), '') AS apellido,
                 COALESCE(NULLIF(TRIM(u.correo), ''), NULLIF(TRIM(a.correo), ''), 'N/A') AS correo,
                 COALESCE(NULLIF(TRIM(CAST(u.num_telefono AS TEXT)), ''), NULLIF(TRIM(CAST(a.telefono AS TEXT)), ''), '') AS telefono,
-                COALESCE(NULLIF(TRIM(CAST(u.documento AS TEXT)), ''), NULLIF(TRIM(CAST(a.cedula AS TEXT)), ''), 'Sin Documento') AS documento,
+                COALESCE(NULLIF(TRIM(CAST(a.cedula AS TEXT)), ''), 'Sin Documento') AS documento,
                 COUNT(p.id_prestamo) AS total_alquileres,
                 MAX(p.fecha_inicio) AS ultimo_alquiler
             FROM prestamo p
             INNER JOIN vehiculo v ON p.id_vehiculo = v.id_v
             LEFT JOIN arrendatario a ON p.id_arrendatario = a.id_arrendatario
-            LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
+            LEFT JOIN usuario u ON COALESCE(a.id_usuario, p.id_arrendatario) = u.id_usuario
             WHERE v.id_proveedor = :id
             GROUP BY
-                u.id_usuario,
+                COALESCE(u.id_usuario, a.id_usuario, p.id_arrendatario),
                 u.nombre,
                 u.apellido,
                 u.correo,
                 u.num_telefono,
-                u.documento,
                 a.nombre,
                 a.apellido,
                 a.correo,
