@@ -25,7 +25,7 @@ try {
             }
         }
 
-        // Detectar si usamos la base de datos externa (Aiven) o local (XAMPP/MySQL)
+        // Detectar si usamos la base de datos externa (Aiven)
         $host = $_ENV['DB_HOST'] ?? '127.0.0.1';
         $port = $_ENV['DB_PORT'] ?? '';
         $db   = $_ENV['DB_NAME'] ?? 'rentcar';

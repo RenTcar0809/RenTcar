@@ -230,9 +230,9 @@ try {
                                         <div class="dates-box">
                                             <span><i class="fa-regular fa-calendar-check"></i> <?php echo htmlspecialchars($item['fecha_inicio'] ?? 'N/A'); ?></span>
                                             <?php if ($esFinalizado && !empty($item['fecha_fin'])): ?>
-                                                <small><i class="fa-regular fa-calendar-xmark"></i> <?php echo htmlspecialchars($item['fecha_fin']); ?></small>
+                                                    <small><i class="fa-regular fa-calendar-xmark"></i> <?php echo htmlspecialchars($item['fecha_fin']); ?></small>
                                             <?php else: ?>
-                                                <small><i class="fa-regular fa-clock"></i> Fin: Pendiente (2/2)</small>
+                                                    <small><i class="fa-regular fa-clock"></i> Fin: Pendiente (2/2)</small>
                                             <?php endif; ?>
                                         </div>
                                     </td>

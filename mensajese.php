@@ -98,13 +98,13 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $stmtAlq->execute([$idVehiculoAccion]);
     $alquilerData = $stmtAlq->fetch(PDO::FETCH_ASSOC);
 
-    if (!$alquilerData) {
-        $stmtCreate = $pdo->prepare("
-            INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, monto) 
-            VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, ?)
-        ");
-        $stmtCreate->execute([$idVehiculoAccion, $idArrendatario, $montoVehiculo]);
-        $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
+ if (!$alquilerData) {
+    $stmtCreate = $pdo->prepare("
+        INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, fecha_fin, monto) 
+        VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', ?)
+    ");
+    $stmtCreate->execute([$idVehiculoAccion, $idArrendatario, $montoVehiculo]);
+    $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
     } else {
         $idAlquiler = $alquilerData['id_prestamo'];
         $confCliente = intval($alquilerData['confirmar_cliente'] ?? 0);

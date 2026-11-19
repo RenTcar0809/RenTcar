@@ -37,49 +37,53 @@ try {
          WHERE id_proveedor = :id"
     );
     $stmtVeh->execute([':id' => $idProveedor]);
-    $totalVehiculos = $stmtVeh->fetchColumn();
+    $totalVehiculos = (int)$stmtVeh->fetchColumn();
 
-    // 2. Contar alquileres activos
+    // 2. Contar alquileres activos (acepta 'activo', 'activa', 'en curso' sin importar mayúsculas)
     $stmtActivas = $pdo->prepare(
         "SELECT COUNT(*)
          FROM prestamo r
          INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v
          WHERE v.id_proveedor = :id
-         AND r.estado = 'activa'"
+           AND LOWER(TRIM(COALESCE(r.estado, ''))) IN ('activo', 'activa', 'en curso')"
     );
     $stmtActivas->execute([':id' => $idProveedor]);
-    $rentasActivas = $stmtActivas->fetchColumn();
+    $rentasActivas = (int)$stmtActivas->fetchColumn();
 
-    // 3. Contar clientes únicos
+    // 3. Contar clientes únicos (vinculando arrendatario -> usuario cuando aplique)
     $stmtClientes = $pdo->prepare(
-        "SELECT COUNT(DISTINCT r.id_arrendatario)
+        "SELECT COUNT(DISTINCT COALESCE(a.id_usuario, r.id_arrendatario))
          FROM prestamo r
          INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v
-         WHERE v.id_proveedor = :id"
+         LEFT JOIN arrendatario a ON r.id_arrendatario = a.id_arrendatario
+         WHERE v.id_proveedor = :id
+           AND COALESCE(a.id_usuario, r.id_arrendatario) IS NOT NULL"
     );
     $stmtClientes->execute([':id' => $idProveedor]);
-    $totalClientes = $stmtClientes->fetchColumn();
+    $totalClientes = (int)$stmtClientes->fetchColumn();
 
     // 4. Consultar historial de alquileres
     $sqlRentas = "SELECT
                      r.id_prestamo AS id_reserva,
-                     u.nombre AS cliente,
-                     u.correo,
-                     u.num_telefono AS telefono,
+                     COALESCE(u.nombre, a.nombre, 'Cliente') AS cliente,
+                     COALESCE(u.correo, a.correo, '') AS correo,
+                     COALESCE(u.num_telefono, CAST(a.telefono AS TEXT), '') AS telefono,
                      v.marca,
                      v.modelo,
                      v.placa,
                      r.fecha_inicio,
                      r.fecha_fin,
-                     r.estado,
-                     r.monto AS monto_total
+                     COALESCE(r.estado, 'pendiente') AS estado,
+                     COALESCE(r.monto, 0) AS monto_total
                   FROM prestamo r
-                  INNER JOIN usuario u
-                      ON r.id_arrendatario = u.id_usuario
                   INNER JOIN vehiculo v
                       ON r.id_vehiculo = v.id_v
+                  LEFT JOIN arrendatario a
+                      ON r.id_arrendatario = a.id_arrendatario
+                  LEFT JOIN usuario u
+                      ON COALESCE(a.id_usuario, r.id_arrendatario) = u.id_usuario
                   WHERE v.id_proveedor = :id
-                  ORDER BY r.fecha_inicio DESC
+                  ORDER BY r.id_prestamo DESC
                   LIMIT 10";
 
     $stmtRentas = $pdo->prepare($sqlRentas);
@@ -87,7 +91,6 @@ try {
     $historialRentas = $stmtRentas->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Registrar el error para mostrarlo en el panel
     $errorConsulta = $e->getMessage();
 }
 ?>
@@ -108,7 +111,6 @@ try {
     <link rel="stylesheet" href="admindashboard.css">
 
     <style>
-        /* Selector para cambiar el estado del alquiler */
         .select-estado {
             background-color: #2a2a2a;
             color: #fff;
@@ -124,7 +126,6 @@ try {
             border-color: #e50914;
         }
 
-        /* DISTRIBUCIÓN PRINCIPAL */
         .dashboard-layout {
             display: flex;
             align-items: flex-start;
@@ -133,7 +134,6 @@ try {
             margin-top: 25px;
         }
 
-        /* ESTADÍSTICAS EN COLUMNA IZQUIERDA */
         .analytics-pills-container {
             display: flex;
             flex-direction: column;
@@ -143,7 +143,6 @@ try {
             margin-bottom: 0;
         }
 
-        /* HISTORIAL A LA DERECHA */
         .dashboard-layout .table-container {
             flex: 1 1 auto;
             min-width: 0;
@@ -156,7 +155,6 @@ try {
             min-width: 760px;
         }
 
-        /* TARJETAS DE ESTADÍSTICAS */
         .pill-card {
             background: #141416;
             border: 1px solid #222226;
@@ -176,7 +174,6 @@ try {
             border-color: #3f3f46;
         }
 
-        /* Línea de color superior */
         .pill-card::before {
             content: '';
             position: absolute;
@@ -231,7 +228,6 @@ try {
             color: #34c759;
         }
 
-        /* TABLETAS */
         @media (max-width: 1050px) {
             .dashboard-layout {
                 gap: 18px;
@@ -243,7 +239,6 @@ try {
             }
         }
 
-        /* MÓVILES Y PANTALLAS PEQUEÑAS */
         @media (max-width: 760px) {
             .dashboard-layout {
                 flex-direction: column;
@@ -271,7 +266,6 @@ try {
 
 <body>
 
-    <!-- BARRA DE NAVEGACIÓN SUPERIOR -->
     <header class="top-navbar">
 
         <div class="logo-container">
@@ -350,7 +344,6 @@ try {
         </div>
     </header>
 
-    <!-- CONTENIDO PRINCIPAL -->
     <main class="main-content">
 
         <?php if ($errorConsulta): ?>
@@ -368,7 +361,6 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- SALUDO Y BIENVENIDA -->
         <div style="margin-bottom: 20px;">
 
             <h2 class="section-title" style="margin-bottom: 5px;">
@@ -397,13 +389,10 @@ try {
             </p>
         </div>
 
-        <!-- DISTRIBUCIÓN: ESTADÍSTICAS IZQUIERDA / HISTORIAL DERECHA -->
         <div class="dashboard-layout">
 
-            <!-- COLUMNA IZQUIERDA: ESTADÍSTICAS -->
             <section class="analytics-pills-container">
 
-                <!-- TOTAL DE VEHÍCULOS -->
                 <div class="pill-card c-red">
 
                     <div class="pill-info">
@@ -420,7 +409,6 @@ try {
 
                 </div>
 
-                <!-- ALQUILERES ACTIVOS -->
                 <div class="pill-card c-blue">
 
                     <div class="pill-info">
@@ -437,7 +425,6 @@ try {
 
                 </div>
 
-                <!-- TOTAL DE CLIENTES -->
                 <div class="pill-card c-green">
 
                     <div class="pill-info">
@@ -456,7 +443,6 @@ try {
 
             </section>
 
-            <!-- COLUMNA DERECHA: HISTORIAL DE ALQUILERES -->
             <section class="table-container">
 
                 <div class="table-header-title">
@@ -486,6 +472,7 @@ try {
                         <tbody>
 
                             <?php foreach ($historialRentas as $renta): ?>
+                                <?php $estActual = strtolower(trim((string)($renta['estado'] ?? ''))); ?>
 
                                 <tr>
 
@@ -516,30 +503,28 @@ try {
 
                                     <td>
                                         <?php
-                                        echo date(
-                                            'd/m/Y',
-                                            strtotime($renta['fecha_inicio'])
-                                        );
+                                        echo !empty($renta['fecha_inicio'])
+                                            ? date('d/m/Y', strtotime($renta['fecha_inicio']))
+                                            : 'N/A';
                                         ?>
                                     </td>
 
                                     <td>
                                         <?php
-                                        echo date(
-                                            'd/m/Y',
-                                            strtotime($renta['fecha_fin'])
-                                        );
+                                        echo (!empty($renta['fecha_fin']) && in_array($estActual, ['finalizado', 'finalizada', 'completada', 'completado'], true))
+                                            ? date('d/m/Y', strtotime($renta['fecha_fin']))
+                                            : 'Pendiente';
                                         ?>
                                     </td>
 
                                     <td>
                                         <strong>
-                                            $<?php echo number_format($renta['monto_total'], 2); ?>
+                                            $<?php echo number_format((float)$renta['monto_total'], 2); ?>
                                         </strong>
                                     </td>
 
                                     <td>
-                                        <span class="status-badge status-<?php echo strtolower($renta['estado']); ?>">
+                                        <span class="status-badge status-<?php echo htmlspecialchars($estActual); ?>">
                                             <?php echo htmlspecialchars($renta['estado']); ?>
                                         </span>
                                     </td>
@@ -552,18 +537,18 @@ try {
                                                 this.value
                                             )">
 
-                                            <option value="activa"
-                                                <?php echo ($renta['estado'] === 'activa') ? 'selected' : ''; ?>>
+                                            <option value="activo"
+                                                <?php echo (in_array($estActual, ['activo', 'activa'], true)) ? 'selected' : ''; ?>>
                                                 Activa (Rentado)
                                             </option>
 
-                                            <option value="completada"
-                                                <?php echo ($renta['estado'] === 'completada') ? 'selected' : ''; ?>>
+                                            <option value="finalizado"
+                                                <?php echo (in_array($estActual, ['finalizado', 'finalizada', 'completada'], true)) ? 'selected' : ''; ?>>
                                                 Completada (Disponible)
                                             </option>
 
                                             <option value="cancelada"
-                                                <?php echo ($renta['estado'] === 'cancelada') ? 'selected' : ''; ?>>
+                                                <?php echo ($estActual === 'cancelada') ? 'selected' : ''; ?>>
                                                 Cancelada (Disponible)
                                             </option>
 
@@ -598,11 +583,9 @@ try {
             </section>
 
         </div>
-        <!-- FIN DE LA DISTRIBUCIÓN PRINCIPAL -->
 
     </main>
 
-    <!-- SCRIPTS -->
     <script>
         const btn = document.getElementById('userProfileBtn');
         const dropdown = document.getElementById('userDropdown');

@@ -9,7 +9,7 @@ if (!isset($_SESSION['usuario_nombre'])) {
 }
 
 $id_vehiculo = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$usuario_actual = $_SESSION['usuario_nombre'];
+$usuario_actual = trim((string)$_SESSION['usuario_nombre']);
 $error_msg = ""; 
 
 function limpiarInsultos($texto) {
@@ -20,7 +20,7 @@ function limpiarInsultos($texto) {
         'fraude', 'robo', 'rateros', 'chupar'
     ];
     $patron = '/\b(' . implode('|', array_map('preg_quote', $blacklist)) . ')\b/i';
-    return preg_replace($patron, '****',$texto);
+    return preg_replace($patron, '****', $texto);
 }
 
 // 2. Procesar NUEVO comentario al presionar el botón
@@ -94,11 +94,19 @@ try {
 
     $destinatarioVehiculo = (string)($vehiculo['nombre_propietario'] ?? '');
 
-    // Obtener ID del usuario actual logueado
-    $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
-    $stmtUser->execute([$usuario_actual, $usuario_actual]);
-    $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
-    $idUsuarioActual = $userData['id_usuario'] ?? 0;
+    // Obtener ID del usuario actual logueado (priorizando sesión y respaldando por nombre/empresa)
+    $idUsuarioActual = intval($_SESSION['IdUsuario'] ?? $_SESSION['id_usuario'] ?? 0);
+    if ($idUsuarioActual <= 0 && $usuario_actual !== '') {
+        $stmtUser = $pdo->prepare("
+            SELECT id_usuario 
+            FROM usuario 
+            WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) 
+            ORDER BY id_usuario ASC 
+            LIMIT 1
+        ");
+        $stmtUser->execute([$usuario_actual, $usuario_actual]);
+        $idUsuarioActual = intval($stmtUser->fetchColumn() ?: 0);
+    }
 
     $idProveedorVehiculo = intval($vehiculo['id_proveedor'] ?? 0);
 
@@ -106,13 +114,20 @@ try {
     if ($idUsuarioActual > 0 && $idUsuarioActual === $idProveedorVehiculo) {
         $licenciaEstaAprobadaPorEsteDueño = true;
     } else {
-        // Verificar si el dueño de ESTE vehículo aprobó a este usuario de forma individual (estado = 1)
-        $stmtAprobacion = $pdo->prepare("SELECT estado FROM aprobaciones_licencias WHERE id_proveedor = ? AND id_usuario = ?");
+        // Verificar si el dueño de ESTE vehículo aprobó a este usuario de forma individual
+        $stmtAprobacion = $pdo->prepare("
+            SELECT estado 
+            FROM aprobaciones_licencias 
+            WHERE id_proveedor = ? AND id_usuario = ?
+            ORDER BY id_aprobacion DESC
+            LIMIT 1
+        ");
         $stmtAprobacion->execute([$idProveedorVehiculo, $idUsuarioActual]);
         $aprobacionData = $stmtAprobacion->fetch(PDO::FETCH_ASSOC);
 
-        $estadoAprobacion = $aprobacionData ? (int)$aprobacionData['estado'] : 0;
-        $licenciaEstaAprobadaPorEsteDueño = ($estadoAprobacion === 1);
+        $valorEstado = $aprobacionData['estado'] ?? null;
+        $estadoNorm = strtolower(trim((string)($valorEstado ?? '')));
+        $licenciaEstaAprobadaPorEsteDueño = in_array($estadoNorm, ['1', 'aprobada', 'aprobado', 'true'], true);
 
         // Si aún no existe registro en la tabla de aprobaciones para este par, lo creamos como pendiente (0) de forma automática
         if (!$aprobacionData && $idUsuarioActual > 0 && $idProveedorVehiculo > 0) {
@@ -346,7 +361,7 @@ try {
 
 <script>
 const usuarioActual = <?php echo json_encode($_SESSION['usuario_nombre'] ?? ''); ?>;
-const usuarioTieneLicencia = <?php echo !empty($tieneLicencia) ? 'true' : 'false'; ?>;
+const usuarioTieneLicencia = <?php echo $tieneLicencia; ?>;
 const idVehiculoPorDefecto = <?php echo json_encode($id_vehiculo ?? 0); ?>;
 const destinatarioDefecto = <?php echo json_encode($destinatarioVehiculo ?? ''); ?>;
 let intervaloChat = null;
