@@ -19,8 +19,9 @@ $nombre_usuario = '';
 $error_msg = '';
 $contactos = [];
 
-function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario): ?int {
+function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario, ?string &$motivoError = null): ?int {
     if ($idUsuario <= 0) {
+        $motivoError = "ID de usuario no válido en sesión.";
         return null;
     }
 
@@ -31,7 +32,6 @@ function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario):
         return intval($idArr);
     }
 
-    // Obtener datos reales del usuario para insertar en arrendatario sin depender de valores inventados
     $correoReal = 'cliente@rentcar.com';
     $nombreReal = $nombreUsuario ?: 'Cliente';
     $apellidoReal = 'N/A';
@@ -66,17 +66,24 @@ function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario):
             return intval($idNuevo);
         }
     } catch (Exception $ex) {
+        $motivoError = "Error al insertar en arrendatario para id_usuario={$idUsuario}: " . $ex->getMessage();
+        return null;
     }
 
     $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");
     $stmtArr2->execute([$idUsuario]);
     $idArr2 = $stmtArr2->fetchColumn();
-    return $idArr2 ? intval($idArr2) : null;
+    if ($idArr2) {
+        return intval($idArr2);
+    }
+
+    $motivoError = "No se obtuvo id_arrendatario tras insertar para id_usuario={$idUsuario}.";
+    return null;
 }
 
-function resolverIdArrendatarioParaPrestamo(PDO $pdo, int $idUsuarioActual, bool $esPropietario, string $interlocutor, string $nombreUsuarioActual): ?int {
+function resolverIdArrendatarioParaPrestamo(PDO $pdo, int $idUsuarioActual, bool $esPropietario, string $interlocutor, string $nombreUsuarioActual, ?string &$motivoError = null): ?int {
     if (!$esPropietario) {
-        return obtenerIdArrendatario($pdo, $idUsuarioActual, $nombreUsuarioActual);
+        return obtenerIdArrendatario($pdo, $idUsuarioActual, $nombreUsuarioActual, $motivoError);
     }
 
     if ($interlocutor !== '') {
@@ -90,10 +97,13 @@ function resolverIdArrendatarioParaPrestamo(PDO $pdo, int $idUsuarioActual, bool
         $stmtCli->execute([$interlocutor, $interlocutor]);
         $cli = $stmtCli->fetch(PDO::FETCH_ASSOC);
         if ($cli && !empty($cli['id_usuario'])) {
-            return obtenerIdArrendatario($pdo, intval($cli['id_usuario']), (string)($cli['etiqueta'] ?? $interlocutor));
+            return obtenerIdArrendatario($pdo, intval($cli['id_usuario']), (string)($cli['etiqueta'] ?? $interlocutor), $motivoError);
         }
+        $motivoError = "No se encontró en la tabla usuario un cliente que coincida con interlocutor='{$interlocutor}'.";
+        return null;
     }
 
+    $motivoError = "El parámetro interlocutor llegó vacío al confirmar como propietario.";
     return null;
 }
 
@@ -118,10 +128,11 @@ try {
 
         $esPropietarioActual = ($vehInfo && intval($vehInfo['id_proveedor'] ?? 0) === $id_usuario);
         $montoVehiculo = $vehInfo['precio'] ?? 0.00;
-        $idArrendatario = resolverIdArrendatarioParaPrestamo($pdo, $id_usuario, $esPropietarioActual, $interlocutorAccion, $nombre_usuario);
+        $motivoError = null;
+        $idArrendatario = resolverIdArrendatarioParaPrestamo($pdo, $id_usuario, $esPropietarioActual, $interlocutorAccion, $nombre_usuario, $motivoError);
 
         if (!$idArrendatario) {
-            $msgErr = "No se pudo identificar o registrar el arrendatario correspondiente a este alquiler.";
+            $msgErr = "No se pudo identificar o registrar el arrendatario correspondiente a este alquiler." . ($motivoError ? " Detalle: " . $motivoError : "");
             header("Location: mensajes.php?contacto=" . urlencode($idVehiculoAccion . '_' . $interlocutorAccion) . "&msg=" . urlencode($msgErr));
             exit();
         }
