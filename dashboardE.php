@@ -25,7 +25,6 @@ $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 // Variables para estadísticas
 $totalVehiculos = 0;
 $rentasActivas = 0;
-$gananciasMes = 0;
 $totalClientes = 0;
 $historialRentas = [];
 $errorConsulta = null;
@@ -51,18 +50,7 @@ try {
     $stmtActivas->execute([':id' => $idProveedor]);
     $rentasActivas = $stmtActivas->fetchColumn();
 
-    // 3. Obtener ingresos de alquileres completados
-    $stmtGanancias = $pdo->prepare(
-        "SELECT COALESCE(SUM(r.monto), 0)
-         FROM prestamo r
-         INNER JOIN vehiculo v ON r.id_vehiculo = v.id_v
-         WHERE v.id_proveedor = :id
-         AND r.estado = 'completada'"
-    );
-    $stmtGanancias->execute([':id' => $idProveedor]);
-    $gananciasMes = $stmtGanancias->fetchColumn();
-
-    // 4. Contar clientes únicos
+    // 3. Contar clientes únicos
     $stmtClientes = $pdo->prepare(
         "SELECT COUNT(DISTINCT r.id_arrendatario)
          FROM prestamo r
@@ -72,7 +60,7 @@ try {
     $stmtClientes->execute([':id' => $idProveedor]);
     $totalClientes = $stmtClientes->fetchColumn();
 
-    // 5. Consultar historial de alquileres
+    // 4. Consultar historial de alquileres
     $sqlRentas = "SELECT
                      r.id_prestamo AS id_reserva,
                      u.nombre AS cliente,
@@ -210,10 +198,6 @@ try {
             background-color: #34c759;
         }
 
-        .pill-card.c-yellow::before {
-            background-color: #ff9f0a;
-        }
-
         .pill-info span {
             display: block;
             font-size: 0.75rem;
@@ -245,10 +229,6 @@ try {
 
         .pill-card.c-green .pill-icon {
             color: #34c759;
-        }
-
-        .pill-card.c-yellow .pill-icon {
-            color: #ff9f0a;
         }
 
         /* TABLETAS */
@@ -470,12 +450,6 @@ try {
 
                     <div class="pill-icon">
                         <i class="fa-solid fa-user-check"></i>
-                    </div>
-
-                </div>
-
-                    <div class="pill-icon">
-                        <i class="fa-solid fa-dollar-sign"></i>
                     </div>
 
                 </div>
