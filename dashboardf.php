@@ -37,9 +37,6 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
             <a href="seleccion.html" class="nav-link">
                 <i class="fa-solid fa-calendar-check"></i> <span>RESERVAR</span>
             </a>
-            <a href="sucursales.php" class="nav-link">
-                <i class="fa-solid fa-location-dot"></i> <span>SUCURSALES</span>
-            </a>
             <a href="indexV.php" class="nav-link">
                 <i class="fa-solid fa-car-side"></i> <span>RENTA TU VEHÍCULO</span>
             </a>
