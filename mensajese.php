@@ -357,139 +357,162 @@ try {
         </div>
     </main>
 
-    <script>
-        let clienteActual = '';
-        let vehiculoActualId = '';
-        let intervaloEmpresa = null;
+<script>
+    let clienteActual = '';
+    let vehiculoActualId = '';
+    let intervaloEmpresa = null;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const primerChat = document.querySelector('.chat-item');
-            if (primerChat) primerChat.click();
-        });
+    document.addEventListener('DOMContentLoaded', () => {
+        const primerChat = document.querySelector('.chat-item');
+        if (primerChat) primerChat.click();
+    });
 
-        function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
-            clienteActual = cliente;
-            vehiculoActualId = idVehiculo;
-            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-            if (elemento) elemento.classList.add('active');
+    function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
+        clienteActual = cliente;
+        vehiculoActualId = idVehiculo;
+        document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
+        if (elemento) elemento.classList.add('active');
 
-            document.getElementById('chatMainHeader').style.display = 'flex';
-            document.getElementById('chatInputForm').style.display = 'flex';
-            document.getElementById('emptyChatState').style.display = 'none';
+        document.getElementById('chatMainHeader').style.display = 'flex';
+        document.getElementById('chatInputForm').style.display = 'flex';
+        document.getElementById('emptyChatState').style.display = 'none';
 
-            document.getElementById('activeCliente').innerText = cliente;
-            document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
-            document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
-            document.getElementById('inputDestinatario').value = cliente;
-            document.getElementById('inputIdVehiculo').value = idVehiculo;
+        document.getElementById('activeCliente').innerText = cliente;
+        document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
+        document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
+        document.getElementById('inputDestinatario').value = cliente;
+        document.getElementById('inputIdVehiculo').value = idVehiculo;
 
+        obtenerMensajesEmpresa();
+        verificarEstadoAlquilerChat(idVehiculo);
+
+        if (intervaloEmpresa) clearInterval(intervaloEmpresa);
+        intervaloEmpresa = setInterval(() => {
             obtenerMensajesEmpresa();
             verificarEstadoAlquilerChat(idVehiculo);
-            
-            if (intervaloEmpresa) clearInterval(intervaloEmpresa);
-            intervaloEmpresa = setInterval(() => {
-                obtenerMensajesEmpresa();
-                verificarEstadoAlquilerChat(idVehiculo);
-            }, 3000);
-        }
+        }, 3000);
+    }
 
-        function verificarEstadoAlquilerChat(idVehiculo) {
-            fetch(`chat_backend.php?accion=verificar_alquiler&id_vehiculo=${idVehiculo}`)
-                .then(res => res.json())
-                .then(data => {
-                    const contenedor = document.getElementById('contenedorBotonesAccion');
-                    if (!contenedor) return;
-                    contenedor.innerHTML = '';
+    function verificarEstadoAlquilerChat(idVehiculo) {
+        if (!idVehiculo) return;
 
-                    let estadoAlquiler = 'pendiente';
-                    let confProp = 0;
-                    let confCli = 0;
-                    let finProp = 0;
-                    let finCli = 0;
+        const url = `chat_backend.php?accion=verificar_alquiler&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}`;
 
-                    if (data.status === 'success' && data.alquiler) {
-                        estadoAlquiler = data.alquiler.estado;
-                        confProp = parseInt(data.alquiler.confirmar_propietario || 0);
-                        confCli = parseInt(data.alquiler.confirmar_cliente || 0);
-                        finProp = parseInt(data.alquiler.finalizar_propietario || 0);
-                        finCli = parseInt(data.alquiler.finalizar_cliente || 0);
-                    }
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const contenedor = document.getElementById('contenedorBotonesAccion');
+                if (!contenedor) return;
 
-                    if (estadoAlquiler.toLowerCase() === 'activo') {
-                        let totalFin = finProp + finCli;
-                        let badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Finalización: ${totalFin}/2</span>`;
+                let estadoAlquiler = 'pendiente';
+                let confProp = 0;
+                let confCli = 0;
+                let finProp = 0;
+                let finCli = 0;
 
-                        if (finProp === 1) {
-                            contenedor.innerHTML = badgeContador + `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
-                        } else {
-                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${idVehiculo}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
-                        }
+                if (data.status === 'success' && data.alquiler) {
+                    estadoAlquiler = (data.alquiler.estado || 'pendiente').toLowerCase();
+                    confProp = parseInt(data.alquiler.confirmar_propietario || 0, 10);
+                    confCli = parseInt(data.alquiler.confirmar_cliente || 0, 10);
+                    finProp = parseInt(data.alquiler.finalizar_propietario || 0, 10);
+                    finCli = parseInt(data.alquiler.finalizar_cliente || 0, 10);
+                }
+
+                if (estadoAlquiler === 'finalizado' || estadoAlquiler === 'cancelado') {
+                    contenedor.innerHTML = `<span style="background: #222; color: #aaa; padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; border: 1px solid #333;">Alquiler ${estadoAlquiler}</span>`;
+                    return;
+                }
+
+                if (estadoAlquiler === 'activo') {
+                    const totalFin = Math.min(2, finProp + finCli);
+                    const badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Finalización: ${totalFin}/2</span>`;
+
+                    if (finProp === 1) {
+                        contenedor.innerHTML = badgeContador + `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
                     } else {
-                        let totalConf = confProp + confCli;
-                        let badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Confirmación: ${totalConf}/2</span>`;
-
-                        if (confProp === 1) {
-                            contenedor.innerHTML = badgeContador + `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
-                        } else {
-                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${idVehiculo}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
-                        }
+                        contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${encodeURIComponent(idVehiculo)}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
                     }
-                })
-                .catch(err => console.error(err));
-        }
+                } else {
+                    const totalConf = Math.min(2, confProp + confCli);
+                    const badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Confirmación: ${totalConf}/2</span>`;
 
-        function obtenerMensajesEmpresa() {
-            if (!clienteActual || !vehiculoActualId) return;
-            fetch(`chat_backend.php?accion=obtener&id_item=${vehiculoActualId}&destinatario=${encodeURIComponent(clienteActual)}`)
-                .then(res => res.json())
-                .then(data => {
-                    const area = document.getElementById('chatMessagesArea');
-                    if (!area) return;
-                    area.innerHTML = '';
-                    if (data.status === 'success' && data.mensajes) {
-                        data.mensajes.forEach(msg => {
-                            const esEnviado = (msg.remitente === data.usuario_actual);
-                            const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            const bubble = document.createElement('div');
-                            bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
-                            bubble.innerHTML = `<div>${escapeHtml(msg.mensaje)}</div><div class="msg-time">${hora}</div>`;
-                            area.appendChild(bubble);
-                        });
-                        area.scrollTop = area.scrollHeight;
+                    if (confProp === 1) {
+                        contenedor.innerHTML = badgeContador + `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
+                    } else {
+                        contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
                     }
-                })
-                .catch(err => console.error(err));
-        }
+                }
+            })
+            .catch(err => console.error(err));
+    }
 
-        function enviarMensajePro(e) {
-            e.preventDefault();
-            const mensajeInput = document.getElementById('inputTextoMensaje');
-            const texto = mensajeInput.value.trim();
-            if (!texto || !clienteActual || !vehiculoActualId) return;
-            const formData = new URLSearchParams();
-            formData.append('accion', 'enviar');
-            formData.append('id_item', vehiculoActualId);
-            formData.append('destinatario', clienteActual);
-            formData.append('mensaje', texto);
-            fetch('chat_backend.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData.toString() })
+    function obtenerMensajesEmpresa() {
+        if (!clienteActual || !vehiculoActualId) return;
+        fetch(`chat_backend.php?accion=obtener&id_item=${encodeURIComponent(vehiculoActualId)}&destinatario=${encodeURIComponent(clienteActual)}`)
             .then(res => res.json())
-            .then(data => { if (data.status === 'success') { mensajeInput.value = ''; obtenerMensajesEmpresa(); } });
-        }
+            .then(data => {
+                const area = document.getElementById('chatMessagesArea');
+                if (!area) return;
+                area.innerHTML = '';
+                if (data.status === 'success' && data.mensajes) {
+                    data.mensajes.forEach(msg => {
+                        const esEnviado = (msg.remitente === data.usuario_actual);
+                        const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const bubble = document.createElement('div');
+                        bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
+                        bubble.innerHTML = `<div>${escapeHtml(msg.mensaje)}</div><div class="msg-time">${hora}</div>`;
+                        area.appendChild(bubble);
+                    });
+                    area.scrollTop = area.scrollHeight;
+                }
+            })
+            .catch(err => console.error(err));
+    }
 
-        function eliminarChatActual() {
-            if (!confirm(`¿Eliminar historial?`)) return;
-            const formData = new URLSearchParams();
-            formData.append('accion', 'eliminar_chat');
-            formData.append('id_item', vehiculoActualId);
-            formData.append('destinatario', clienteActual);
-            fetch('chat_backend.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData.toString() })
-            .then(res => res.json())
-            .then(data => { if (data.status === 'success') location.reload(); });
-        }
+    function enviarMensajePro(e) {
+        e.preventDefault();
+        const mensajeInput = document.getElementById('inputTextoMensaje');
+        const texto = mensajeInput.value.trim();
+        if (!texto || !clienteActual || !vehiculoActualId) return;
+        const formData = new URLSearchParams();
+        formData.append('accion', 'enviar');
+        formData.append('id_item', vehiculoActualId);
+        formData.append('destinatario', clienteActual);
+        formData.append('mensaje', texto);
+        fetch('chat_backend.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                mensajeInput.value = '';
+                obtenerMensajesEmpresa();
+            }
+        });
+    }
 
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-    </script>
+    function eliminarChatActual() {
+        if (!confirm('¿Eliminar historial?')) return;
+        const formData = new URLSearchParams();
+        formData.append('accion', 'eliminar_chat');
+        formData.append('id_item', vehiculoActualId);
+        formData.append('destinatario', clienteActual);
+        fetch('chat_backend.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') location.reload();
+        });
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
 </body>
 </html>

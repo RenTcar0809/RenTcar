@@ -54,6 +54,12 @@ try {
         ?? ''
     );
 
+    $cliente_param = trim(
+        $_POST['cliente']
+        ?? $_GET['cliente']
+        ?? ''
+    );
+
     // ==========================================
     // 3. VERIFICAR NOTIFICACIONES
     // ==========================================
@@ -91,23 +97,60 @@ try {
             responder('error', 'Identificador de vehículo no válido.');
         }
 
-        $stmtPrestamo = $pdo->prepare("
-            SELECT * FROM prestamo 
-            WHERE id_vehiculo = :vehiculo 
-            ORDER BY id_prestamo DESC 
-            LIMIT 1
-        ");
-        $stmtPrestamo->execute([':vehiculo' => $id_item]);
-        $prestamo = $stmtPrestamo->fetch(PDO::FETCH_ASSOC);
+        $prestamo = null;
+        $clienteConsulta = $cliente_param !== '' ? $cliente_param : $interlocutor_enviado;
+
+        if ($clienteConsulta !== '') {
+            $stmtArr = $pdo->prepare("
+                SELECT a.id_arrendatario
+                FROM arrendatario a
+                LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
+                WHERE TRIM(a.nombre) ILIKE TRIM(:cliente)
+                   OR TRIM(u.nombre) ILIKE TRIM(:cliente)
+                   OR TRIM(u.empresa) ILIKE TRIM(:cliente)
+                ORDER BY a.id_arrendatario DESC
+                LIMIT 1
+            ");
+            $stmtArr->execute([':cliente' => $clienteConsulta]);
+            $idArr = $stmtArr->fetchColumn();
+
+            if ($idArr) {
+                $stmtPrestamo = $pdo->prepare("
+                    SELECT * FROM prestamo
+                    WHERE id_vehiculo = :vehiculo
+                      AND id_arrendatario = :arrendatario
+                      AND LOWER(estado) IN ('pendiente', 'activo')
+                    ORDER BY id_prestamo DESC
+                    LIMIT 1
+                ");
+                $stmtPrestamo->execute([
+                    ':vehiculo' => $id_item,
+                    ':arrendatario' => $idArr
+                ]);
+                $prestamo = $stmtPrestamo->fetch(PDO::FETCH_ASSOC);
+            }
+        }
+
+        if (!$prestamo) {
+            $stmtPrestamo = $pdo->prepare("
+                SELECT * FROM prestamo
+                WHERE id_vehiculo = :vehiculo
+                  AND LOWER(estado) IN ('pendiente', 'activo')
+                ORDER BY id_prestamo DESC
+                LIMIT 1
+            ");
+            $stmtPrestamo->execute([':vehiculo' => $id_item]);
+            $prestamo = $stmtPrestamo->fetch(PDO::FETCH_ASSOC);
+        }
 
         if ($prestamo) {
             responder('success', '', [
                 'alquiler' => [
                     'estado'                => $prestamo['estado'] ?? 'pendiente',
-                    'confirmar_cliente'     => $prestamo['confirmar_cliente'] ?? 0,
-                    'confirmar_propietario' => $prestamo['confirmar_propietario'] ?? 0,
-                    'finalizar_cliente'     => $prestamo['finalizar_cliente'] ?? 0,
-                    'finalizar_propietario' => $prestamo['finalizar_propietario'] ?? 0
+                    'confirmar_cliente'     => (int)($prestamo['confirmar_cliente'] ?? 0),
+                    'confirmar_propietario' => (int)($prestamo['confirmar_propietario'] ?? 0),
+                    'finalizar_cliente'     => (int)($prestamo['finalizar_cliente'] ?? 0),
+                    'finalizar_propietario' => (int)($prestamo['finalizar_propietario'] ?? 0)
                 ]
             ]);
         } else {
