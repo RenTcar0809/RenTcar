@@ -72,16 +72,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_comentario
     }
 }
 
-// 4. Obtener datos del vehículo y validar la aprobación INDIVIDUAL del dueño de este vehículo
+// 4. Obtener datos del vehículo, galerías y validar la aprobación INDIVIDUAL del dueño de este vehículo
+$destinatarioVehiculo = '';
+
 try {
-    $stmt = $pdo->prepare("SELECT * FROM vehiculo WHERE id_v = ?");
+    $stmt = $pdo->prepare("
+        SELECT v.*,
+               COALESCE(NULLIF(TRIM(u.empresa), ''), TRIM(u.nombre)) AS nombre_propietario
+        FROM vehiculo v
+        LEFT JOIN usuario u ON v.id_proveedor = u.id_usuario
+        WHERE v.id_v = ?
+        LIMIT 1
+    ");
     $stmt->execute([$id_vehiculo]);
     $vehiculo = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$vehiculo) { 
-        header("Location: automoviles.php"); 
+        header("Location: Motocicletas.php"); 
         exit(); 
     }
+
+    $destinatarioVehiculo = (string)($vehiculo['nombre_propietario'] ?? '');
 
     // Obtener ID del usuario actual logueado
     $stmtUser = $pdo->prepare("SELECT id_usuario FROM usuario WHERE nombre = ? OR empresa = ? LIMIT 1");
@@ -89,7 +100,7 @@ try {
     $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
     $idUsuarioActual = $userData['id_usuario'] ?? 0;
 
-    $idProveedorVehiculo = intval($vehiculo['id_proveedor']);
+    $idProveedorVehiculo = intval($vehiculo['id_proveedor'] ?? 0);
 
     // Si el usuario actual es el propietario de este vehículo, tiene aprobación automática
     if ($idUsuarioActual > 0 && $idUsuarioActual === $idProveedorVehiculo) {
@@ -153,7 +164,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RentCar | Detalle de Vehículo</title>
+    <title>RentCar | Detalle de Motocicleta</title>
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="detalles_vehiculo.css">
@@ -213,7 +224,7 @@ try {
                 <div class="s-item"><i class="fas fa-road"></i> <div><span>Tracción</span><strong><?php echo strtoupper(htmlspecialchars($vehiculo['traccion'] ?: 'N/A')); ?></strong></div></div>
             </div>
 
-            <button class="main-btn" onclick="iniciarChatReserva('auto', <?php echo $vehiculo['id_v']; ?>, '<?php echo htmlspecialchars(($vehiculo['marca'] ?? '') . ' ' . ($vehiculo['modelo'] ?? '')); ?>')">
+            <button class="main-btn" onclick="iniciarChatReserva('moto', <?php echo $vehiculo['id_v']; ?>, <?php echo htmlspecialchars(json_encode(($vehiculo['marca'] ?? '') . ' ' . ($vehiculo['modelo'] ?? '')), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($destinatarioVehiculo), ENT_QUOTES); ?>)">
                 RESERVAR AHORA <i class="fas fa-comments"></i>
             </button>
         </div>
@@ -318,7 +329,10 @@ try {
     <i class="fas fa-comment-dots"></i> Chat con Arrendatario
 </button>
 
-<div id="chat-float-container" data-tipo="auto" data-id="<?php echo $id_vehiculo; ?>">
+<div id="chat-float-container"
+     data-tipo="moto"
+     data-id="<?php echo $id_vehiculo; ?>"
+     data-destinatario="<?php echo htmlspecialchars($destinatarioVehiculo); ?>">
     <div class="chat-float-header">
         <h3><i class="fas fa-comments"></i> Negociación RentCar</h3>
         <button class="btn-cerrar-chat" onclick="toggleChatFlotante()">&times;</button>
@@ -358,6 +372,12 @@ function ocultarEditor(id) {
     if (editEl) editEl.style.display = 'none';
 }
 
+function obtenerDestinatarioChat() {
+    const chatContainer = document.getElementById('chat-float-container');
+    const desdeDataset = chatContainer ? (chatContainer.dataset.destinatario || '').trim() : '';
+    return desdeDataset || (destinatarioDefecto || '').trim();
+}
+
 function toggleChatFlotante() {
     if (!usuarioTieneLicencia) {
         alert("⚠️ El propietario de este vehículo aún no ha aprobado tu licencia. Serás redirigido para gestionarla.");
@@ -370,7 +390,7 @@ function toggleChatFlotante() {
 
     if (!chatContainer.dataset.id || chatContainer.dataset.id === "0") {
         chatContainer.dataset.id = String(idVehiculoPorDefecto);
-        chatContainer.dataset.tipo = "auto";
+        chatContainer.dataset.tipo = "moto";
     }
     if (!chatContainer.dataset.destinatario && destinatarioDefecto) {
         chatContainer.dataset.destinatario = destinatarioDefecto;
@@ -397,7 +417,7 @@ function iniciarChatReserva(tipoVehiculo, idItem, nombreVehiculo, destinatario =
     const chatContainer = document.getElementById('chat-float-container');
     if (chatContainer) {
         chatContainer.style.display = 'flex';
-        chatContainer.dataset.tipo = tipoVehiculo || 'auto';
+        chatContainer.dataset.tipo = tipoVehiculo || 'moto';
         chatContainer.dataset.id = idItem || idVehiculoPorDefecto;
         chatContainer.dataset.destinatario = (destinatario || destinatarioDefecto || '').trim();
     }
@@ -414,9 +434,9 @@ function enviarPeticionMensaje(texto, esAutomatico = false) {
     const input = document.getElementById('chat-input');
     if (!chatContainer) return;
 
-    const tipo = chatContainer.dataset.tipo || 'auto';
+    const tipo = chatContainer.dataset.tipo || 'moto';
     const idItem = parseInt(chatContainer.dataset.id || idVehiculoPorDefecto || 0, 10);
-    const destinatario = (chatContainer.dataset.destinatario || destinatarioDefecto || '').trim();
+    const destinatario = obtenerDestinatarioChat();
 
     if (!destinatario) {
         if (!esAutomatico) {
@@ -484,9 +504,9 @@ function cargarMensajesServidor() {
     const chatContainer = document.getElementById('chat-float-container');
     if (!chatContainer || chatContainer.style.display !== 'flex') return;
 
-    const tipo = encodeURIComponent(chatContainer.dataset.tipo || 'auto');
+    const tipo = encodeURIComponent(chatContainer.dataset.tipo || 'moto');
     const idItem = encodeURIComponent(chatContainer.dataset.id || idVehiculoPorDefecto || 0);
-    const destinatario = encodeURIComponent((chatContainer.dataset.destinatario || destinatarioDefecto || '').trim());
+    const destinatario = encodeURIComponent(obtenerDestinatarioChat());
 
     fetch(`chat_backend.php?accion=obtener&tipo_vehiculo=${tipo}&id_vehiculo=${idItem}&id_item=${idItem}&destinatario=${destinatario}`)
     .then(res => res.json())
