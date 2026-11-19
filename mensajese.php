@@ -36,7 +36,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
     $idUsuarioCliente = null;
 
     if ($clienteNombre !== '') {
-        // Buscar el id_usuario en la tabla usuario junto con otros datos si están disponibles
         $stmtU = $pdo->prepare("SELECT id_usuario, correo FROM usuario WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?) LIMIT 1");
         $stmtU->execute([$clienteNombre, $clienteNombre]);
         $uData = $stmtU->fetch(PDO::FETCH_ASSOC);
@@ -45,12 +44,10 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
             $idUsuarioCliente = $uData['id_usuario'];
             $correoCliente = $uData['correo'] ?? 'cliente@rentcar.com';
 
-            // Verificar si ya existe en la tabla arrendatario
             $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
             $stmtArr->execute([$idUsuarioCliente]);
             $idArrendatario = $stmtArr->fetchColumn();
 
-            // Si no existe, lo insertamos con todos los campos necesarios para cumplir con restricciones NOT NULL
             if (!$idArrendatario) {
                 try {
                     $stmtInsArr = $pdo->prepare("
@@ -72,14 +69,12 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
         }
     }
 
-    // Si aún no se encuentra, tomamos el primer arrendatario disponible en la tabla como respaldo
     if (!$idArrendatario) {
         $stmtFallback = $pdo->prepare("SELECT id_arrendatario FROM arrendatario ORDER BY id_arrendatario ASC LIMIT 1");
         $stmtFallback->execute();
         $idArrendatario = $stmtFallback->fetchColumn();
     }
 
-    // Si de plano la tabla arrendatario está completamente vacía, creamos un registro genérico seguro
     if (!$idArrendatario) {
         try {
             $stmtGen = $pdo->prepare("
@@ -105,8 +100,8 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
 
     if (!$alquilerData) {
         $stmtCreate = $pdo->prepare("
-            INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, fecha_fin, monto) 
-            VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', ?)
+            INSERT INTO prestamo (id_vehiculo, id_arrendatario, estado, confirmar_propietario, fecha_inicio, monto) 
+            VALUES (?, ?, 'pendiente', 1, CURRENT_DATE, ?)
         ");
         $stmtCreate->execute([$idVehiculoAccion, $idArrendatario, $montoVehiculo]);
         $msgFinal = "Has confirmado el alquiler. Esperando confirmación del cliente.";
@@ -123,7 +118,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                     confirmar_propietario = 1, 
                     fecha_confirmacion = NOW(),
                     fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
-                    fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
                     monto = COALESCE(monto, ?),
                     id_arrendatario = COALESCE(id_arrendatario, ?)
                 WHERE id_prestamo = ?
@@ -139,7 +133,6 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_
                 UPDATE prestamo 
                 SET confirmar_propietario = ?, 
                     fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
-                    fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
                     monto = COALESCE(monto, ?),
                     id_arrendatario = COALESCE(id_arrendatario, ?) 
                 WHERE id_prestamo = ?
@@ -167,7 +160,14 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset
         $finPropietario = 1;
 
         if ($finCliente === 1 && $finPropietario === 1) {
-            $updAlq = $pdo->prepare("UPDATE prestamo SET estado = 'finalizado', finalizar_cliente = 1, finalizar_propietario = 1 WHERE id_prestamo = ?");
+            $updAlq = $pdo->prepare("
+                UPDATE prestamo 
+                SET estado = 'finalizado', 
+                    finalizar_cliente = 1, 
+                    finalizar_propietario = 1,
+                    fecha_fin = CURRENT_DATE
+                WHERE id_prestamo = ?
+            ");
             $updAlq->execute([$idAlquiler]);
 
             $updVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = ?");
@@ -357,162 +357,154 @@ try {
         </div>
     </main>
 
-<script>
-    let clienteActual = '';
-    let vehiculoActualId = '';
-    let intervaloEmpresa = null;
+    <script>
+        let clienteActual = '';
+        let vehiculoActualId = '';
+        let intervaloEmpresa = null;
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const primerChat = document.querySelector('.chat-item');
-        if (primerChat) primerChat.click();
-    });
+        document.addEventListener('DOMContentLoaded', () => {
+            const primerChat = document.querySelector('.chat-item');
+            if (primerChat) primerChat.click();
+        });
 
-    function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
-        clienteActual = cliente;
-        vehiculoActualId = idVehiculo;
-        document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-        if (elemento) elemento.classList.add('active');
+        function cargarChat(cliente, idVehiculo, vehiculoNombre, elemento) {
+            clienteActual = cliente;
+            vehiculoActualId = idVehiculo;
+            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
+            if (elemento) elemento.classList.add('active');
 
-        document.getElementById('chatMainHeader').style.display = 'flex';
-        document.getElementById('chatInputForm').style.display = 'flex';
-        document.getElementById('emptyChatState').style.display = 'none';
+            document.getElementById('chatMainHeader').style.display = 'flex';
+            document.getElementById('chatInputForm').style.display = 'flex';
+            document.getElementById('emptyChatState').style.display = 'none';
 
-        document.getElementById('activeCliente').innerText = cliente;
-        document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
-        document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
-        document.getElementById('inputDestinatario').value = cliente;
-        document.getElementById('inputIdVehiculo').value = idVehiculo;
+            document.getElementById('activeCliente').innerText = cliente;
+            document.getElementById('activeVehiculo').innerText = 'Vehículo: ' + vehiculoNombre;
+            document.getElementById('activeAvatar').innerText = cliente.charAt(0).toUpperCase();
+            document.getElementById('inputDestinatario').value = cliente;
+            document.getElementById('inputIdVehiculo').value = idVehiculo;
 
-        obtenerMensajesEmpresa();
-        verificarEstadoAlquilerChat(idVehiculo);
-
-        if (intervaloEmpresa) clearInterval(intervaloEmpresa);
-        intervaloEmpresa = setInterval(() => {
             obtenerMensajesEmpresa();
             verificarEstadoAlquilerChat(idVehiculo);
-        }, 3000);
-    }
-
-    function verificarEstadoAlquilerChat(idVehiculo) {
-        if (!idVehiculo) return;
-
-        const url = `chat_backend.php?accion=verificar_alquiler&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}`;
-
-        fetch(url)
-            .then(res => res.json())
-            .then(data => {
-                const contenedor = document.getElementById('contenedorBotonesAccion');
-                if (!contenedor) return;
-
-                let estadoAlquiler = 'pendiente';
-                let confProp = 0;
-                let confCli = 0;
-                let finProp = 0;
-                let finCli = 0;
-
-                if (data.status === 'success' && data.alquiler) {
-                    estadoAlquiler = (data.alquiler.estado || 'pendiente').toLowerCase();
-                    confProp = parseInt(data.alquiler.confirmar_propietario || 0, 10);
-                    confCli = parseInt(data.alquiler.confirmar_cliente || 0, 10);
-                    finProp = parseInt(data.alquiler.finalizar_propietario || 0, 10);
-                    finCli = parseInt(data.alquiler.finalizar_cliente || 0, 10);
-                }
-
-                if (estadoAlquiler === 'finalizado' || estadoAlquiler === 'cancelado') {
-                    contenedor.innerHTML = `<span style="background: #222; color: #aaa; padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; border: 1px solid #333;">Alquiler ${estadoAlquiler}</span>`;
-                    return;
-                }
-
-                if (estadoAlquiler === 'activo') {
-                    const totalFin = Math.min(2, finProp + finCli);
-                    const badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Finalización: ${totalFin}/2</span>`;
-
-                    if (finProp === 1) {
-                        contenedor.innerHTML = badgeContador + `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
-                    } else {
-                        contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${encodeURIComponent(idVehiculo)}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
-                    }
-                } else {
-                    const totalConf = Math.min(2, confProp + confCli);
-                    const badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Confirmación: ${totalConf}/2</span>`;
-
-                    if (confProp === 1) {
-                        contenedor.innerHTML = badgeContador + `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
-                    } else {
-                        contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
-                    }
-                }
-            })
-            .catch(err => console.error(err));
-    }
-
-    function obtenerMensajesEmpresa() {
-        if (!clienteActual || !vehiculoActualId) return;
-        fetch(`chat_backend.php?accion=obtener&id_item=${encodeURIComponent(vehiculoActualId)}&destinatario=${encodeURIComponent(clienteActual)}`)
-            .then(res => res.json())
-            .then(data => {
-                const area = document.getElementById('chatMessagesArea');
-                if (!area) return;
-                area.innerHTML = '';
-                if (data.status === 'success' && data.mensajes) {
-                    data.mensajes.forEach(msg => {
-                        const esEnviado = (msg.remitente === data.usuario_actual);
-                        const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        const bubble = document.createElement('div');
-                        bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
-                        bubble.innerHTML = `<div>${escapeHtml(msg.mensaje)}</div><div class="msg-time">${hora}</div>`;
-                        area.appendChild(bubble);
-                    });
-                    area.scrollTop = area.scrollHeight;
-                }
-            })
-            .catch(err => console.error(err));
-    }
-
-    function enviarMensajePro(e) {
-        e.preventDefault();
-        const mensajeInput = document.getElementById('inputTextoMensaje');
-        const texto = mensajeInput.value.trim();
-        if (!texto || !clienteActual || !vehiculoActualId) return;
-        const formData = new URLSearchParams();
-        formData.append('accion', 'enviar');
-        formData.append('id_item', vehiculoActualId);
-        formData.append('destinatario', clienteActual);
-        formData.append('mensaje', texto);
-        fetch('chat_backend.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                mensajeInput.value = '';
+            
+            if (intervaloEmpresa) clearInterval(intervaloEmpresa);
+            intervaloEmpresa = setInterval(() => {
                 obtenerMensajesEmpresa();
-            }
-        });
-    }
+                verificarEstadoAlquilerChat(idVehiculo);
+            }, 3000);
+        }
 
-    function eliminarChatActual() {
-        if (!confirm('¿Eliminar historial?')) return;
-        const formData = new URLSearchParams();
-        formData.append('accion', 'eliminar_chat');
-        formData.append('id_item', vehiculoActualId);
-        formData.append('destinatario', clienteActual);
-        fetch('chat_backend.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') location.reload();
-        });
-    }
+        function verificarEstadoAlquilerChat(idVehiculo) {
+            if (!idVehiculo) return;
 
-    function escapeHtml(text) {
-        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-</script>
+            fetch(`chat_backend.php?accion=verificar_alquiler&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}`)
+                .then(res => res.json())
+                .then(data => {
+                    const contenedor = document.getElementById('contenedorBotonesAccion');
+                    if (!contenedor) return;
+
+                    if (data.status !== 'success') return;
+
+                    if (!data.alquiler) {
+                        contenedor.innerHTML = `
+                            <span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Confirmación: 0/2</span>
+                            <a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');">
+                                <i class="fa-solid fa-file-contract"></i> Confirmar Alquiler
+                            </a>
+                        `;
+                        return;
+                    }
+
+                    const estadoAlquiler = (data.alquiler.estado || 'pendiente').toLowerCase();
+                    const confProp = parseInt(data.alquiler.confirmar_propietario || 0, 10);
+                    const confCli = parseInt(data.alquiler.confirmar_cliente || 0, 10);
+                    const finProp = parseInt(data.alquiler.finalizar_propietario || 0, 10);
+                    const finCli = parseInt(data.alquiler.finalizar_cliente || 0, 10);
+
+                    if (estadoAlquiler === 'finalizado' || estadoAlquiler === 'cancelado') {
+                        contenedor.innerHTML = `
+                            <span style="background: #222; color: #aaa; padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; border: 1px solid #333;">Alquiler ${estadoAlquiler}</span>
+                            <a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Iniciar un nuevo alquiler?');">
+                                <i class="fa-solid fa-file-contract"></i> Confirmar Alquiler
+                            </a>
+                        `;
+                        return;
+                    }
+
+                    if (estadoAlquiler === 'activo') {
+                        const totalFin = Math.min(2, finProp + finCli);
+                        const badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Finalización: ${totalFin}/2</span>`;
+
+                        if (finProp === 1) {
+                            contenedor.innerHTML = badgeContador + `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #f59e0b;"><i class="fa-solid fa-clock"></i> Ya confirmaste finalizar (Falta cliente)</span>`;
+                        } else {
+                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=solicitar_finalizar&id_vehiculo=${encodeURIComponent(idVehiculo)}" style="background: #e50914; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Solicitar finalizar este alquiler?');"><i class="fa-solid fa-flag-checkered"></i> Finalizar Alquiler</a>`;
+                        }
+                    } else {
+                        const totalConf = Math.min(2, confProp + confCli);
+                        const badgeContador = `<span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444;">Confirmación: ${totalConf}/2</span>`;
+
+                        if (confProp === 1) {
+                            contenedor.innerHTML = badgeContador + `<span style="background: rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; border: 1px solid #3b82f6;"><i class="fa-solid fa-clock"></i> Ya confirmaste (Falta cliente)</span>`;
+                        } else {
+                            contenedor.innerHTML = badgeContador + `<a href="mensajese.php?accion=confirmar_inicio&id_vehiculo=${encodeURIComponent(idVehiculo)}&cliente=${encodeURIComponent(clienteActual)}" style="background: #10b981; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem;" onclick="return confirm('¿Confirmar este alquiler?');"><i class="fa-solid fa-file-contract"></i> Confirmar Alquiler</a>`;
+                        }
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function obtenerMensajesEmpresa() {
+            if (!clienteActual || !vehiculoActualId) return;
+            fetch(`chat_backend.php?accion=obtener&id_item=${encodeURIComponent(vehiculoActualId)}&destinatario=${encodeURIComponent(clienteActual)}`)
+                .then(res => res.json())
+                .then(data => {
+                    const area = document.getElementById('chatMessagesArea');
+                    if (!area) return;
+                    area.innerHTML = '';
+                    if (data.status === 'success' && data.mensajes) {
+                        data.mensajes.forEach(msg => {
+                            const esEnviado = (msg.remitente === data.usuario_actual);
+                            const hora = new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const bubble = document.createElement('div');
+                            bubble.className = `msg-bubble ${esEnviado ? 'sent' : 'received'}`;
+                            bubble.innerHTML = `<div>${escapeHtml(msg.mensaje)}</div><div class="msg-time">${hora}</div>`;
+                            area.appendChild(bubble);
+                        });
+                        area.scrollTop = area.scrollHeight;
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function enviarMensajePro(e) {
+            e.preventDefault();
+            const mensajeInput = document.getElementById('inputTextoMensaje');
+            const texto = mensajeInput.value.trim();
+            if (!texto || !clienteActual || !vehiculoActualId) return;
+            const formData = new URLSearchParams();
+            formData.append('accion', 'enviar');
+            formData.append('id_item', vehiculoActualId);
+            formData.append('destinatario', clienteActual);
+            formData.append('mensaje', texto);
+            fetch('chat_backend.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData.toString() })
+            .then(res => res.json())
+            .then(data => { if (data.status === 'success') { mensajeInput.value = ''; obtenerMensajesEmpresa(); } });
+        }
+
+        function eliminarChatActual() {
+            if (!confirm(`¿Eliminar historial?`)) return;
+            const formData = new URLSearchParams();
+            formData.append('accion', 'eliminar_chat');
+            formData.append('id_item', vehiculoActualId);
+            formData.append('destinatario', clienteActual);
+            fetch('chat_backend.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData.toString() })
+            .then(res => res.json())
+            .then(data => { if (data.status === 'success') location.reload(); });
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
 </body>
 </html>
