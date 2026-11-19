@@ -20,20 +20,47 @@ $error_msg = '';
 $contactos = [];
 
 function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario): ?int {
-    $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
+    if ($idUsuario <= 0) {
+        return null;
+    }
+
+    $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");
     $stmtArr->execute([$idUsuario]);
     $idArr = $stmtArr->fetchColumn();
     if ($idArr) {
         return intval($idArr);
     }
 
+    // Obtener datos reales del usuario para insertar en arrendatario sin depender de valores inventados
+    $correoReal = 'cliente@rentcar.com';
+    $nombreReal = $nombreUsuario ?: 'Cliente';
+    $apellidoReal = 'N/A';
+
+    try {
+        $stmtU = $pdo->prepare("SELECT nombre, apellido, correo FROM usuario WHERE id_usuario = ? LIMIT 1");
+        $stmtU->execute([$idUsuario]);
+        $uRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+        if ($uRow) {
+            if (!empty(trim((string)($uRow['nombre'] ?? '')))) {
+                $nombreReal = trim((string)$uRow['nombre']);
+            }
+            if (!empty(trim((string)($uRow['apellido'] ?? '')))) {
+                $apellidoReal = trim((string)$uRow['apellido']);
+            }
+            if (!empty(trim((string)($uRow['correo'] ?? '')))) {
+                $correoReal = trim((string)$uRow['correo']);
+            }
+        }
+    } catch (Exception $ex) {
+    }
+
     try {
         $stmtInsArr = $pdo->prepare("
             INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion)
-            VALUES (?, ?, 'N/A', 0, 0, 'cliente@rentcar.com', 'N/A')
+            VALUES (?, ?, ?, 0, 0, ?, 'N/A')
             RETURNING id_arrendatario
         ");
-        $stmtInsArr->execute([$idUsuario, $nombreUsuario ?: 'Cliente']);
+        $stmtInsArr->execute([$idUsuario, $nombreReal, $apellidoReal, $correoReal]);
         $idNuevo = $stmtInsArr->fetchColumn();
         if ($idNuevo) {
             return intval($idNuevo);
@@ -41,17 +68,10 @@ function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario):
     } catch (Exception $ex) {
     }
 
-    $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
+    $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");
     $stmtArr2->execute([$idUsuario]);
     $idArr2 = $stmtArr2->fetchColumn();
-    if ($idArr2) {
-        return intval($idArr2);
-    }
-
-    $stmtFallback = $pdo->prepare("SELECT id_arrendatario FROM arrendatario ORDER BY id_arrendatario ASC LIMIT 1");
-    $stmtFallback->execute();
-    $idFall = $stmtFallback->fetchColumn();
-    return $idFall ? intval($idFall) : null;
+    return $idArr2 ? intval($idArr2) : null;
 }
 
 function resolverIdArrendatarioParaPrestamo(PDO $pdo, int $idUsuarioActual, bool $esPropietario, string $interlocutor, string $nombreUsuarioActual): ?int {
@@ -64,6 +84,7 @@ function resolverIdArrendatarioParaPrestamo(PDO $pdo, int $idUsuarioActual, bool
             SELECT id_usuario, COALESCE(NULLIF(TRIM(empresa), ''), TRIM(nombre)) AS etiqueta
             FROM usuario
             WHERE TRIM(nombre) ILIKE TRIM(?) OR TRIM(empresa) ILIKE TRIM(?)
+            ORDER BY id_usuario ASC
             LIMIT 1
         ");
         $stmtCli->execute([$interlocutor, $interlocutor]);
@@ -73,7 +94,7 @@ function resolverIdArrendatarioParaPrestamo(PDO $pdo, int $idUsuarioActual, bool
         }
     }
 
-    return obtenerIdArrendatario($pdo, $idUsuarioActual, $nombreUsuarioActual);
+    return null;
 }
 
 try {
@@ -98,6 +119,12 @@ try {
         $esPropietarioActual = ($vehInfo && intval($vehInfo['id_proveedor'] ?? 0) === $id_usuario);
         $montoVehiculo = $vehInfo['precio'] ?? 0.00;
         $idArrendatario = resolverIdArrendatarioParaPrestamo($pdo, $id_usuario, $esPropietarioActual, $interlocutorAccion, $nombre_usuario);
+
+        if (!$idArrendatario) {
+            $msgErr = "No se pudo identificar o registrar el arrendatario correspondiente a este alquiler.";
+            header("Location: mensajes.php?contacto=" . urlencode($idVehiculoAccion . '_' . $interlocutorAccion) . "&msg=" . urlencode($msgErr));
+            exit();
+        }
 
         $stmtAlq = $pdo->prepare("
             SELECT * FROM prestamo
@@ -160,7 +187,7 @@ try {
                         fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
                         fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
                         monto = COALESCE(monto, ?),
-                        id_arrendatario = COALESCE(id_arrendatario, ?)
+                        id_arrendatario = ?
                     WHERE id_prestamo = ?
                 ");
                 $updAlq->execute([$montoVehiculo, $idArrendatario, $idAlquiler]);
@@ -177,7 +204,7 @@ try {
                         fecha_inicio = COALESCE(fecha_inicio, CURRENT_DATE),
                         fecha_fin = COALESCE(fecha_fin, CURRENT_DATE + INTERVAL '7 days'),
                         monto = COALESCE(monto, ?),
-                        id_arrendatario = COALESCE(id_arrendatario, ?)
+                        id_arrendatario = ?
                     WHERE id_prestamo = ?
                 ");
                 $updParcial->execute([$confCliente, $confPropietario, $montoVehiculo, $idArrendatario, $idAlquiler]);
@@ -227,7 +254,8 @@ try {
                     UPDATE prestamo
                     SET estado = 'finalizado',
                         finalizar_cliente = 1,
-                        finalizar_propietario = 1
+                        finalizar_propietario = 1,
+                        fecha_fin = CURRENT_DATE
                     WHERE id_prestamo = ?
                 ");
                 $updAlq->execute([$idAlquiler]);
