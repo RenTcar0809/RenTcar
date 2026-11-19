@@ -71,7 +71,6 @@ $nombreUsuario = $_SESSION['usuario_nombre'];
                 
                 <div class="dropdown-content" id="myDropdown">
                     <a href="configuracion.php"><i class="fa-solid fa-gear"></i> Ajustes / Mi Perfil</a>
-                    <a href="reservas.php"><i class="fa-solid fa-list"></i> Mis Reservas</a>
                     <a href="mensajes.php"><i class="fa-solid fa-comments"></i> Mensajes</a>
 
                     <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Salir</a>
