@@ -3,7 +3,12 @@ session_start();
 require_once 'conexion.php';
 
 // 1. SEGURIDAD: Verificar sesión activa
-if (!isset($_SESSION['id_proveedor']) && !isset($_SESSION['nombre_empresa'])) {
+if (
+    !isset($_SESSION['IdUsuario']) &&
+    !isset($_SESSION['id_proveedor']) &&
+    !isset($_SESSION['nombre_empresa']) &&
+    !isset($_SESSION['usuario_nombre'])
+) {
     header("Location: inicioSesion.php");
     exit();
 }
@@ -14,29 +19,42 @@ header("Pragma: no-cache");
 header("Expires: 0");
 
 // Datos de la empresa
-$idProveedor    = $_SESSION['id_proveedor'] ?? 0;
+$idProveedor    = intval($_SESSION['IdUsuario'] ?? $_SESSION['id_proveedor'] ?? 0);
 $nombreEmpresa  = $_SESSION['nombre_empresa'] ?? $_SESSION['usuario_nombre'] ?? 'Empresa';
 $inicialEmpresa = strtoupper(substr($nombreEmpresa, 0, 1));
 
 $clientes = [];
 $totalClientes = 0;
+$errorConsulta = null;
 
 try {
-    // Consulta SQL para obtener los clientes que le han alquilado a esta empresa
-    $sql = "SELECT 
-                u.nombre, 
-                u.apellido, 
-                u.correo, 
-                u.numTelefono, 
-                u.documento,
-                COUNT(a.id_alquiler) AS total_alquileres,
-                MAX(a.fecha_inicio) AS ultimo_alquiler
-            FROM alquiler a
-            INNER JOIN vehiculo v ON a.id_vehiculo = v.id_vehiculo
-            INNER JOIN usuario u ON a.correo = u.correo OR a.id_usuario = u.id_usuario
+    $sql = "SELECT
+                u.id_usuario,
+                COALESCE(NULLIF(TRIM(u.nombre), ''), NULLIF(TRIM(a.nombre), ''), 'Cliente') AS nombre,
+                COALESCE(NULLIF(TRIM(u.apellido), ''), NULLIF(TRIM(a.apellido), ''), '') AS apellido,
+                COALESCE(NULLIF(TRIM(u.correo), ''), NULLIF(TRIM(a.correo), ''), 'N/A') AS correo,
+                COALESCE(NULLIF(TRIM(CAST(u.num_telefono AS TEXT)), ''), NULLIF(TRIM(CAST(a.telefono AS TEXT)), ''), '') AS telefono,
+                COALESCE(NULLIF(TRIM(CAST(u.documento AS TEXT)), ''), NULLIF(TRIM(CAST(a.cedula AS TEXT)), ''), 'Sin Documento') AS documento,
+                COUNT(p.id_prestamo) AS total_alquileres,
+                MAX(p.fecha_inicio) AS ultimo_alquiler
+            FROM prestamo p
+            INNER JOIN vehiculo v ON p.id_vehiculo = v.id_v
+            LEFT JOIN arrendatario a ON p.id_arrendatario = a.id_arrendatario
+            LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
             WHERE v.id_proveedor = :id
-            GROUP BY u.correo
-            ORDER BY total_alquileres DESC";
+            GROUP BY
+                u.id_usuario,
+                u.nombre,
+                u.apellido,
+                u.correo,
+                u.num_telefono,
+                u.documento,
+                a.nombre,
+                a.apellido,
+                a.correo,
+                a.telefono,
+                a.cedula
+            ORDER BY total_alquileres DESC, ultimo_alquiler DESC NULLS LAST";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':id' => $idProveedor]);
@@ -46,6 +64,7 @@ try {
 
 } catch (PDOException $e) {
     $clientes = [];
+    $errorConsulta = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -54,10 +73,10 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clientes - <?php echo htmlspecialchars($nombreEmpresa); ?></title>
-    
+
     <!-- Iconos FontAwesome -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
-    
+
     <!-- Hoja de Estilos -->
     <link rel="stylesheet" href="clientesStile.css?v=<?php echo time(); ?>">
 </head>
@@ -69,44 +88,44 @@ try {
             <h1 class="logo-text"><span class="red-t">REN</span>T<span class="red-t">CAR</span></h1>
         </div>
 
-       <nav class="nav-menu">
-    <a href="dashboardE.php" class="nav-link">
-        <i class="fa-solid fa-chart-pie"></i>
-        <span>Panel</span>
-    </a>
-    <a href="mensajese.php" class="nav-link">
-        <i class="fa-solid fa-comments"></i>
-        <span>Mensajes</span>
-    </a>
-    <a href="vehiculosE.php" class="nav-link">
-        <i class="fa-solid fa-car-side"></i>
-        <span>Mi Flota</span>
-    </a>
-    <a href="alquileres.php" class="nav-link">
-        <i class="fa-solid fa-calendar-check"></i>
-        <span>Alquileres</span>
-    </a>
-    <a href="clientes.php" class="nav-link active">
-        <i class="fa-solid fa-users"></i>
-        <span>Clientes</span>
-    </a>
-           <a href="panel_propietario_licencias.php" class="nav-link">
+        <nav class="nav-menu">
+            <a href="dashboardE.php" class="nav-link">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Panel</span>
+            </a>
+            <a href="mensajese.php" class="nav-link">
+                <i class="fa-solid fa-comments"></i>
+                <span>Mensajes</span>
+            </a>
+            <a href="vehiculosE.php" class="nav-link">
+                <i class="fa-solid fa-car-side"></i>
+                <span>Mi Flota</span>
+            </a>
+            <a href="alquileres.php" class="nav-link">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Alquileres</span>
+            </a>
+            <a href="clientes.php" class="nav-link active">
+                <i class="fa-solid fa-users"></i>
+                <span>Clientes</span>
+            </a>
+            <a href="panel_propietario_licencias.php" class="nav-link">
                 <i class="fa-solid fa-id-card"></i>
                 <span>Licencias</span>
             </a>
-    <a href="perfil_empresa.php" class="nav-link highlight-company">
-        <i class="fa-solid fa-building"></i>
-        <span>Mi Empresa</span>
-    </a>
-</nav>
+            <a href="perfil_empresa.php" class="nav-link highlight-company">
+                <i class="fa-solid fa-building"></i>
+                <span>Mi Empresa</span>
+            </a>
+        </nav>
 
         <div class="user-container">
             <div class="user-profile" id="userProfileBtn">
-                <div class="user-avatar"><?php echo $inicialEmpresa; ?></div>
+                <div class="user-avatar"><?php echo htmlspecialchars($inicialEmpresa); ?></div>
                 <span><?php echo htmlspecialchars($nombreEmpresa); ?></span>
                 <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: #8e8e93;"></i>
             </div>
-            
+
             <div class="dropdown-content" id="userDropdown">
                 <a href="perfil_empresa.php"><i class="fa-solid fa-user-gear"></i> Configuración</a>
                 <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
@@ -116,7 +135,7 @@ try {
 
     <!-- --- CONTENIDO PRINCIPAL --- -->
     <main class="main-content">
-        
+
         <!-- Encabezado -->
         <div class="header-banner">
             <div class="header-info">
@@ -125,11 +144,17 @@ try {
             </div>
         </div>
 
+        <?php if ($errorConsulta): ?>
+            <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: 600;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Error al consultar clientes: <?php echo htmlspecialchars($errorConsulta); ?>
+            </div>
+        <?php endif; ?>
+
         <!-- Tarjeta de Estadísticas -->
         <div class="client-stats-bar">
             <div class="stat-pill">
                 <i class="fa-solid fa-users"></i>
-                <span>Total de Clientes Registrados: <strong><?php echo $totalClientes; ?></strong></span>
+                <span>Total de Clientes Registrados: <strong><?php echo number_format($totalClientes); ?></strong></span>
             </div>
         </div>
 
@@ -151,57 +176,58 @@ try {
                         </thead>
                         <tbody>
                             <?php foreach ($clientes as $cliente): ?>
-                                <?php 
+                                <?php
                                     $nombreCompleto = trim(($cliente['nombre'] ?? '') . ' ' . ($cliente['apellido'] ?? ''));
                                     $inicialCliente = strtoupper(substr($cliente['nombre'] ?? 'C', 0, 1));
-                                    $telefonoLimpio = preg_replace('/[^0-9]/', '', $cliente['numTelefono'] ?? '');
+                                    $telefonoRaw = trim((string)($cliente['telefono'] ?? ''));
+                                    $telefonoLimpio = preg_replace('/[^0-9]/', '', $telefonoRaw);
                                 ?>
                                 <tr>
                                     <!-- Cliente -->
                                     <td class="col-client">
                                         <div class="client-avatar">
-                                            <?php echo $inicialCliente; ?>
+                                            <?php echo htmlspecialchars($inicialCliente); ?>
                                         </div>
                                         <div class="client-name">
-                                            <span><?php echo htmlspecialchars($nombreCompleto ?: 'Cliente General'); ?></span>
+                                            <span><?php echo htmlspecialchars($nombreCompleto !== '' ? $nombreCompleto : 'Cliente General'); ?></span>
                                         </div>
                                     </td>
 
                                     <!-- Documento -->
                                     <td>
                                         <span class="doc-tag">
-                                            <?php echo htmlspecialchars($cliente['documento'] ?? 'Sin Documento'); ?>
+                                            <?php echo htmlspecialchars($cliente['documento'] ?: 'Sin Documento'); ?>
                                         </span>
                                     </td>
 
                                     <!-- Correo -->
                                     <td class="col-email">
                                         <i class="fa-regular fa-envelope"></i>
-                                        <span><?php echo htmlspecialchars($cliente['correo'] ?? 'N/A'); ?></span>
+                                        <span><?php echo htmlspecialchars($cliente['correo'] ?: 'N/A'); ?></span>
                                     </td>
 
                                     <!-- Teléfono -->
                                     <td class="col-phone">
                                         <i class="fa-solid fa-phone"></i>
-                                        <span><?php echo htmlspecialchars($cliente['numTelefono'] ?? 'N/A'); ?></span>
+                                        <span><?php echo htmlspecialchars($telefonoRaw !== '' && $telefonoRaw !== '0' ? $telefonoRaw : 'N/A'); ?></span>
                                     </td>
 
                                     <!-- Total Alquileres -->
                                     <td>
                                         <span class="rental-count-badge">
-                                            <?php echo $cliente['total_alquileres']; ?> reserva(s)
+                                            <?php echo (int)$cliente['total_alquileres']; ?> reserva(s)
                                         </span>
                                     </td>
 
                                     <!-- Último Alquiler -->
                                     <td class="col-date">
-                                        <?php echo htmlspecialchars($cliente['ultimo_alquiler'] ?? 'N/A'); ?>
+                                        <?php echo htmlspecialchars(!empty($cliente['ultimo_alquiler']) ? date('d/m/Y', strtotime($cliente['ultimo_alquiler'])) : 'N/A'); ?>
                                     </td>
 
                                     <!-- Botón rápido de WhatsApp -->
                                     <td style="text-align: center;">
-                                        <?php if (!empty($telefonoLimpio)): ?>
-                                            <a href="https://wa.me/<?php echo $telefonoLimpio; ?>" target="_blank" class="btn-icon btn-whatsapp" title="Enviar WhatsApp">
+                                        <?php if ($telefonoLimpio !== '' && $telefonoLimpio !== '0'): ?>
+                                            <a href="https://wa.me/<?php echo htmlspecialchars($telefonoLimpio); ?>" target="_blank" class="btn-icon btn-whatsapp" title="Enviar WhatsApp">
                                                 <i class="fa-brands fa-whatsapp"></i>
                                             </a>
                                         <?php else: ?>

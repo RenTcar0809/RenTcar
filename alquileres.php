@@ -34,51 +34,6 @@ function normalizarImagenVehiculo(?string $ruta): string {
     return 'uploads/' . $ruta;
 }
 
-// 2. PROCESAR ACCIÓN DE FINALIZAR ALQUILER
-if (isset($_GET['accion']) && $_GET['accion'] === 'finalizar' && isset($_GET['id_alquiler'])) {
-    $idAlquilerFin = intval($_GET['id_alquiler']);
-    try {
-        $pdo->beginTransaction();
-
-        $stmtCheck = $pdo->prepare("
-            SELECT p.id_prestamo, p.id_vehiculo
-            FROM prestamo p
-            INNER JOIN vehiculo v ON p.id_vehiculo = v.id_v
-            WHERE p.id_prestamo = :id_alq AND v.id_proveedor = :id_prov
-            LIMIT 1
-        ");
-        $stmtCheck->execute([':id_alq' => $idAlquilerFin, ':id_prov' => $idProveedor]);
-        $rowAlq = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-
-        if ($rowAlq) {
-            $idVehLiberar = intval($rowAlq['id_vehiculo']);
-
-            $stmtUpd = $pdo->prepare("
-                UPDATE prestamo
-                SET estado = 'finalizado',
-                    finalizar_propietario = 1
-                WHERE id_prestamo = :id_alq
-            ");
-            $stmtUpd->execute([':id_alq' => $idAlquilerFin]);
-
-            $stmtVeh = $pdo->prepare("UPDATE vehiculo SET estado = 'Disponible' WHERE id_v = :id_v");
-            $stmtVeh->execute([':id_v' => $idVehLiberar]);
-
-            $pdo->commit();
-            header("Location: alquileres.php?msg=finalizado");
-            exit();
-        } else {
-            $pdo->rollBack();
-        }
-    } catch (PDOException $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        $errorMsg = "Error al finalizar el alquiler: " . $e->getMessage();
-    }
-}
-
-// Variables de contadores
 $alquileres = [];
 $totalAlquileres = 0;
 $totalActivos = 0;
@@ -98,12 +53,9 @@ try {
                 COALESCE(
                     (SELECT f.ruta_imagen FROM fotos_vehiculos f WHERE f.id_vehiculo = v.id_v ORDER BY f.id_foto ASC LIMIT 1),
                     v.imagen
-                ) AS imagen,
-                COALESCE(NULLIF(TRIM(u.nombre), ''), NULLIF(TRIM(a.nombre), ''), 'Cliente General') AS nombre_cliente
+                ) AS imagen
             FROM prestamo p
             INNER JOIN vehiculo v ON p.id_vehiculo = v.id_v
-            LEFT JOIN arrendatario a ON p.id_arrendatario = a.id_arrendatario
-            LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
             WHERE v.id_proveedor = :id
             ORDER BY p.id_prestamo DESC";
 
@@ -135,25 +87,6 @@ try {
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <link rel="stylesheet" href="alquileresstile.css?v=<?php echo time(); ?>">
-    <style>
-        .acciones-td { display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-finalizar {
-            background-color: #10b981;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: background 0.2s;
-        }
-        .btn-finalizar:hover { background-color: #059669; }
-    </style>
 </head>
 <body>
 
@@ -222,12 +155,6 @@ try {
             </div>
         <?php endif; ?>
 
-        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'finalizado'): ?>
-            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: 600;">
-                <i class="fa-solid fa-check-circle"></i> El alquiler ha sido finalizado con éxito.
-            </div>
-        <?php endif; ?>
-
         <!-- Tarjetas de Estadísticas / Resumen -->
         <div class="rental-stats-bar">
             <div class="stat-pill">
@@ -253,11 +180,9 @@ try {
                             <tr>
                                 <th>N° Reserva</th>
                                 <th>Vehículo</th>
-                                <th>Cliente</th>
                                 <th>Fechas (Inicio / Fin)</th>
                                 <th>Monto Total</th>
                                 <th>Estado</th>
-                                <th style="text-align: center;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -302,13 +227,6 @@ try {
                                     </td>
 
                                     <td>
-                                        <div class="client-info">
-                                            <i class="fa-solid fa-user-circle"></i>
-                                            <span><?php echo htmlspecialchars($item['nombre_cliente'] ?? 'Cliente General'); ?></span>
-                                        </div>
-                                    </td>
-
-                                    <td>
                                         <div class="dates-box">
                                             <span><i class="fa-regular fa-calendar-check"></i> <?php echo htmlspecialchars($item['fecha_inicio'] ?? 'N/A'); ?></span>
                                             <small><i class="fa-regular fa-calendar-xmark"></i> <?php echo htmlspecialchars($item['fecha_fin'] ?? 'N/A'); ?></small>
@@ -324,23 +242,6 @@ try {
                                             <?php echo htmlspecialchars($etiquetaEstado); ?>
                                         </span>
                                     </td>
-
-                                    <td style="text-align: center;">
-                                        <div class="acciones-td">
-                                            <a href="detalle_alquiler.php?id=<?php echo (int)$item['id_alquiler']; ?>" class="btn-icon btn-view" title="Ver Detalles">
-                                                <i class="fa-solid fa-eye"></i>
-                                            </a>
-
-                                            <?php if ($esEnCurso): ?>
-                                                <a href="alquileres.php?accion=finalizar&id_alquiler=<?php echo (int)$item['id_alquiler']; ?>"
-                                                   class="btn-finalizar"
-                                                   title="Finalizar Alquiler"
-                                                   onclick="return confirm('¿Estás seguro de finalizar este contrato de alquiler?');">
-                                                    <i class="fa-solid fa-check"></i> Finalizar
-                                                </a>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -350,7 +251,7 @@ try {
                 <div class="empty-state">
                     <i class="fa-solid fa-calendar-xmark"></i>
                     <h3>No hay registros de alquiler</h3>
-                    <p>Cuando los clientes renten tus vehículos, aparecerán en este historial.</p>
+                    <p>Cuando se registren alquileres de tus vehículos, aparecerán aquí.</p>
                 </div>
             <?php endif; ?>
         </section>
