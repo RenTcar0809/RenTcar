@@ -25,7 +25,7 @@ function obtenerOcrearIdArrendatario(PDO $pdo, int $idUsuarioCliente, string $no
 
     $nombreReal = trim($nombreCliente) !== '' ? trim($nombreCliente) : 'Cliente';
     $apellidoReal = 'N/A';
-    $correoReal = 'cliente@rentcar.com';
+    $correoReal = 'cliente_' . $idUsuarioCliente . '@rentcar.com';
 
     try {
         $stmtU = $pdo->prepare("SELECT nombre, apellido, correo FROM usuario WHERE id_usuario = ? LIMIT 1");
@@ -45,18 +45,30 @@ function obtenerOcrearIdArrendatario(PDO $pdo, int $idUsuarioCliente, string $no
     } catch (Throwable $e) {
     }
 
-    try {
-        $stmtInsArr = $pdo->prepare("
-            INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion)
-            VALUES (?, ?, ?, 0, 0, ?, 'N/A')
-            RETURNING id_arrendatario
-        ");
-        $stmtInsArr->execute([$idUsuarioCliente, $nombreReal, $apellidoReal, $correoReal]);
-        $idNuevo = $stmtInsArr->fetchColumn();
-        if ($idNuevo) {
-            return intval($idNuevo);
+    $correosAProbar = [
+        $correoReal,
+        'cliente_' . $idUsuarioCliente . '_' . time() . '@rentcar.com'
+    ];
+    $cedulasAProbar = [
+        -$idUsuarioCliente,
+        -(1000000 + $idUsuarioCliente + ((int)(microtime(true) * 100) % 100000))
+    ];
+
+    foreach ($correosAProbar as $idx => $correoIntento) {
+        $cedulaIntento = $cedulasAProbar[$idx] ?? (-($idUsuarioCliente * 100 + $idx + 1));
+        try {
+            $stmtInsArr = $pdo->prepare("
+                INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion)
+                VALUES (?, ?, ?, ?, 0, ?, 'N/A')
+                RETURNING id_arrendatario
+            ");
+            $stmtInsArr->execute([$idUsuarioCliente, $nombreReal, $apellidoReal, $cedulaIntento, $correoIntento]);
+            $idNuevo = $stmtInsArr->fetchColumn();
+            if ($idNuevo) {
+                return intval($idNuevo);
+            }
+        } catch (Throwable $e) {
         }
-    } catch (Throwable $e) {
     }
 
     $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");

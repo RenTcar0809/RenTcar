@@ -32,7 +32,7 @@ function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario, 
         return intval($idArr);
     }
 
-    $correoReal = 'cliente@rentcar.com';
+    $correoReal = 'cliente_' . $idUsuario . '@rentcar.com';
     $nombreReal = $nombreUsuario ?: 'Cliente';
     $apellidoReal = 'N/A';
 
@@ -54,30 +54,42 @@ function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario, 
     } catch (Exception $ex) {
     }
 
-    try {
-        $stmtInsArr = $pdo->prepare("
-            INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion)
-            VALUES (?, ?, ?, 0, 0, ?, 'N/A')
-            RETURNING id_arrendatario
-        ");
-        $stmtInsArr->execute([$idUsuario, $nombreReal, $apellidoReal, $correoReal]);
-        $idNuevo = $stmtInsArr->fetchColumn();
-        if ($idNuevo) {
-            return intval($idNuevo);
+    $correosAProbar = [
+        $correoReal,
+        'cliente_' . $idUsuario . '_' . time() . '@rentcar.com'
+    ];
+    $cedulasAProbar = [
+        -$idUsuario,
+        -(1000000 + $idUsuario + ((int)(microtime(true) * 100) % 100000))
+    ];
+
+    foreach ($correosAProbar as $idx => $correoIntento) {
+        $cedulaIntento = $cedulasAProbar[$idx] ?? (-($idUsuario * 100 + $idx + 1));
+        try {
+            $stmtInsArr = $pdo->prepare("
+                INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion)
+                VALUES (?, ?, ?, ?, 0, ?, 'N/A')
+                RETURNING id_arrendatario
+            ");
+            $stmtInsArr->execute([$idUsuario, $nombreReal, $apellidoReal, $cedulaIntento, $correoIntento]);
+            $idNuevo = $stmtInsArr->fetchColumn();
+            if ($idNuevo) {
+                $motivoError = null;
+                return intval($idNuevo);
+            }
+        } catch (Exception $ex) {
+            $motivoError = "Error al insertar en arrendatario para id_usuario={$idUsuario}: " . $ex->getMessage();
         }
-    } catch (Exception $ex) {
-        $motivoError = "Error al insertar en arrendatario para id_usuario={$idUsuario}: " . $ex->getMessage();
-        return null;
     }
 
     $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");
     $stmtArr2->execute([$idUsuario]);
     $idArr2 = $stmtArr2->fetchColumn();
     if ($idArr2) {
+        $motivoError = null;
         return intval($idArr2);
     }
 
-    $motivoError = "No se obtuvo id_arrendatario tras insertar para id_usuario={$idUsuario}.";
     return null;
 }
 
