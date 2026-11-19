@@ -156,7 +156,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     } catch (PDOException $e) {
         error_log("Error en registrar.php: " . $e->getMessage());
-        alertaYVolver('Los datos ya están registrados en el sistema.');
+        alertaYVolver('Los datos ya sea numero de telefono o documento ya están registrados en el sistema.');
     }
 } else {
     header('Location: registrar.html');
