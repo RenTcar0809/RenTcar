@@ -39,7 +39,6 @@ function obtenerIdArrendatario(PDO $pdo, int $idUsuario, string $nombreUsuario):
             return intval($idNuevo);
         }
     } catch (Exception $ex) {
-        // Fallback si la tabla no soporta RETURNING en algún caso
     }
 
     $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? LIMIT 1");
@@ -88,7 +87,6 @@ try {
     }
     $_SESSION['usuario_nombre'] = $nombre_usuario;
 
-    // PROCESAR CONFIRMAR INICIO DE PRÉSTAMO (CLIENTE O PROPIETARIO)
     if (isset($_GET['accion']) && $_GET['accion'] === 'confirmar_inicio' && isset($_GET['id_vehiculo'])) {
         $idVehiculoAccion = intval($_GET['id_vehiculo']);
         $interlocutorAccion = trim((string)($_GET['interlocutor'] ?? ''));
@@ -194,7 +192,6 @@ try {
         exit();
     }
 
-    // PROCESAR FINALIZAR ALQUILER (CLIENTE O PROPIETARIO)
     if (isset($_GET['accion']) && $_GET['accion'] === 'solicitar_finalizar' && isset($_GET['id_vehiculo'])) {
         $idVehiculoAccion = intval($_GET['id_vehiculo']);
         $interlocutorAccion = trim((string)($_GET['interlocutor'] ?? ''));
@@ -383,6 +380,203 @@ if (!empty($interlocutor_real)) {
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="mensajes.css">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #0b0b0d;
+            color: #f4f4f5;
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-wrapper {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            background: #0b0b0d;
+            overflow: hidden;
+        }
+        .chat-sidebar {
+            width: 320px;
+            min-width: 280px;
+            background: #141417;
+            border-right: 1px solid #26262c;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #26262c;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .btn-volver {
+            background: #232329;
+            color: #e4e4e7;
+            text-decoration: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-volver:hover { background: #2f2f37; }
+        .contact-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #e4e4e7;
+            margin-bottom: 6px;
+            transition: background 0.15s ease;
+        }
+        .contact-item:hover { background: #1d1d22; }
+        .contact-item.active { background: rgba(229, 9, 20, 0.18); border: 1px solid rgba(229, 9, 20, 0.45); }
+        .contact-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #222228;
+        }
+        .contact-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .contact-info h4 {
+            margin: 0 0 3px 0;
+            font-size: 0.92rem;
+            color: #fff;
+        }
+        .contact-info small {
+            color: #a1a1aa;
+            font-size: 0.78rem;
+        }
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: #0f0f12;
+        }
+        .chat-header {
+            padding: 14px 20px;
+            background: #141417;
+            border-bottom: 1px solid #26262c;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .chat-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: #fff;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message-bubble {
+            max-width: min(72%, 520px);
+            padding: 10px 14px;
+            border-radius: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+        }
+        .message-bubble.sent {
+            align-self: flex-end;
+            background: #e50914;
+            color: #ffffff;
+            border-bottom-right-radius: 4px;
+        }
+        .message-bubble.received {
+            align-self: flex-start;
+            background: #1f1f24;
+            color: #f4f4f5;
+            border: 1px solid #2e2e36;
+            border-bottom-left-radius: 4px;
+        }
+        .message-text {
+            font-size: 0.94rem;
+            white-space: pre-line;
+        }
+        .message-time {
+            margin-top: 4px;
+            font-size: 0.7rem;
+            opacity: 0.75;
+            text-align: right;
+        }
+        .chat-input-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            background: #141417;
+            border-top: 1px solid #26262c;
+            width: 100%;
+        }
+        .chat-input-form input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 10px;
+            border: 1px solid #2f2f38;
+            background: #1c1c21;
+            color: #ffffff;
+            font-size: 0.94rem;
+            outline: none;
+        }
+        .chat-input-form input[type="text"]:focus {
+            border-color: #e50914;
+        }
+        .chat-input-form button[type="submit"] {
+            width: 46px;
+            height: 44px;
+            border: none;
+            border-radius: 10px;
+            background: #e50914;
+            color: #ffffff;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .chat-input-form button[type="submit"]:hover {
+            background: #c40812;
+        }
+        .empty-chat-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a1a1aa;
+        }
+    </style>
 </head>
 <body>
     <div class="chat-wrapper">
@@ -393,7 +587,7 @@ if (!empty($interlocutor_real)) {
             </div>
             <div class="contact-list">
                 <?php if (empty($contactos)): ?>
-                    <div class="no-contacts"><p>No tienes conversaciones activas.</p></div>
+                    <div class="no-contacts" style="padding:16px;color:#a1a1aa;"><p>No tienes conversaciones activas.</p></div>
                 <?php else: ?>
                     <?php foreach ($contactos as $key => $c): ?>
                         <a href="mensajes.php?contacto=<?php echo urlencode($key); ?>" class="contact-item <?php echo ($contacto_activo_key === $key) ? 'active' : ''; ?>">
@@ -424,7 +618,7 @@ if (!empty($interlocutor_real)) {
                     <div class="contact-avatar"><img src="<?php echo htmlspecialchars($imagen_vehiculo_activo); ?>" alt="Vehículo" onerror="this.src='unnamed.png'"></div>
                     <div style="flex-grow: 1;">
                         <h3><?php echo htmlspecialchars($nombre_vehiculo_activo); ?></h3>
-                        <small style="color: #aaa;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
+                        <small style="color: #a1a1aa;">Conversación con: <strong><?php echo htmlspecialchars($interlocutor_real); ?></strong></small>
                     </div>
 
                     <?php
@@ -443,7 +637,7 @@ if (!empty($interlocutor_real)) {
                     ?>
 
                     <?php if ($estadoAlq === 'activo'): ?>
-                        <span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444; margin-right: 8px;">
+                        <span style="background: #242429; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #383842; margin-right: 8px;">
                             Finalización: <?php echo $totalFinalizacion; ?>/2
                         </span>
 
@@ -459,7 +653,7 @@ if (!empty($interlocutor_real)) {
                             </a>
                         <?php endif; ?>
                     <?php else: ?>
-                        <span style="background: #2a2a2a; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #444; margin-right: 8px;">
+                        <span style="background: #242429; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid #383842; margin-right: 8px;">
                             Confirmación: <?php echo $totalConfirmacion; ?>/2
                         </span>
 
@@ -481,7 +675,7 @@ if (!empty($interlocutor_real)) {
                     <?php foreach ($mensajes_chat as $m): ?>
                         <?php $esMio = ($m['remitente'] === $nombre_usuario); ?>
                         <div class="message-bubble <?php echo $esMio ? 'sent' : 'received'; ?>">
-                            <div class="message-text"><?php echo nl2br(htmlspecialchars($m['mensaje'])); ?></div>
+                            <div class="message-text"><?php echo htmlspecialchars($m['mensaje']); ?></div>
                             <div class="message-time"><?php echo date('H:i', strtotime($m['fecha'])); ?></div>
                         </div>
                     <?php endforeach; ?>
@@ -489,7 +683,7 @@ if (!empty($interlocutor_real)) {
 
                 <form class="chat-input-form" id="formEnviarMensaje" onsubmit="enviarMensaje(event)">
                     <input type="text" id="inputMensaje" placeholder="Escribe un mensaje..." autocomplete="off" required>
-                    <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                    <button type="submit" aria-label="Enviar mensaje"><i class="fas fa-paper-plane"></i></button>
                 </form>
             <?php endif; ?>
         </main>
