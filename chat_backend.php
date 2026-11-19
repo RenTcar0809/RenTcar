@@ -15,6 +15,60 @@ function responder($status, $message = '', $extra = []) {
     exit();
 }
 
+function obtenerOcrearIdArrendatario(PDO $pdo, int $idUsuarioCliente, string $nombreCliente): int {
+    $stmtArr = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");
+    $stmtArr->execute([$idUsuarioCliente]);
+    $idArr = $stmtArr->fetchColumn();
+    if ($idArr) {
+        return intval($idArr);
+    }
+
+    $nombreReal = trim($nombreCliente) !== '' ? trim($nombreCliente) : 'Cliente';
+    $apellidoReal = 'N/A';
+    $correoReal = 'cliente@rentcar.com';
+
+    try {
+        $stmtU = $pdo->prepare("SELECT nombre, apellido, correo FROM usuario WHERE id_usuario = ? LIMIT 1");
+        $stmtU->execute([$idUsuarioCliente]);
+        $uRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+        if ($uRow) {
+            if (!empty(trim((string)($uRow['nombre'] ?? '')))) {
+                $nombreReal = trim((string)$uRow['nombre']);
+            }
+            if (!empty(trim((string)($uRow['apellido'] ?? '')))) {
+                $apellidoReal = trim((string)$uRow['apellido']);
+            }
+            if (!empty(trim((string)($uRow['correo'] ?? '')))) {
+                $correoReal = trim((string)$uRow['correo']);
+            }
+        }
+    } catch (Throwable $e) {
+    }
+
+    try {
+        $stmtInsArr = $pdo->prepare("
+            INSERT INTO arrendatario (id_usuario, nombre, apellido, cedula, telefono, correo, direccion)
+            VALUES (?, ?, ?, 0, 0, ?, 'N/A')
+            RETURNING id_arrendatario
+        ");
+        $stmtInsArr->execute([$idUsuarioCliente, $nombreReal, $apellidoReal, $correoReal]);
+        $idNuevo = $stmtInsArr->fetchColumn();
+        if ($idNuevo) {
+            return intval($idNuevo);
+        }
+    } catch (Throwable $e) {
+    }
+
+    $stmtArr2 = $pdo->prepare("SELECT id_arrendatario FROM arrendatario WHERE id_usuario = ? ORDER BY id_arrendatario ASC LIMIT 1");
+    $stmtArr2->execute([$idUsuarioCliente]);
+    $idArr2 = $stmtArr2->fetchColumn();
+    if ($idArr2) {
+        return intval($idArr2);
+    }
+
+    return $idUsuarioCliente;
+}
+
 try {
 
     // ==========================================
@@ -396,7 +450,8 @@ try {
             $stmtCli = $pdo->prepare("
                 SELECT id_usuario, licencia_verificada, licencia_numero 
                 FROM usuario 
-                WHERE nombre = :cliente OR empresa = :cliente 
+                WHERE TRIM(nombre) ILIKE TRIM(:cliente) OR TRIM(empresa) ILIKE TRIM(:cliente) 
+                ORDER BY id_usuario ASC
                 LIMIT 1
             ");
             $stmtCli->execute([':cliente' => $interlocutor_enviado]);
@@ -410,7 +465,8 @@ try {
                 throw new Exception("El usuario no ha registrado un número de licencia de conducir en su perfil.");
             }
 
-            $id_arrendatario = $arrendatario['id_usuario'];
+            $idUsuarioCliente = (int)$arrendatario['id_usuario'];
+            $id_arrendatario = obtenerOcrearIdArrendatario($pdo, $idUsuarioCliente, $interlocutor_enviado);
 
             $stmtVeh = $pdo->prepare("SELECT precio FROM vehiculo WHERE id_v = :id");
             $stmtVeh->execute([':id' => $id_item]);
@@ -421,7 +477,7 @@ try {
             $stmtCheck->execute([':vehiculo' => $id_item]);
             $prestamoExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-            if ($prestamoExistente && $prestamoExistente['estado'] === 'activo') {
+            if ($prestamoExistente && strtolower((string)($prestamoExistente['estado'] ?? '')) === 'activo') {
                 throw new Exception("Este vehículo ya cuenta con un préstamo activo.");
             }
 
