@@ -149,7 +149,7 @@ try {
                 <div>
                     <h4>Verificación en el RUNT</h4>
                     <p>Valida la autenticidad de la licencia en el <strong>RUNT</strong> antes de aprobar la solicitud para tus vehículos.</p>
-                    <a href="https://www.runt.gov.co/consultaCiudadana/#/consultaPersona" target="_blank" rel="noopener noreferrer" class="btn-runt">
+                    <a href="https://portalpublico.runt.gov.co/#/consulta-ciudadano-documento/consulta/consulta-ciudadano-documento" target="_blank" rel="noopener noreferrer" class="btn-runt">
                         <i class="fa-solid fa-arrow-up-right-from-square"></i> Consultar en el RUNT
                     </a>
                 </div>
